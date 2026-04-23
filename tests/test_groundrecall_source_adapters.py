@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shutil
 
 import groundrecall.ingest as ingest_module
 import groundrecall.source_adapters  # noqa: F401
@@ -10,6 +11,12 @@ from groundrecall.ingest import run_groundrecall_import
 
 def _fixture_doclift_bundle() -> Path:
     return Path(__file__).parent / "fixtures" / "doclift_bundle_minimal"
+
+
+def _copied_fixture_doclift_bundle(tmp_path: Path) -> Path:
+    target = tmp_path / "doclift_bundle_minimal"
+    shutil.copytree(_fixture_doclift_bundle(), target)
+    return target
 
 
 def test_groundrecall_source_adapter_registry_lists_expected_adapters() -> None:
@@ -203,8 +210,8 @@ def test_didactopus_pack_import_generates_structured_concepts_and_relations(tmp_
     assert "clm_stage_stage1_basics" in claim_ids
 
 
-def test_doclift_bundle_import_generates_structured_concepts() -> None:
-    result = run_groundrecall_import(_fixture_doclift_bundle(), mode="quick", import_id="doclift-test")
+def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> None:
+    result = run_groundrecall_import(_copied_fixture_doclift_bundle(tmp_path), mode="quick", import_id="doclift-test")
     assert result.manifest["source_adapter"] == "doclift_bundle"
     assert result.manifest["import_intent"] == "both"
     concept_ids = {item["concept_id"] for item in result.concepts}
