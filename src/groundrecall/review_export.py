@@ -163,6 +163,15 @@ def _extract_citation_keys(text: str) -> list[str]:
     return sorted(set(keys))
 
 
+def _resolve_source_root(import_dir: Path, source_root: str) -> str:
+    if not source_root:
+        return ""
+    root = Path(source_root)
+    if root.is_absolute():
+        return str(root)
+    return str((import_dir.parent.parent / root).resolve())
+
+
 def _artifact_citation_payloads(
     artifacts: list[dict[str, Any]],
     *,
@@ -223,14 +232,15 @@ def _artifact_citation_payloads(
 def build_citation_review_entries_from_import(import_dir: str | Path) -> list[CitationReviewEntry]:
     base = Path(import_dir)
     manifest = _read_json(base / "manifest.json")
+    resolved_source_root = _resolve_source_root(base, manifest.get("source_root", ""))
     artifacts = _read_jsonl(base / "artifacts.jsonl")
     observations = _read_jsonl(base / "observations.jsonl")
     claims = _read_jsonl(base / "claims.jsonl")
-    bibliography_index = load_bibliography_index(manifest.get("source_root", ""))
+    bibliography_index = load_bibliography_index(resolved_source_root)
 
     artifact_payloads, _ = _artifact_citation_payloads(
         artifacts,
-        source_root=manifest.get("source_root", ""),
+        source_root=resolved_source_root,
     )
     observations_by_id = {item["observation_id"]: item for item in observations}
     artifact_claim_links: dict[str, dict[str, set[str]]] = defaultdict(lambda: {"claim_ids": set(), "concept_ids": set()})
@@ -299,6 +309,7 @@ def build_citation_review_entries_from_import(import_dir: str | Path) -> list[Ci
 
 def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> dict[str, Any]:
     manifest = _read_json(import_dir / "manifest.json")
+    resolved_source_root = _resolve_source_root(import_dir, manifest.get("source_root", ""))
     lint_payload = _read_json(import_dir / "lint_findings.json")
     queue_payload = _read_json(import_dir / "review_queue.json")
     artifacts = _read_jsonl(import_dir / "artifacts.jsonl")
@@ -316,7 +327,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
 
     artifact_citations, artifact_citation_summary = _artifact_citation_payloads(
         artifacts,
-        source_root=manifest.get("source_root", ""),
+        source_root=resolved_source_root,
     )
     artifact_by_id = {item["artifact_id"]: item for item in artifacts}
 

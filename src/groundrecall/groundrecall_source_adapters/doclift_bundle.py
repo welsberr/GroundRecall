@@ -88,6 +88,7 @@ class DocliftBundleSourceAdapter:
             if figures_path.exists():
                 figure_payload = json.loads(figures_path.read_text(encoding="utf-8"))
             source_path = str(figure_payload.get("source_path") or document.get("source_path") or relative_markdown)
+            source_path_kind = str(figure_payload.get("source_path_kind") or document.get("source_path_kind") or "source_root_relative")
 
             concept_rows.append(
                 {
@@ -113,6 +114,7 @@ class DocliftBundleSourceAdapter:
                     "line_start": 0,
                     "line_end": 0,
                     "source_url": source_path,
+                    "metadata": {"source_path_kind": source_path_kind},
                     "grounding_status": "grounded",
                     "support_kind": "direct_source",
                     "confidence_hint": 0.85,

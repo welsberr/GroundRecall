@@ -214,7 +214,10 @@ def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> 
     result = run_groundrecall_import(_copied_fixture_doclift_bundle(tmp_path), mode="quick", import_id="doclift-test")
     assert result.manifest["source_adapter"] == "doclift_bundle"
     assert result.manifest["import_intent"] == "both"
+    assert result.manifest["source_root"] == "doclift_bundle_minimal"
+    assert result.manifest["source_root_kind"] == "source_label"
     concept_ids = {item["concept_id"] for item in result.concepts}
     assert "concept::lecture-1" in concept_ids
     claim_ids = {item["claim_id"] for item in result.claims}
     assert "clm_doclift_1" in claim_ids
+    assert result.observations[0]["source_url"] == "legacy/lecture-1.doc"

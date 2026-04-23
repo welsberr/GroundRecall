@@ -53,6 +53,13 @@ def _default_import_id(source_root: Path) -> str:
     return f"{stem}-{stamp}"
 
 
+def _portable_source_root_ref(source_path: Path, output_root: Path) -> tuple[str, str]:
+    anchor = output_root.resolve().parent
+    if source_path.is_relative_to(anchor):
+        return source_path.relative_to(anchor).as_posix(), "output_root_parent_relative"
+    return source_path.name, "source_label"
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
@@ -124,6 +131,7 @@ def run_groundrecall_import(
     ]
     actual_import_id = import_id or _default_import_id(source_path)
     output_root = Path(out_root) if out_root else source_path / "imports"
+    source_root_ref, source_root_kind = _portable_source_root_ref(source_path, output_root)
     output_dir = output_root / actual_import_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -132,7 +140,7 @@ def run_groundrecall_import(
         import_mode=mode,
         machine_id=machine_id or socket.gethostname(),
         agent_id=agent_id,
-        source_root=str(source_path),
+        source_root=source_root_ref,
         imported_at=_timestamp(),
     )
 
@@ -177,6 +185,7 @@ def run_groundrecall_import(
     manifest = manifest_record(context) | {
         "source_adapter": adapter.name,
         "import_intent": adapter.import_intent(),
+        "source_root_kind": source_root_kind,
         "artifact_count": len(artifact_rows),
         "observation_count": len(observation_rows),
         "claim_count": len(claim_rows),
