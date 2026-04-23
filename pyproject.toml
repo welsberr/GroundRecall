@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "groundrecall"
+version = "0.1.0a0"
+description = "Grounded knowledge substrate for llmwiki++ style workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "GroundRecall contributors" }
+]
+dependencies = [
+  "pydantic>=2,<3",
+  "PyYAML>=6,<7",
+]
+
+[project.scripts]
+groundrecall = "groundrecall.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

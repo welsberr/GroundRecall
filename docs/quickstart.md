@@ -1,0 +1,97 @@
+# Quickstart
+
+`GroundRecall` is a local-first grounded knowledge substrate for `llmwiki++`-style workflows.
+
+This quickstart assumes a fresh checkout of the standalone repository.
+
+## Install
+
+```bash
+pip install -e .
+groundrecall --help
+```
+
+You can also use the module entry point:
+
+```bash
+PYTHONPATH=src python -m groundrecall --help
+```
+
+## Import A Knowledge Source
+
+Fast import from an `llmwiki`-style tree:
+
+```bash
+groundrecall import /path/to/llmwiki --mode quick
+```
+
+More conservative import with stronger grounding expectations:
+
+```bash
+groundrecall import /path/to/llmwiki --mode grounded
+```
+
+The importer writes normalized artifacts under `imports/<import-id>/`.
+
+## Review And Promote
+
+Inspect the import outputs:
+
+```bash
+groundrecall lint imports/<import-id>
+```
+
+Promote the imported review artifacts into a canonical store:
+
+```bash
+groundrecall promote imports/<import-id> store/
+```
+
+## Query The Canonical Store
+
+Query a concept:
+
+```bash
+groundrecall query store/ channel-capacity
+```
+
+Inspect the overall store:
+
+```bash
+groundrecall inspect store/
+```
+
+## Export
+
+Export assistant-neutral artifacts:
+
+```bash
+groundrecall export store/ exports/groundrecall --concept channel-capacity
+```
+
+Export assistant-targeted bundles:
+
+```bash
+groundrecall assistant-export store/ codex exports/codex --concept channel-capacity
+groundrecall assistant-export store/ claude_code exports/claude --concept channel-capacity
+```
+
+## Default Working Layout
+
+A simple local layout is:
+
+```text
+.groundrecall/
+  imports/
+  store/
+  exports/
+  events/
+```
+
+The current alpha does not require this exact layout, but it is a sensible starting point.
+
+## Next Reading
+
+- [architecture.md](architecture.md)
+- [llmwiki-import.md](llmwiki-import.md)
+- [sync-roadmap.md](sync-roadmap.md)

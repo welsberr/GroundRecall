@@ -1,0 +1,248 @@
+:root {
+  --bg: #f4f0e8;
+  --panel: rgba(255, 251, 245, 0.92);
+  --panel-strong: #fffdfa;
+  --ink: #1f2933;
+  --muted: #5f6c76;
+  --accent: #0f766e;
+  --accent-strong: #134e4a;
+  --warn: #9a3412;
+  --line: rgba(31, 41, 51, 0.12);
+  --shadow: 0 20px 60px rgba(31, 41, 51, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 28%),
+    radial-gradient(circle at top left, rgba(154, 52, 18, 0.08), transparent 24%),
+    linear-gradient(180deg, #fbf8f1 0%, var(--bg) 100%);
+  font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.shell {
+  width: min(1500px, calc(100vw - 32px));
+  margin: 24px auto 48px;
+}
+
+.hero,
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 20px;
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.hero h1,
+.panel h2,
+.panel h3 {
+  margin: 0 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stat {
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+}
+
+.stat strong {
+  display: block;
+  font-size: 1.8rem;
+}
+
+.stat span,
+.muted,
+.tiny,
+.help {
+  color: var(--muted);
+}
+
+.message {
+  margin-top: 10px;
+  color: var(--accent-strong);
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.panel {
+  padding: 18px;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.list-panel {
+  max-height: 78vh;
+  overflow: auto;
+}
+
+.search,
+label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+}
+
+.list-item,
+.primary,
+.secondary {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-strong);
+}
+
+.list-item {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.list-item.active {
+  border-color: rgba(15, 118, 110, 0.45);
+  background: rgba(15, 118, 110, 0.08);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.primary {
+  padding: 10px 16px;
+  color: white;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  cursor: pointer;
+}
+
+.secondary {
+  padding: 10px 16px;
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.subpanel {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.claim-card,
+.support-block {
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--panel-strong);
+  border: 1px solid var(--line);
+}
+
+.claim-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.chip,
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 0.85rem;
+}
+
+.pill-good {
+  color: var(--accent-strong);
+}
+
+.pill-warn {
+  color: var(--warn);
+}
+
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.json-block {
+  padding: 12px;
+  overflow: auto;
+  border-radius: 14px;
+  background: #f8f7f3;
+  border: 1px solid var(--line);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 980px) {
+  .hero,
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .list-panel {
+    max-height: none;
+  }
+}

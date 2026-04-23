@@ -1,0 +1,235 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import groundrecall.ingest as ingest_module
+import groundrecall.source_adapters  # noqa: F401
+from groundrecall.source_adapters.base import detect_source_adapter, list_source_adapters
+from groundrecall.ingest import run_groundrecall_import
+
+
+def test_groundrecall_source_adapter_registry_lists_expected_adapters() -> None:
+    names = set(list_source_adapters())
+    assert "llmwiki" in names
+    assert "polypaper" in names
+    assert "markdown_notes" in names
+    assert "transcript" in names
+    assert "didactopus_pack" in names
+    assert "doclift_bundle" in names
+
+
+def test_detect_llmwiki_adapter(tmp_path: Path) -> None:
+    (tmp_path / "wiki").mkdir()
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "llmwiki"
+    assert adapter.import_intent() == "grounded_knowledge"
+
+
+def test_detect_didactopus_pack_adapter(tmp_path: Path) -> None:
+    (tmp_path / "pack.yaml").write_text("name: p\n", encoding="utf-8")
+    (tmp_path / "concepts.yaml").write_text("concepts: []\n", encoding="utf-8")
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "didactopus_pack"
+    assert adapter.import_intent() == "both"
+
+
+def test_detect_doclift_bundle_adapter(tmp_path: Path) -> None:
+    (tmp_path / "documents").mkdir()
+    (tmp_path / "manifest.json").write_text('{"documents": []}\n', encoding="utf-8")
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "doclift_bundle"
+    assert adapter.import_intent() == "both"
+
+
+def test_groundrecall_import_records_adapter_and_intent(tmp_path: Path) -> None:
+    (tmp_path / "wiki").mkdir()
+    (tmp_path / "wiki" / "note.md").write_text("# Title\n\n- A note.\n", encoding="utf-8")
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="adapter-test")
+    assert result.manifest["source_adapter"] == "llmwiki"
+    assert result.manifest["import_intent"] == "grounded_knowledge"
+
+
+def test_markdown_notes_adapter_ingests_tex_files(tmp_path: Path) -> None:
+    (tmp_path / "draft.tex").write_text(
+        "\\section{Related Work}\n\n"
+        "We connect behaviorism and language models.\n",
+        encoding="utf-8",
+    )
+
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "markdown_notes"
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="tex-test")
+    assert result.manifest["source_adapter"] == "markdown_notes"
+    assert result.manifest["artifact_count"] == 1
+    assert result.artifacts[0]["path"] == "draft.tex"
+    assert result.claims
+
+
+def test_tex_import_uses_pandoc_markdown_when_available(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "draft.tex").write_text(
+        "\\section{Ignored by fallback}\n"
+        "\\usepackage{amsmath}\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        ingest_module,
+        "_convert_tex_to_markdown",
+        lambda path: "# Converted Draft\n\n- Converted claim from pandoc.\n",
+    )
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="tex-pandoc-test")
+    claim_texts = [item["claim_text"] for item in result.claims]
+    concept_ids = {item["concept_id"] for item in result.concepts}
+
+    assert "Converted claim from pandoc." in claim_texts
+    assert "concept::converted-draft" in concept_ids
+
+
+def test_detect_polypaper_adapter_and_exclude_support_files(tmp_path: Path) -> None:
+    (tmp_path / "pieces").mkdir()
+    (tmp_path / "figs").mkdir()
+    (tmp_path / "setup").mkdir()
+    (tmp_path / "main.tex").write_text(
+        "\\include{pieces/discussion}\n"
+        "\\include{pieces/table-results}\n"
+        "\\input{figs/figure-system}\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "paper.org").write_text("* draft\n", encoding="utf-8")
+    (tmp_path / "pieces" / "discussion.tex").write_text("\\section{Discussion}\n\nMore text.\n", encoding="utf-8")
+    (tmp_path / "pieces" / "table-results.tex").write_text("\\begin{tabular}x\\end{tabular}\n", encoding="utf-8")
+    (tmp_path / "pieces" / "unused.tex").write_text("\\section{Unused}\n\nIgnore me.\n", encoding="utf-8")
+    (tmp_path / "figs" / "figure-system.tex").write_text("\\begin{figure}x\\end{figure}\n", encoding="utf-8")
+    (tmp_path / "setup" / "venue-arxiv.tex").write_text("\\section{Setup}\n", encoding="utf-8")
+    (tmp_path / ".pp-export-tmp.tex").write_text("\\section{Tmp}\n", encoding="utf-8")
+
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "polypaper"
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="polypaper-test")
+    paths = {item["path"] for item in result.artifacts}
+    assert "main.tex" not in paths
+    assert "pieces/discussion.tex" in paths
+    assert "pieces/table-results.tex" not in paths
+    assert "figs/figure-system.tex" not in paths
+    assert "pieces/unused.tex" not in paths
+    assert "setup/venue-arxiv.tex" not in paths
+    assert ".pp-export-tmp.tex" not in paths
+
+
+def test_tex_import_skips_table_and_figure_markup_from_pandoc(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "draft.tex").write_text("\\section{Draft}\n", encoding="utf-8")
+
+    monkeypatch.setattr(
+        ingest_module,
+        "_convert_tex_to_markdown",
+        lambda path: "\n".join(
+            [
+                "# Draft",
+                "",
+                "![image](figure.png)",
+                "| Col A | Col B |",
+                "| --- | --- |",
+                "| 1 | 2 |",
+                "</div>",
+                "\\begin{tabular}{ll}",
+                "- Real manuscript claim.",
+            ]
+        ),
+    )
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="tex-cleanup-test")
+    claim_texts = [item["claim_text"] for item in result.claims]
+
+    assert claim_texts == ["Real manuscript claim."]
+
+
+def test_didactopus_pack_import_generates_structured_concepts_and_relations(tmp_path: Path) -> None:
+    (tmp_path / "pack.yaml").write_text(
+        "\n".join(
+            [
+                "name: sample-pack",
+                "display_name: Sample Pack",
+                "version: 0.1.0",
+                "schema_version: 0.1.0",
+                "didactopus_min_version: 0.1.0",
+                "didactopus_max_version: 9.9.9",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "concepts.yaml").write_text(
+        "\n".join(
+            [
+                "concepts:",
+                "  - id: basics",
+                "    title: Basics",
+                "    description: Foundational concept.",
+                "    mastery_signals: [Explain the foundation.]",
+                "  - id: advanced",
+                "    title: Advanced",
+                "    description: Builds on basics.",
+                "    prerequisites: [basics]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "roadmap.yaml").write_text(
+        "\n".join(
+            [
+                "stages:",
+                "  - id: stage1",
+                "    title: Stage One",
+                "    concepts: [basics, advanced]",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="pack-test")
+    assert result.manifest["source_adapter"] == "didactopus_pack"
+    assert result.manifest["import_intent"] == "both"
+    concept_ids = {item["concept_id"] for item in result.concepts}
+    assert "concept::basics" in concept_ids
+    assert "concept::advanced" in concept_ids
+    relation_targets = {(item["source_id"], item["target_id"], item["relation_type"]) for item in result.relations}
+    assert ("concept::basics", "concept::advanced", "prerequisite") in relation_targets
+    claim_ids = {item["claim_id"] for item in result.claims}
+    assert "clm_pack_basics" in claim_ids
+    assert "clm_stage_stage1_basics" in claim_ids
+
+
+def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> None:
+    doc_dir = tmp_path / "documents" / "lesson-a"
+    doc_dir.mkdir(parents=True)
+    (tmp_path / "manifest.json").write_text(
+        '\n'.join(
+            [
+                "{",
+                '  "documents": [',
+                "    {",
+                '      "document_id": "lesson-a",',
+                '      "title": "Lecture 1. Example",',
+                '      "document_kind": "lecture",',
+                f'      "output_dir": "{doc_dir}",',
+                f'      "markdown_path": "{doc_dir / "document.md"}",',
+                f'      "figures_path": "{doc_dir / "document.figures.json"}"',
+                "    }",
+                "  ]",
+                "}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (doc_dir / "document.md").write_text("# Lecture 1. Example\n\nBody.\n", encoding="utf-8")
+    (doc_dir / "document.figures.json").write_text('{"source_path": "/tmp/source.doc"}\n', encoding="utf-8")
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="doclift-test")
+    assert result.manifest["source_adapter"] == "doclift_bundle"
+    assert result.manifest["import_intent"] == "both"
+    concept_ids = {item["concept_id"] for item in result.concepts}
+    assert "concept::lesson-a" in concept_ids
+    claim_ids = {item["claim_id"] for item in result.claims}
+    assert "clm_doclift_1" in claim_ids
