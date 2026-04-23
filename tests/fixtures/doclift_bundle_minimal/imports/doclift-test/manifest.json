@@ -1,0 +1,16 @@
+{
+  "import_id": "doclift-test",
+  "import_mode": "quick",
+  "machine_id": "nerdanel",
+  "agent_id": "groundrecall.ingest",
+  "source_root": "/home/netuser/dev/GroundRecall/tests/fixtures/doclift_bundle_minimal",
+  "imported_at": "2026-04-23T11:22:39Z",
+  "source_repo_kind": "llmwiki",
+  "source_adapter": "doclift_bundle",
+  "import_intent": "both",
+  "artifact_count": 5,
+  "observation_count": 1,
+  "claim_count": 1,
+  "concept_count": 1,
+  "relation_count": 0
+}

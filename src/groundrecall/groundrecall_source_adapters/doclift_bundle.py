@@ -10,6 +10,14 @@ from .base import DiscoveredImportSource, StructuredImportRows, register_source_
 class DocliftBundleSourceAdapter:
     name = "doclift_bundle"
 
+    def _resolve_bundle_path(self, base: Path, value: str | Path | None) -> Path:
+        if value is None:
+            return Path()
+        path = Path(value)
+        if path.is_absolute():
+            return path
+        return base / path
+
     def detect(self, root: str | Path) -> bool:
         base = Path(root)
         return (base / "manifest.json").exists() and (base / "documents").exists()
@@ -69,10 +77,13 @@ class DocliftBundleSourceAdapter:
         for index, document in enumerate(documents, start=1):
             title = str(document.get("title") or f"Document {index}")
             concept_id = f"concept::{document.get('document_id') or title.lower().replace(' ', '-')}"
-            markdown_path = Path(document.get("markdown_path", ""))
-            relative_markdown = markdown_path.relative_to(base).as_posix() if markdown_path.is_absolute() and markdown_path.exists() and markdown_path.is_relative_to(base) else document.get("markdown_path", "")
+            markdown_path = self._resolve_bundle_path(base, document.get("markdown_path", ""))
+            if markdown_path.exists():
+                relative_markdown = markdown_path.relative_to(base).as_posix()
+            else:
+                relative_markdown = str(document.get("markdown_path", ""))
             artifact_id = artifact_by_path.get(str(relative_markdown), "")
-            figures_path = Path(document.get("figures_path", ""))
+            figures_path = self._resolve_bundle_path(base, document.get("figures_path", ""))
             figure_payload = {}
             if figures_path.exists():
                 figure_payload = json.loads(figures_path.read_text(encoding="utf-8"))

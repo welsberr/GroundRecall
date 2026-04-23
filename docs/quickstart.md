@@ -33,6 +33,21 @@ groundrecall import /path/to/llmwiki --mode grounded
 
 The importer writes normalized artifacts under `imports/<import-id>/`.
 
+Import from a normalized `doclift` bundle:
+
+```bash
+groundrecall import /path/to/doclift-bundle --mode quick
+```
+
+This path is intended for legacy-document corpora that were first normalized by
+`doclift`. If you want a learner-facing pack first, use Didactopus in between:
+
+```bash
+doclift convert-dir /path/to/legacy-course /tmp/doclift-bundle --asset-root /path/to/legacy-course
+didactopus doclift-bundle /tmp/doclift-bundle /tmp/didactopus-pack --course-title "Example Course"
+groundrecall import /tmp/doclift-bundle --mode quick
+```
+
 ## Review And Promote
 
 Inspect the import outputs:

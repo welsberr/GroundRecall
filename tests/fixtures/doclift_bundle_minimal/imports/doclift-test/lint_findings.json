@@ -1,0 +1,14 @@
+{
+  "import_id": "doclift-test",
+  "import_mode": "quick",
+  "summary": {
+    "artifact_count": 5,
+    "observation_count": 1,
+    "claim_count": 1,
+    "concept_count": 1,
+    "relation_count": 0,
+    "error_count": 0,
+    "warning_count": 0
+  },
+  "findings": []
+}

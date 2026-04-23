@@ -8,6 +8,10 @@ from groundrecall.source_adapters.base import detect_source_adapter, list_source
 from groundrecall.ingest import run_groundrecall_import
 
 
+def _fixture_doclift_bundle() -> Path:
+    return Path(__file__).parent / "fixtures" / "doclift_bundle_minimal"
+
+
 def test_groundrecall_source_adapter_registry_lists_expected_adapters() -> None:
     names = set(list_source_adapters())
     assert "llmwiki" in names
@@ -33,10 +37,8 @@ def test_detect_didactopus_pack_adapter(tmp_path: Path) -> None:
     assert adapter.import_intent() == "both"
 
 
-def test_detect_doclift_bundle_adapter(tmp_path: Path) -> None:
-    (tmp_path / "documents").mkdir()
-    (tmp_path / "manifest.json").write_text('{"documents": []}\n', encoding="utf-8")
-    adapter = detect_source_adapter(tmp_path)
+def test_detect_doclift_bundle_adapter() -> None:
+    adapter = detect_source_adapter(_fixture_doclift_bundle())
     assert adapter.name == "doclift_bundle"
     assert adapter.import_intent() == "both"
 
@@ -201,35 +203,11 @@ def test_didactopus_pack_import_generates_structured_concepts_and_relations(tmp_
     assert "clm_stage_stage1_basics" in claim_ids
 
 
-def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> None:
-    doc_dir = tmp_path / "documents" / "lesson-a"
-    doc_dir.mkdir(parents=True)
-    (tmp_path / "manifest.json").write_text(
-        '\n'.join(
-            [
-                "{",
-                '  "documents": [',
-                "    {",
-                '      "document_id": "lesson-a",',
-                '      "title": "Lecture 1. Example",',
-                '      "document_kind": "lecture",',
-                f'      "output_dir": "{doc_dir}",',
-                f'      "markdown_path": "{doc_dir / "document.md"}",',
-                f'      "figures_path": "{doc_dir / "document.figures.json"}"',
-                "    }",
-                "  ]",
-                "}",
-            ]
-        ),
-        encoding="utf-8",
-    )
-    (doc_dir / "document.md").write_text("# Lecture 1. Example\n\nBody.\n", encoding="utf-8")
-    (doc_dir / "document.figures.json").write_text('{"source_path": "/tmp/source.doc"}\n', encoding="utf-8")
-
-    result = run_groundrecall_import(tmp_path, mode="quick", import_id="doclift-test")
+def test_doclift_bundle_import_generates_structured_concepts() -> None:
+    result = run_groundrecall_import(_fixture_doclift_bundle(), mode="quick", import_id="doclift-test")
     assert result.manifest["source_adapter"] == "doclift_bundle"
     assert result.manifest["import_intent"] == "both"
     concept_ids = {item["concept_id"] for item in result.concepts}
-    assert "concept::lesson-a" in concept_ids
+    assert "concept::lecture-1" in concept_ids
     claim_ids = {item["claim_id"] for item in result.claims}
     assert "clm_doclift_1" in claim_ids

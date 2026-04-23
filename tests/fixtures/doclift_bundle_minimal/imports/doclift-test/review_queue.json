@@ -1,0 +1,20 @@
+{
+  "import_id": "doclift-test",
+  "queue_length": 1,
+  "items": [
+    {
+      "queue_id": "rq_clm_doclift_1",
+      "candidate_type": "claim",
+      "candidate_id": "clm_doclift_1",
+      "title": "Lecture 1. Example is a lecture in the imported doclift bundle.",
+      "triage_lane": "knowledge_capture",
+      "priority": 35,
+      "grounding_status": "grounded",
+      "status": "needs_review",
+      "finding_codes": [],
+      "concept_ids": [
+        "concept::lecture-1"
+      ]
+    }
+  ]
+}
