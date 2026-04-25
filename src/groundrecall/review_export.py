@@ -418,7 +418,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         ],
         "concept_reviews": concept_reviews,
         "citation_reviews": [entry.model_dump() for entry in session.citation_reviews],
-        "bibliography": bibliography_summary_payload(manifest.get("source_root", "")),
+        "bibliography": bibliography_summary_payload(resolved_source_root),
         "citations": {
             "enabled": True,
             "provider": "citegeist" if artifact_citations and artifact_citations[0].get("citegeist_backends") else "none",

@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import groundrecall.assistants  # noqa: F401
 from .assistants.base import get_assistant_adapter
 from .query import build_query_bundle_for_concept
 from .store import GroundRecallStore

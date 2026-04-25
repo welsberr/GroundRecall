@@ -43,6 +43,11 @@ class DocliftBundleSourceAdapter:
 
     def build_rows(self, context, sources: list[DiscoveredImportSource]) -> StructuredImportRows | None:
         base = Path(context.source_root)
+        if not self.detect(base) and sources:
+            for candidate in [sources[0].path.parent, *sources[0].path.parents]:
+                if self.detect(candidate):
+                    base = candidate
+                    break
         manifest_path = base / "manifest.json"
         if not manifest_path.exists():
             return None

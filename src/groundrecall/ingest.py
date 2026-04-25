@@ -56,7 +56,9 @@ def _default_import_id(source_root: Path) -> str:
 def _portable_source_root_ref(source_path: Path, output_root: Path) -> tuple[str, str]:
     anchor = output_root.resolve().parent
     if source_path.is_relative_to(anchor):
-        return source_path.relative_to(anchor).as_posix(), "output_root_parent_relative"
+        relative = source_path.relative_to(anchor).as_posix()
+        if relative != ".":
+            return relative, "output_root_parent_relative"
     return source_path.name, "source_label"
 
 
