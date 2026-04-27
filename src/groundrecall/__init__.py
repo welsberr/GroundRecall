@@ -12,6 +12,7 @@ from .query import (
     query_provenance,
     search_claims,
 )
+from .export import export_groundrecall_query_bundle
 from .store import GroundRecallStore
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "query_provenance",
     "search_claims",
     "build_query_bundle_for_concept",
+    "export_groundrecall_query_bundle",
     "build_query_parser",
     "query_main",
     "summarize_store",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from groundrecall.export import export_canonical_bundle, export_query_bundle
+from groundrecall.export import export_canonical_bundle, export_groundrecall_query_bundle, export_query_bundle
 from groundrecall.models import (
     ArtifactRecord,
     ClaimRecord,
@@ -104,6 +104,7 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
         out_dir=out_dir,
         concept_refs=["channel-capacity"],
         snapshot_id="snap_export_001",
+        pack_ready_concept="channel-capacity",
     )
 
     assert (out_dir / "groundrecall_snapshot.json").exists()
@@ -113,6 +114,7 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
     assert (out_dir / "provenance_manifest.json").exists()
     assert (out_dir / "export_manifest.json").exists()
     assert (out_dir / "query_bundle__channel-capacity.json").exists()
+    assert (out_dir / "groundrecall_query_bundle.json").exists()
 
     snapshot = json.loads((out_dir / "groundrecall_snapshot.json").read_text(encoding="utf-8"))
     manifest = json.loads((out_dir / "export_manifest.json").read_text(encoding="utf-8"))
@@ -120,8 +122,10 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
     assert snapshot["snapshot_id"] == "snap_export_001"
     assert manifest["export_kind"] == "canonical"
     assert len(manifest["query_bundles"]) == 1
+    assert manifest["groundrecall_query_bundle"].endswith("groundrecall_query_bundle.json")
     assert claims[0]["claim_id"] == "clm_001"
     assert payload["query_bundles"]
+    assert payload["groundrecall_query_bundle"] is not None
 
 
 def test_export_query_bundle_is_assistant_neutral(tmp_path: Path) -> None:
@@ -134,3 +138,15 @@ def test_export_query_bundle_is_assistant_neutral(tmp_path: Path) -> None:
     assert payload["bundle_kind"] == "groundrecall_query_bundle"
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)
+
+
+def test_export_groundrecall_query_bundle_uses_pack_ready_filename(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    out_dir = tmp_path / "pack-ready"
+    payload = export_groundrecall_query_bundle(store.base_dir, "channel-capacity", out_dir)
+
+    assert (out_dir / "groundrecall_query_bundle.json").exists()
+    assert payload["bundle_path"].endswith("groundrecall_query_bundle.json")
+    assert payload["bundle"]["bundle_kind"] == "groundrecall_query_bundle"

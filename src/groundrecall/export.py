@@ -92,11 +92,28 @@ def export_query_bundle(
     return payload
 
 
+def export_groundrecall_query_bundle(
+    store_dir: str | Path,
+    concept_ref: str,
+    out_dir: str | Path,
+) -> dict[str, Any]:
+    target = Path(out_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    out_path = target / "groundrecall_query_bundle.json"
+    payload = export_query_bundle(store_dir, concept_ref, out_path)
+    return {
+        "concept_ref": concept_ref,
+        "bundle_path": str(out_path),
+        "bundle": payload,
+    }
+
+
 def export_canonical_bundle(
     store_dir: str | Path,
     out_dir: str | Path,
     concept_refs: list[str] | None = None,
     snapshot_id: str | None = None,
+    pack_ready_concept: str | None = None,
 ) -> dict[str, Any]:
     target = Path(out_dir)
     target.mkdir(parents=True, exist_ok=True)
@@ -107,12 +124,18 @@ def export_canonical_bundle(
         bundle_path = target / f"query_bundle__{safe_name}.json"
         export_query_bundle(store_dir, concept_ref, bundle_path)
         query_bundle_paths.append(str(bundle_path))
+    pack_ready_bundle = None
+    if pack_ready_concept:
+        pack_ready_bundle = export_groundrecall_query_bundle(store_dir, pack_ready_concept, target)
     manifest = json.loads((target / "export_manifest.json").read_text(encoding="utf-8"))
     manifest["query_bundles"] = query_bundle_paths
+    if pack_ready_bundle is not None:
+        manifest["groundrecall_query_bundle"] = pack_ready_bundle["bundle_path"]
     _write_json(target / "export_manifest.json", manifest)
     return {
         "canonical_outputs": outputs,
         "query_bundles": query_bundle_paths,
+        "groundrecall_query_bundle": pack_ready_bundle,
     }
 
 
@@ -122,6 +145,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("out_dir")
     parser.add_argument("--snapshot-id", default=None)
     parser.add_argument("--concept", action="append", default=[])
+    parser.add_argument("--pack-ready-concept", default=None)
     return parser
 
 
@@ -132,5 +156,6 @@ def main() -> None:
         out_dir=args.out_dir,
         concept_refs=list(args.concept or []),
         snapshot_id=args.snapshot_id,
+        pack_ready_concept=args.pack_ready_concept,
     )
     print(json.dumps(payload, indent=2))
