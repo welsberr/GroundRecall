@@ -20,15 +20,19 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in text.splitlines()]
 
 
-def _triage_lane(item: dict[str, Any], finding_codes: set[str]) -> str:
+def _triage_lane(item: dict[str, Any], finding_codes: set[str], graph_codes: set[str] | None = None) -> str:
+    graph_codes = graph_codes or set()
     if {"claim_ungrounded", "ungrounded_summary"} & finding_codes:
         return "source_cleanup"
+    if {"bridge_concept", "isolated_concept", "small_component"} & graph_codes:
+        return "conflict_resolution"
     if {"relation_missing_source", "relation_missing_target", "orphan_concept"} & finding_codes:
         return "conflict_resolution"
     return "knowledge_capture"
 
 
-def _priority(item: dict[str, Any], finding_codes: set[str]) -> int:
+def _priority(item: dict[str, Any], finding_codes: set[str], graph_codes: set[str] | None = None) -> int:
+    graph_codes = graph_codes or set()
     priority = 50
     if item.get("grounding_status") == "grounded":
         priority -= 10
@@ -37,6 +41,12 @@ def _priority(item: dict[str, Any], finding_codes: set[str]) -> int:
     if any(code.startswith("claim_") or code.startswith("relation_") for code in finding_codes):
         priority += 20
     priority -= min(len(finding_codes) * 2, 10)
+    if "bridge_concept" in graph_codes:
+        priority -= 10
+    if "isolated_concept" in graph_codes:
+        priority -= 6
+    if "small_component" in graph_codes:
+        priority -= 4
     return max(priority, 1)
 
 
@@ -44,12 +54,14 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
     base = Path(import_dir)
     manifest = _read_json(base / "manifest.json")
     lint_payload = _read_json(base / "lint_findings.json")
+    graph_payload = _read_json(base / "graph_diagnostics.json")
     claims = _read_jsonl(base / "claims.jsonl")
     concepts = _read_jsonl(base / "concepts.jsonl")
 
     findings_by_target: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     for finding in lint_payload.get("findings", []):
         findings_by_target[finding["target_id"]].append(finding)
+    graph_codes_by_concept = _graph_codes_by_concept(graph_payload)
 
     queue: list[dict[str, Any]] = []
 
@@ -74,7 +86,8 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
     for concept in concepts:
         related = findings_by_target.get(concept["concept_id"], [])
         finding_codes = {item["code"] for item in related}
-        if not finding_codes:
+        graph_codes = graph_codes_by_concept.get(concept["concept_id"], set())
+        if not finding_codes and not graph_codes:
             continue
         queue.append(
             {
@@ -82,12 +95,13 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
                 "candidate_type": "concept",
                 "candidate_id": concept["concept_id"],
                 "title": concept["title"],
-                "triage_lane": _triage_lane(concept, finding_codes),
-                "priority": _priority(concept, finding_codes),
+                "triage_lane": _triage_lane(concept, finding_codes, graph_codes),
+                "priority": _priority(concept, finding_codes, graph_codes),
                 "grounding_status": concept.get("grounding_status", "triaged"),
                 "status": "needs_review",
-                "finding_codes": sorted(finding_codes),
+                "finding_codes": sorted(finding_codes | graph_codes),
                 "concept_ids": [concept["concept_id"]],
+                "graph_codes": sorted(graph_codes),
             }
         )
 
@@ -97,6 +111,24 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
         "queue_length": len(queue),
         "items": queue,
     }
+
+
+def _graph_codes_by_concept(graph_payload: dict[str, Any]) -> dict[str, set[str]]:
+    codes: defaultdict[str, set[str]] = defaultdict(set)
+    components = graph_payload.get("components", [])
+    for component in components:
+        concept_ids = [str(item) for item in component.get("concept_ids", [])]
+        size = int(component.get("size", len(concept_ids)))
+        if size == 1 and concept_ids:
+            codes[concept_ids[0]].add("isolated_concept")
+        elif 1 < size <= 2:
+            for concept_id in concept_ids:
+                codes[concept_id].add("small_component")
+    for bridge in graph_payload.get("bridge_concepts", []):
+        concept_id = str(bridge.get("concept_id", ""))
+        if concept_id:
+            codes[concept_id].add("bridge_concept")
+    return codes
 
 
 def build_parser() -> argparse.ArgumentParser:

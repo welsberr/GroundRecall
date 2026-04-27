@@ -74,6 +74,7 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
     assert review_queue["queue_length"] >= 1
     assert any(item["candidate_type"] == "claim" for item in review_queue["items"])
+    assert any(item["candidate_type"] == "concept" for item in review_queue["items"])
     review_session = json.loads((result.out_dir / "review_session.json").read_text(encoding="utf-8"))
     assert review_session["reviewer"] == "GroundRecall Import"
     assert review_session["draft_pack"]["pack"]["source_import_id"] == "import-test"
@@ -149,6 +150,25 @@ def test_graph_diagnostics_detect_bridge_concepts() -> None:
     assert diagnostics["summary"]["connected_component_count"] == 1
     assert diagnostics["summary"]["bridge_concept_count"] == 2
     assert [item["concept_id"] for item in diagnostics["bridge_concepts"]] == ["concept::b", "concept::c"]
+
+
+def test_review_queue_uses_graph_diagnostics_for_concept_triage(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "a.md").write_text("# A\n\nSee also [[B]].\n", encoding="utf-8")
+    (root / "wiki" / "b.md").write_text("# B\n\nSee also [[C]].\n", encoding="utf-8")
+    (root / "wiki" / "c.md").write_text("# C\n", encoding="utf-8")
+    (root / "wiki" / "isolated.md").write_text("# Isolated\n", encoding="utf-8")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="graph-queue-test")
+    review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
+    concept_items = {item["candidate_id"]: item for item in review_queue["items"] if item["candidate_type"] == "concept"}
+
+    assert concept_items["concept::b"]["triage_lane"] == "conflict_resolution"
+    assert "bridge_concept" in concept_items["concept::b"]["graph_codes"]
+    assert concept_items["concept::isolated"]["triage_lane"] == "conflict_resolution"
+    assert "isolated_concept" in concept_items["concept::isolated"]["graph_codes"]
+    assert concept_items["concept::b"]["priority"] < concept_items["concept::isolated"]["priority"]
 
 
 def test_groundrecall_import_parses_explicit_claim_relations(tmp_path: Path) -> None:
