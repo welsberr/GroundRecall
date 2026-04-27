@@ -331,11 +331,17 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         source_root=resolved_source_root,
     )
     artifact_by_id = {item["artifact_id"]: item for item in artifacts}
+    queue_by_candidate_id = {
+        str(item.get("candidate_id", "")): item
+        for item in queue_payload.get("items", [])
+        if item.get("candidate_type") == "concept"
+    }
 
     concept_reviews: list[dict[str, Any]] = []
     for concept in session.draft_pack.concepts:
         full_concept_id = f"concept::{concept.concept_id}" if not concept.concept_id.startswith("concept::") else concept.concept_id
         concept_claims = claims_by_concept.get(full_concept_id, [])
+        queue_entry = queue_by_candidate_id.get(full_concept_id, {})
         claim_payloads: list[dict[str, Any]] = []
         has_citation_support = False
         for claim in concept_claims[:25]:
@@ -380,6 +386,10 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                 "grounded_claim_count": sum(1 for item in concept_claims if item.get("grounding_status") == "grounded"),
                 "warning_count": len(findings_by_target.get(full_concept_id, [])),
                 "has_citation_support": has_citation_support,
+                "review_priority": int(queue_entry.get("priority", 50)),
+                "triage_lane": str(queue_entry.get("triage_lane", "knowledge_capture")),
+                "finding_codes": list(queue_entry.get("finding_codes", [])),
+                "graph_codes": list(queue_entry.get("graph_codes", [])),
                 "top_claims": claim_payloads,
                 "notes": list(concept.notes),
             }
@@ -392,6 +402,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
             "queue_length": queue_payload.get("queue_length", 0),
             "source_adapter": manifest.get("source_adapter", ""),
             "graph_summary": graph_payload.get("summary", {}),
+            "top_queue_items": queue_payload.get("items", [])[:10],
         },
         "review_guidance": {
             "overview": (

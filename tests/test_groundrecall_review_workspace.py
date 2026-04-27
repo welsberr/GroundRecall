@@ -57,7 +57,13 @@ def test_review_workspace_populates_and_persists_citation_reviews(tmp_path: Path
     assert any(item["citation_review_id"] == citation_review_id for item in review_data["citation_reviews"])
     assert "graph_diagnostics" in review_data
     assert "graph_summary" in review_data["import_context"]
+    assert "top_queue_items" in review_data["import_context"]
     assert review_data["graph_diagnostics"]["summary"]["concept_count"] >= 1
+    concept_review = next(item for item in review_data["concept_reviews"] if item["concept_id"] == "learning-theory")
+    assert "review_priority" in concept_review
+    assert "triage_lane" in concept_review
+    assert "finding_codes" in concept_review
+    assert "graph_codes" in concept_review
 
 
 def test_review_workspace_resolves_citation_metadata_from_bibtex(tmp_path: Path) -> None:
