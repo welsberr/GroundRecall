@@ -28,6 +28,7 @@ class DiscoveredImportSource:
 @dataclass
 class StructuredImportRows:
     artifact_rows: list[dict]
+    fragment_rows: list[dict]
     observation_rows: list[dict]
     claim_rows: list[dict]
     concept_rows: list[dict]
@@ -46,7 +47,7 @@ class GroundRecallSourceAdapter(Protocol):
     def import_intent(self) -> ImportIntent:
         ...
 
-    def build_rows(self, context, sources: list[DiscoveredImportSource]) -> StructuredImportRows | None:
+    def build_rows(self, context, sources: list[DiscoveredImportSource], root: Path | None = None) -> StructuredImportRows | None:
         ...
 
 

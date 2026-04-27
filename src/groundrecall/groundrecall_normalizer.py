@@ -71,12 +71,35 @@ def build_observation_record(
     }
 
 
+def build_fragment_record(
+    context: ImportContext,
+    artifact_record: dict[str, Any],
+    observation: SegmentedObservation,
+    index: int,
+) -> dict[str, Any]:
+    return {
+        "fragment_id": f"frag_{artifact_record['artifact_id']}_{index}",
+        "import_id": context.import_id,
+        "source_id": artifact_record["artifact_id"],
+        "text": observation.text,
+        "section": observation.section,
+        "line_start": observation.line_start,
+        "line_end": observation.line_end,
+        "metadata": {
+            "artifact_path": observation.artifact_relative_path,
+            "role": observation.role,
+        },
+        "current_status": "draft",
+    }
+
+
 def build_claim_record(
     context: ImportContext,
     observation_record: dict[str, Any],
     observation: SegmentedObservation,
     concept_ids: list[str],
     index: int,
+    fragment_ids: list[str] | None = None,
 ) -> dict[str, Any]:
     return {
         "claim_id": _claim_id_for_observation(observation_record, observation, index),
@@ -84,7 +107,7 @@ def build_claim_record(
         "claim_text": observation_record["text"],
         "claim_kind": "statement" if observation_record["role"] == "claim" else "summary",
         "source_observation_ids": [observation_record["observation_id"]],
-        "supporting_fragment_ids": [],
+        "supporting_fragment_ids": list(fragment_ids or []),
         "concept_ids": [f"concept::{concept_id}" for concept_id in concept_ids],
         "contradicts_claim_ids": [f"clm_{_sanitize_claim_key(value)}" for value in observation.contradict_keys],
         "supersedes_claim_ids": [f"clm_{_sanitize_claim_key(value)}" for value in observation.supersede_keys],
@@ -134,3 +157,50 @@ def build_relation_records(context: ImportContext, artifact_record: dict[str, An
 
 def manifest_record(context: ImportContext) -> dict[str, Any]:
     return asdict(context) | {"source_repo_kind": "llmwiki"}
+
+
+def standardize_concept_rows(
+    concept_rows: list[dict[str, Any]],
+    claim_rows: list[dict[str, Any]],
+    relation_rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    alias_map: dict[str, str] = {}
+    normalized_index: dict[str, dict[str, Any]] = {}
+    standardized_rows: list[dict[str, Any]] = []
+
+    for row in concept_rows:
+        normalized_title = _normalize_concept_title(str(row.get("title", "")))
+        if not normalized_title:
+            standardized_rows.append(row)
+            continue
+
+        canonical = normalized_index.get(normalized_title)
+        if canonical is None:
+            normalized_index[normalized_title] = row
+            standardized_rows.append(row)
+            continue
+
+        canonical["source_artifact_ids"] = sorted(
+            set(canonical.get("source_artifact_ids", [])) | set(row.get("source_artifact_ids", []))
+        )
+        aliases = set(canonical.get("aliases", []))
+        aliases.add(str(row.get("title", "")))
+        aliases.update(str(alias) for alias in row.get("aliases", []))
+        aliases.discard(str(canonical.get("title", "")))
+        canonical["aliases"] = sorted(alias for alias in aliases if alias)
+        alias_map[str(row["concept_id"])] = str(canonical["concept_id"])
+
+    if alias_map:
+        for row in claim_rows:
+            row["concept_ids"] = [alias_map.get(concept_id, concept_id) for concept_id in row.get("concept_ids", [])]
+        for row in relation_rows:
+            row["source_id"] = alias_map.get(str(row.get("source_id", "")), str(row.get("source_id", "")))
+            row["target_id"] = alias_map.get(str(row.get("target_id", "")), str(row.get("target_id", "")))
+
+    return standardized_rows, claim_rows, relation_rows
+
+
+def _normalize_concept_title(value: str) -> str:
+    normalized = "".join(ch.lower() if ch.isalnum() else " " for ch in value)
+    tokens = [token for token in normalized.split() if token not in {"a", "an", "the"}]
+    return " ".join(tokens)

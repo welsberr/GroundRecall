@@ -216,8 +216,13 @@ def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> 
     assert result.manifest["import_intent"] == "both"
     assert result.manifest["source_root"] == "doclift_bundle_minimal"
     assert result.manifest["source_root_kind"] == "source_label"
+    assert result.manifest["fragment_count"] == 2
     concept_ids = {item["concept_id"] for item in result.concepts}
     assert "concept::lecture-1" in concept_ids
     claim_ids = {item["claim_id"] for item in result.claims}
     assert "clm_doclift_1" in claim_ids
+    assert "clm_doclift_1_1" in claim_ids
     assert result.observations[0]["source_url"] == "legacy/lecture-1.doc"
+    assert len(result.fragments) == 2
+    assert result.fragments[0]["metadata"]["source_kind"] == "doclift_chunk"
+    assert result.claims[1]["supporting_fragment_ids"] == ["frag_doclift_1_1"]

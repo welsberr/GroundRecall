@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import shutil
 import socket
@@ -18,9 +19,11 @@ from .groundrecall_normalizer import (
     build_artifact_record,
     build_claim_record,
     build_concept_records,
+    build_fragment_record,
     build_observation_record,
     build_relation_records,
     manifest_record,
+    standardize_concept_rows,
 )
 from .groundrecall_review_bridge import export_review_bundle_from_import
 from .groundrecall_review_queue import build_review_queue
@@ -36,6 +39,7 @@ VALID_MODES = {"archive", "quick", "grounded"}
 class ImportResult:
     manifest: dict[str, Any]
     artifacts: list[dict[str, Any]]
+    fragments: list[dict[str, Any]]
     observations: list[dict[str, Any]]
     claims: list[dict[str, Any]]
     concepts: list[dict[str, Any]]
@@ -56,9 +60,10 @@ def _default_import_id(source_root: Path) -> str:
 def _portable_source_root_ref(source_path: Path, output_root: Path) -> tuple[str, str]:
     anchor = output_root.resolve().parent
     if source_path.is_relative_to(anchor):
-        relative = source_path.relative_to(anchor).as_posix()
-        if relative != ".":
-            return relative, "output_root_parent_relative"
+        relative = source_path.relative_to(anchor)
+        if relative == Path("."):
+            return source_path.name, "source_label"
+        return relative.as_posix(), "output_root_parent_relative"
     return source_path.name, "source_label"
 
 
@@ -147,13 +152,19 @@ def run_groundrecall_import(
     )
 
     artifact_rows: list[dict[str, Any]] = []
+    fragment_rows: list[dict[str, Any]] = []
     observation_rows: list[dict[str, Any]] = []
     claim_rows: list[dict[str, Any]] = []
     concept_rows: list[dict[str, Any]] = []
     relation_rows: list[dict[str, Any]] = []
-    structured_rows = adapter.build_rows(context, discovered)
+    build_rows_params = inspect.signature(adapter.build_rows).parameters
+    if "root" in build_rows_params:
+        structured_rows = adapter.build_rows(context, discovered, root=source_path)
+    else:
+        structured_rows = adapter.build_rows(context, discovered)
     if structured_rows is not None:
         artifact_rows.extend(structured_rows.artifact_rows)
+        fragment_rows.extend(structured_rows.fragment_rows)
         observation_rows.extend(structured_rows.observation_rows)
         claim_rows.extend(structured_rows.claim_rows)
         concept_rows.extend(structured_rows.concept_rows)
@@ -170,14 +181,27 @@ def run_groundrecall_import(
             relation_rows.extend(build_relation_records(context, artifact_row, page.concepts, page.links))
 
             for index, observation in enumerate(page.observations, start=1):
+                fragment_row = build_fragment_record(context, artifact_row, observation, index)
+                fragment_rows.append(fragment_row)
                 observation_row = build_observation_record(context, artifact_row, observation, index)
                 observation_rows.append(observation_row)
                 if mode == "archive":
                     continue
                 if observation.role not in {"claim", "summary"}:
                     continue
-                claim_rows.append(build_claim_record(context, observation_row, observation, page.concepts[:3], index))
+                claim_rows.append(
+                    build_claim_record(
+                        context,
+                        observation_row,
+                        observation,
+                        page.concepts[:3],
+                        index,
+                        fragment_ids=[fragment_row["fragment_id"]],
+                    )
+                )
 
+    fragment_rows = _dedupe_by_key(fragment_rows, "fragment_id")
+    concept_rows, claim_rows, relation_rows = standardize_concept_rows(concept_rows, claim_rows, relation_rows)
     concept_rows = _dedupe_by_key(concept_rows, "concept_id")
     relation_rows = _dedupe_by_key(relation_rows, "relation_id")
     artifact_rows = _dedupe_by_key(artifact_rows, "artifact_id")
@@ -189,6 +213,7 @@ def run_groundrecall_import(
         "import_intent": adapter.import_intent(),
         "source_root_kind": source_root_kind,
         "artifact_count": len(artifact_rows),
+        "fragment_count": len(fragment_rows),
         "observation_count": len(observation_rows),
         "claim_count": len(claim_rows),
         "concept_count": len(concept_rows),
@@ -197,6 +222,7 @@ def run_groundrecall_import(
 
     _write_json(output_dir / "manifest.json", manifest)
     _write_jsonl(output_dir / "artifacts.jsonl", artifact_rows)
+    _write_jsonl(output_dir / "fragments.jsonl", fragment_rows)
     _write_jsonl(output_dir / "observations.jsonl", observation_rows)
     _write_jsonl(output_dir / "claims.jsonl", claim_rows)
     _write_jsonl(output_dir / "concepts.jsonl", concept_rows)
@@ -210,6 +236,7 @@ def run_groundrecall_import(
     return ImportResult(
         manifest=manifest,
         artifacts=artifact_rows,
+        fragments=fragment_rows,
         observations=observation_rows,
         claims=claim_rows,
         concepts=concept_rows,

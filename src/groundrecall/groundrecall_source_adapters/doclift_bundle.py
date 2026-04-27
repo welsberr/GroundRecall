@@ -22,6 +22,23 @@ class DocliftBundleSourceAdapter:
         base = Path(root)
         return (base / "manifest.json").exists() and (base / "documents").exists()
 
+    def _load_chunks(self, base: Path, document: dict) -> list[dict]:
+        explicit_path = document.get("chunks_path")
+        if explicit_path:
+            chunk_path = self._resolve_bundle_path(base, explicit_path)
+        else:
+            output_dir = self._resolve_bundle_path(base, document.get("output_dir"))
+            chunk_path = output_dir / "document.chunks.json"
+        if not chunk_path.exists():
+            return []
+        payload = json.loads(chunk_path.read_text(encoding="utf-8"))
+        if isinstance(payload, dict):
+            chunks = payload.get("chunks", [])
+            return [chunk for chunk in chunks if isinstance(chunk, dict)]
+        if isinstance(payload, list):
+            return [chunk for chunk in payload if isinstance(chunk, dict)]
+        return []
+
     def discover(self, root: str | Path) -> list[DiscoveredImportSource]:
         base = Path(root)
         rows: list[DiscoveredImportSource] = []
@@ -41,8 +58,8 @@ class DocliftBundleSourceAdapter:
     def import_intent(self) -> str:
         return "both"
 
-    def build_rows(self, context, sources: list[DiscoveredImportSource]) -> StructuredImportRows | None:
-        base = Path(context.source_root)
+    def build_rows(self, context, sources: list[DiscoveredImportSource], root: Path | None = None) -> StructuredImportRows | None:
+        base = Path(root) if root is not None else Path(context.source_root)
         if not self.detect(base) and sources:
             for candidate in [sources[0].path.parent, *sources[0].path.parents]:
                 if self.detect(candidate):
@@ -54,6 +71,7 @@ class DocliftBundleSourceAdapter:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
         artifact_rows: list[dict] = []
+        fragment_rows: list[dict] = []
         observation_rows: list[dict] = []
         claim_rows: list[dict] = []
         concept_rows: list[dict] = []
@@ -142,6 +160,71 @@ class DocliftBundleSourceAdapter:
                     "current_status": "triaged",
                 }
             )
+            for chunk_index, chunk in enumerate(self._load_chunks(base, document), start=1):
+                chunk_text = str(chunk.get("text") or "").strip()
+                if not chunk_text:
+                    continue
+                chunk_role = str(chunk.get("role") or "summary")
+                chunk_section = str(chunk.get("section") or title)
+                line_start = int(chunk.get("line_start") or 0)
+                line_end = int(chunk.get("line_end") or line_start)
+                fragment_id = f"frag_doclift_{index}_{chunk_index}"
+                observation_id = f"obs_doclift_{index}_{chunk_index}"
+                fragment_rows.append(
+                    {
+                        "fragment_id": fragment_id,
+                        "import_id": context.import_id,
+                        "source_id": artifact_id,
+                        "text": chunk_text,
+                        "section": chunk_section,
+                        "line_start": line_start,
+                        "line_end": line_end,
+                        "metadata": {
+                            "chunk_id": chunk.get("chunk_id", f"{document.get('document_id', index)}-{chunk_index}"),
+                            "source_kind": "doclift_chunk",
+                        },
+                        "current_status": "draft",
+                    }
+                )
+                observation_rows.append(
+                    {
+                        "observation_id": observation_id,
+                        "import_id": context.import_id,
+                        "artifact_id": artifact_id,
+                        "role": chunk_role,
+                        "text": chunk_text,
+                        "origin_path": relative_markdown,
+                        "origin_section": chunk_section,
+                        "line_start": line_start,
+                        "line_end": line_end,
+                        "source_url": source_path,
+                        "metadata": {
+                            "source_path_kind": source_path_kind,
+                            "chunk_id": chunk.get("chunk_id", f"{document.get('document_id', index)}-{chunk_index}"),
+                        },
+                        "grounding_status": "grounded",
+                        "support_kind": "direct_source",
+                        "confidence_hint": float(chunk.get("confidence_hint") or 0.75),
+                        "current_status": "draft",
+                    }
+                )
+                if chunk_role in {"claim", "summary"}:
+                    claim_rows.append(
+                        {
+                            "claim_id": f"clm_doclift_{index}_{chunk_index}",
+                            "import_id": context.import_id,
+                            "claim_text": chunk_text,
+                            "claim_kind": "statement" if chunk_role == "claim" else "summary",
+                            "source_observation_ids": [observation_id],
+                            "supporting_fragment_ids": [fragment_id],
+                            "concept_ids": [concept_id],
+                            "contradicts_claim_ids": [],
+                            "supersedes_claim_ids": [],
+                            "confidence_hint": float(chunk.get("confidence_hint") or 0.75),
+                            "grounding_status": "grounded",
+                            "current_status": "triaged",
+                        }
+                    )
             if previous_concept_id is not None:
                 relation_rows.append(
                     {
@@ -158,6 +241,7 @@ class DocliftBundleSourceAdapter:
 
         return StructuredImportRows(
             artifact_rows=artifact_rows,
+            fragment_rows=fragment_rows,
             observation_rows=observation_rows,
             claim_rows=claim_rows,
             concept_rows=concept_rows,

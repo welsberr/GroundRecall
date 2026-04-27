@@ -24,6 +24,7 @@ def lint_import_directory(import_dir: str | Path) -> dict[str, Any]:
     base = Path(import_dir)
     manifest = _read_json(base / "manifest.json")
     artifacts = _read_jsonl(base / "artifacts.jsonl")
+    fragments = _read_jsonl(base / "fragments.jsonl")
     observations = _read_jsonl(base / "observations.jsonl")
     claims = _read_jsonl(base / "claims.jsonl")
     concepts = _read_jsonl(base / "concepts.jsonl")
@@ -166,6 +167,7 @@ def lint_import_directory(import_dir: str | Path) -> dict[str, Any]:
 
     summary = {
         "artifact_count": len(artifacts),
+        "fragment_count": len(fragments),
         "observation_count": len(observations),
         "claim_count": len(claims),
         "concept_count": len(concepts),

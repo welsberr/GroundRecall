@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from groundrecall.groundrecall_normalizer import standardize_concept_rows
 from groundrecall.ingest import run_groundrecall_import
 from groundrecall.lint import lint_import_directory
 
@@ -46,8 +47,13 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     artifacts = _read_jsonl(result.out_dir / "artifacts.jsonl")
     assert {item["artifact_kind"] for item in artifacts} == {"compiled_page", "raw_note", "session_log"}
 
+    fragments = _read_jsonl(result.out_dir / "fragments.jsonl")
+    assert len(fragments) >= 3
+    assert all(item["source_id"].startswith("ia_") for item in fragments)
+
     claims = _read_jsonl(result.out_dir / "claims.jsonl")
     assert any("Reliable rate upper bound" in item["claim_text"] for item in claims)
+    assert any(item["supporting_fragment_ids"] for item in claims)
 
     concepts = _read_jsonl(result.out_dir / "concepts.jsonl")
     concept_ids = {item["concept_id"] for item in concepts}
@@ -76,6 +82,49 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     assert "concept_reviews" in review_data
     assert "citations" in review_data
     assert "citation_reviews" in review_data
+
+
+def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:
+    concept_rows = [
+        {
+            "concept_id": "concept::signal-processing",
+            "title": "Signal Processing",
+            "aliases": [],
+            "description": "",
+            "source_artifact_ids": ["ia_one"],
+            "current_status": "triaged",
+        },
+        {
+            "concept_id": "concept::signal-processing-variant",
+            "title": "The Signal Processing",
+            "aliases": ["DSP"],
+            "description": "",
+            "source_artifact_ids": ["ia_two"],
+            "current_status": "triaged",
+        },
+    ]
+    claim_rows = [
+        {
+            "claim_id": "clm_1",
+            "concept_ids": ["concept::signal-processing-variant"],
+        }
+    ]
+    relation_rows = [
+        {
+            "relation_id": "rel_1",
+            "source_id": "concept::signal-processing-variant",
+            "target_id": "concept::signal-processing",
+        }
+    ]
+
+    concepts, claims, relations = standardize_concept_rows(concept_rows, claim_rows, relation_rows)
+
+    assert len(concepts) == 1
+    assert concepts[0]["concept_id"] == "concept::signal-processing"
+    assert concepts[0]["aliases"] == ["DSP", "The Signal Processing"]
+    assert concepts[0]["source_artifact_ids"] == ["ia_one", "ia_two"]
+    assert claims[0]["concept_ids"] == ["concept::signal-processing"]
+    assert relations[0]["source_id"] == "concept::signal-processing"
 
 
 def test_groundrecall_import_parses_explicit_claim_relations(tmp_path: Path) -> None:

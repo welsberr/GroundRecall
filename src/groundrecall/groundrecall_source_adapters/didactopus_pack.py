@@ -38,7 +38,7 @@ class DidactopusPackSourceAdapter:
     def import_intent(self) -> str:
         return "both"
 
-    def build_rows(self, context, sources: list[DiscoveredImportSource]) -> StructuredImportRows | None:
+    def build_rows(self, context, sources: list[DiscoveredImportSource], root: Path | None = None) -> StructuredImportRows | None:
         by_name = {Path(item.relative_path).name: item for item in sources}
         concepts_src = by_name.get("concepts.yaml")
         if concepts_src is None:
@@ -224,6 +224,7 @@ class DidactopusPackSourceAdapter:
 
         return StructuredImportRows(
             artifact_rows=artifact_rows,
+            fragment_rows=[],
             observation_rows=observation_rows,
             claim_rows=claim_rows,
             concept_rows=concept_rows,

@@ -1,0 +1,20 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "lecture-1-c1",
+      "role": "summary",
+      "section": "Module A",
+      "line_start": 1,
+      "line_end": 4,
+      "text": "Lecture 1 introduces Module A and frames the example lesson."
+    },
+    {
+      "chunk_id": "lecture-1-c2",
+      "role": "claim",
+      "section": "Lesson A",
+      "line_start": 5,
+      "line_end": 7,
+      "text": "Objective: Explain lesson A."
+    }
+  ]
+}
