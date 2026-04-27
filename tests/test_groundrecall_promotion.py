@@ -94,3 +94,30 @@ def test_groundrecall_promotion_preserves_contradiction_and_supersession_links(t
     claims = {item.claim_id: item for item in store.list_claims()}
     assert claims["clm_revised"].supersedes_claim_ids == ["clm_base"]
     assert claims["clm_dissent"].contradicts_claim_ids == ["clm_revised"]
+
+
+def test_groundrecall_promotion_preserves_queue_graph_rationale(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "a.md").write_text("# A\n\nSee also [[B]].\n", encoding="utf-8")
+    (root / "wiki" / "b.md").write_text("# B\n\nSee also [[C]].\n", encoding="utf-8")
+    (root / "wiki" / "c.md").write_text("# C\n", encoding="utf-8")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="promotion-queue-test")
+    review_path = result.out_dir / "review_session.json"
+    review_payload = json.loads(review_path.read_text(encoding="utf-8"))
+    for concept in review_payload["draft_pack"]["concepts"]:
+        concept["status"] = "trusted"
+    review_path.write_text(json.dumps(review_payload, indent=2), encoding="utf-8")
+
+    store_dir = tmp_path / "groundrecall-store"
+    promote_import_to_store(result.out_dir, store_dir, reviewer="R")
+
+    store = GroundRecallStore(store_dir)
+    review_candidates = {item.candidate_id: item for item in store.list_review_candidates()}
+    bridge_candidate = review_candidates["concept::b"]
+
+    assert bridge_candidate.triage_lane == "conflict_resolution"
+    assert "bridge_concept" in bridge_candidate.finding_codes
+    assert "lane=conflict_resolution" in bridge_candidate.rationale
+    assert "graph=bridge_concept" in bridge_candidate.rationale

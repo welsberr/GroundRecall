@@ -60,6 +60,22 @@ def _provenance_from_payload(payload: dict[str, Any]) -> ProvenanceRecord:
     )
 
 
+def _review_candidate_rationale(item: dict[str, Any]) -> str:
+    parts: list[str] = []
+    title = str(item.get("title", "")).strip()
+    if title:
+        parts.append(title)
+    parts.append(f"lane={item.get('triage_lane', 'knowledge_capture')}")
+    parts.append(f"priority={int(item.get('priority', 50))}")
+    finding_codes = [str(code) for code in item.get("finding_codes", []) if str(code).strip()]
+    graph_codes = [str(code) for code in item.get("graph_codes", []) if str(code).strip()]
+    if finding_codes:
+        parts.append(f"findings={','.join(finding_codes)}")
+    if graph_codes:
+        parts.append(f"graph={','.join(graph_codes)}")
+    return " | ".join(parts)
+
+
 def promote_import_to_store(
     import_dir: str | Path,
     store_dir: str | Path,
@@ -181,6 +197,8 @@ def promote_import_to_store(
             promoted_relation_ids.append(record.relation_id)
 
     for item in queue_payload.get("items", []):
+        graph_codes = [str(code) for code in item.get("graph_codes", []) if str(code).strip()]
+        finding_codes = [str(code) for code in item.get("finding_codes", []) if str(code).strip()]
         store.save_review_candidate(
             ReviewCandidateRecord(
                 review_candidate_id=item["queue_id"],
@@ -188,8 +206,8 @@ def promote_import_to_store(
                 candidate_id=item["candidate_id"],
                 triage_lane=item.get("triage_lane", "knowledge_capture"),
                 priority=int(item.get("priority", 50)),
-                finding_codes=list(item.get("finding_codes", [])),
-                rationale=item.get("title", ""),
+                finding_codes=sorted(set(finding_codes + graph_codes)),
+                rationale=_review_candidate_rationale(item),
                 current_status="reviewed" if item["candidate_id"] in set(promoted_claim_ids + promoted_concept_ids + promoted_relation_ids) else "triaged",
             )
         )
