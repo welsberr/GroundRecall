@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .groundrecall_discovery import DiscoveredArtifact
+from .graph_diagnostics import build_graph_diagnostics
 from .groundrecall_lint import lint_import_directory
 from .groundrecall_normalizer import (
     ImportContext,
@@ -227,6 +228,7 @@ def run_groundrecall_import(
     _write_jsonl(output_dir / "claims.jsonl", claim_rows)
     _write_jsonl(output_dir / "concepts.jsonl", concept_rows)
     _write_jsonl(output_dir / "relations.jsonl", relation_rows)
+    _write_json(output_dir / "graph_diagnostics.json", build_graph_diagnostics(concept_rows, relation_rows))
     lint_payload = lint_import_directory(output_dir)
     _write_json(output_dir / "lint_findings.json", lint_payload)
     review_queue = build_review_queue(output_dir)

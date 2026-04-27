@@ -55,6 +55,9 @@ def test_review_workspace_populates_and_persists_citation_reviews(tmp_path: Path
 
     review_data = json.loads((import_result.out_dir / "review_data.json").read_text(encoding="utf-8"))
     assert any(item["citation_review_id"] == citation_review_id for item in review_data["citation_reviews"])
+    assert "graph_diagnostics" in review_data
+    assert "graph_summary" in review_data["import_context"]
+    assert review_data["graph_diagnostics"]["summary"]["concept_count"] >= 1
 
 
 def test_review_workspace_resolves_citation_metadata_from_bibtex(tmp_path: Path) -> None:

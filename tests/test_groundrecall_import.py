@@ -5,6 +5,7 @@ from pathlib import Path
 
 from groundrecall.groundrecall_normalizer import standardize_concept_rows
 from groundrecall.ingest import run_groundrecall_import
+from groundrecall.graph_diagnostics import build_graph_diagnostics
 from groundrecall.lint import lint_import_directory
 
 
@@ -62,6 +63,9 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
 
     relations = _read_jsonl(result.out_dir / "relations.jsonl")
     assert any(item["target_id"] == "concept::shannon-entropy" for item in relations)
+    graph_diagnostics = json.loads((result.out_dir / "graph_diagnostics.json").read_text(encoding="utf-8"))
+    assert graph_diagnostics["summary"]["connected_component_count"] >= 1
+    assert graph_diagnostics["summary"]["concept_count"] == len(concepts)
 
     lint_payload = json.loads((result.out_dir / "lint_findings.json").read_text(encoding="utf-8"))
     assert "summary" in lint_payload
@@ -125,6 +129,26 @@ def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:
     assert concepts[0]["source_artifact_ids"] == ["ia_one", "ia_two"]
     assert claims[0]["concept_ids"] == ["concept::signal-processing"]
     assert relations[0]["source_id"] == "concept::signal-processing"
+
+
+def test_graph_diagnostics_detect_bridge_concepts() -> None:
+    diagnostics = build_graph_diagnostics(
+        concepts=[
+            {"concept_id": "concept::a"},
+            {"concept_id": "concept::b"},
+            {"concept_id": "concept::c"},
+            {"concept_id": "concept::d"},
+        ],
+        relations=[
+            {"source_id": "concept::a", "target_id": "concept::b"},
+            {"source_id": "concept::b", "target_id": "concept::c"},
+            {"source_id": "concept::c", "target_id": "concept::d"},
+        ],
+    )
+
+    assert diagnostics["summary"]["connected_component_count"] == 1
+    assert diagnostics["summary"]["bridge_concept_count"] == 2
+    assert [item["concept_id"] for item in diagnostics["bridge_concepts"]] == ["concept::b", "concept::c"]
 
 
 def test_groundrecall_import_parses_explicit_claim_relations(tmp_path: Path) -> None:

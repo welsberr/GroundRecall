@@ -312,6 +312,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
     resolved_source_root = _resolve_source_root(import_dir, manifest.get("source_root", ""))
     lint_payload = _read_json(import_dir / "lint_findings.json")
     queue_payload = _read_json(import_dir / "review_queue.json")
+    graph_payload = _read_json(import_dir / "graph_diagnostics.json")
     artifacts = _read_jsonl(import_dir / "artifacts.jsonl")
     observations = _read_jsonl(import_dir / "observations.jsonl")
     claims = _read_jsonl(import_dir / "claims.jsonl")
@@ -390,6 +391,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
             "lint_summary": lint_payload.get("summary", {}),
             "queue_length": queue_payload.get("queue_length", 0),
             "source_adapter": manifest.get("source_adapter", ""),
+            "graph_summary": graph_payload.get("summary", {}),
         },
         "review_guidance": {
             "overview": (
@@ -419,6 +421,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         "concept_reviews": concept_reviews,
         "citation_reviews": [entry.model_dump() for entry in session.citation_reviews],
         "bibliography": bibliography_summary_payload(resolved_source_root),
+        "graph_diagnostics": graph_payload,
         "citations": {
             "enabled": True,
             "provider": "citegeist" if artifact_citations and artifact_citations[0].get("citegeist_backends") else "none",
