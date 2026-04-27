@@ -84,12 +84,40 @@ Export assistant-neutral artifacts:
 groundrecall export store/ exports/groundrecall --concept channel-capacity
 ```
 
+Export a pack-ready `groundrecall_query_bundle.json` for `Didactopus`:
+
+```bash
+groundrecall export store/ exports/groundrecall --pack-ready-concept channel-capacity
+```
+
 Export assistant-targeted bundles:
 
 ```bash
 groundrecall assistant-export store/ codex exports/codex --concept channel-capacity
 groundrecall assistant-export store/ claude_code exports/claude --concept channel-capacity
 ```
+
+## Bridge To Didactopus
+
+If you want a `Didactopus` learner pack that carries reviewed GroundRecall
+concept context, the shortest bridge flow is:
+
+```bash
+doclift convert-dir /path/to/legacy-course /tmp/doclift-bundle --asset-root /path/to/legacy-course
+didactopus doclift-bundle-groundrecall \
+  store/ \
+  channel-capacity \
+  /tmp/doclift-bundle \
+  /tmp/didactopus-pack \
+  --course-title "Example Course"
+```
+
+That command:
+
+- exports a pack-ready `groundrecall_query_bundle.json` from `GroundRecall`
+- feeds it into the `Didactopus` `doclift` bundle flow
+- writes a pack with the GroundRecall query bundle included as a declared
+  supporting artifact
 
 ## Default Working Layout
 
@@ -108,5 +136,6 @@ The current alpha does not require this exact layout, but it is a sensible start
 ## Next Reading
 
 - [architecture.md](architecture.md)
+- [didactopus-bridge.md](didactopus-bridge.md)
 - [llmwiki-import.md](llmwiki-import.md)
 - [sync-roadmap.md](sync-roadmap.md)
