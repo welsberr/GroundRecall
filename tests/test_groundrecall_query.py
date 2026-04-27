@@ -9,6 +9,7 @@ from groundrecall.models import (
     ObservationRecord,
     ProvenanceRecord,
     RelationRecord,
+    ReviewCandidateRecord,
 )
 from groundrecall.query import (
     build_query_bundle_for_concept,
@@ -102,6 +103,30 @@ def _seed_store(store: GroundRecallStore) -> None:
             current_status="promoted",
         )
     )
+    store.save_review_candidate(
+        ReviewCandidateRecord(
+            review_candidate_id="rq_concept_channel",
+            candidate_type="concept",
+            candidate_id="concept::channel-capacity",
+            triage_lane="conflict_resolution",
+            priority=12,
+            finding_codes=["bridge_concept"],
+            rationale="Channel Capacity | lane=conflict_resolution | priority=12 | graph=bridge_concept",
+            current_status="reviewed",
+        )
+    )
+    store.save_review_candidate(
+        ReviewCandidateRecord(
+            review_candidate_id="rq_claim_channel",
+            candidate_type="claim",
+            candidate_id="clm_001",
+            triage_lane="knowledge_capture",
+            priority=20,
+            finding_codes=["claim_missing_concept"],
+            rationale="Channel capacity bounds reliable communication rate. | lane=knowledge_capture | priority=20",
+            current_status="reviewed",
+        )
+    )
 
 
 def test_query_concept_returns_neighborhood_and_support(tmp_path: Path) -> None:
@@ -115,6 +140,9 @@ def test_query_concept_returns_neighborhood_and_support(tmp_path: Path) -> None:
     assert len(payload["relations"]) == 1
     assert any(item["concept_id"] == "concept::shannon-entropy" for item in payload["related_concepts"])
     assert payload["supporting_observations"][0]["origin_path"] == "wiki/channel-capacity.md"
+    assert len(payload["review_candidates"]) == 2
+    assert any(item["candidate_id"] == "concept::channel-capacity" for item in payload["review_candidates"])
+    assert any("graph=bridge_concept" in item["rationale"] for item in payload["review_candidates"])
 
 
 def test_search_claims_matches_text_and_concept_titles(tmp_path: Path) -> None:
@@ -143,6 +171,7 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload is not None
     assert payload["bundle_kind"] == "groundrecall_query_bundle"
     assert payload["concept"]["concept_id"] == "concept::channel-capacity"
+    assert len(payload["review_candidates"]) == 2
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)

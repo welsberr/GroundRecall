@@ -41,6 +41,7 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
     ]
     artifacts = {item.artifact_id: item for item in store.list_artifacts()}
     observations = {item.observation_id: item for item in store.list_observations()}
+    review_candidates = store.list_review_candidates()
 
     supporting_observations = []
     for claim in claims:
@@ -71,6 +72,12 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
         for artifact in artifacts.values()
         if artifact.artifact_id in set(concept.source_artifact_ids)
     ]
+    related_review_candidates = [
+        item.model_dump()
+        for item in review_candidates
+        if item.candidate_id == concept.concept_id
+        or (item.candidate_type == "claim" and any(claim.claim_id == item.candidate_id for claim in claims))
+    ]
 
     return {
         "query_type": "concept",
@@ -80,6 +87,7 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
         "related_concepts": related_concepts,
         "supporting_observations": supporting_observations,
         "source_artifacts": source_artifacts,
+        "review_candidates": related_review_candidates,
     }
 
 
@@ -156,6 +164,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "relevant_claims": claims,
         "supporting_observations": payload["supporting_observations"],
         "related_concepts": payload["related_concepts"],
+        "review_candidates": payload["review_candidates"],
         "contradictions": contradictions,
         "supersessions": supersessions,
         "suggested_next_actions": [
