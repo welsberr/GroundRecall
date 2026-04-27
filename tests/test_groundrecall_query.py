@@ -171,6 +171,8 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload is not None
     assert payload["bundle_kind"] == "groundrecall_query_bundle"
     assert payload["concept"]["concept_id"] == "concept::channel-capacity"
+    assert len(payload["relations"]) == 1
+    assert payload["source_artifacts"][0]["artifact_id"] == "ia_001"
     assert len(payload["review_candidates"]) == 2
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}

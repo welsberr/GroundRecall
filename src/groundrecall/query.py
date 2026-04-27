@@ -155,6 +155,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     if payload is None:
         return None
     claims = payload["claims"]
+    relations = payload["relations"]
     contradictions = [item for item in claims if item.get("contradicts_claim_ids")]
     supersessions = [item for item in claims if item.get("supersedes_claim_ids")]
     return {
@@ -162,7 +163,9 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "query_type": "concept",
         "concept": payload["concept"],
         "relevant_claims": claims,
+        "relations": relations,
         "supporting_observations": payload["supporting_observations"],
+        "source_artifacts": payload["source_artifacts"],
         "related_concepts": payload["related_concepts"],
         "review_candidates": payload["review_candidates"],
         "contradictions": contradictions,
