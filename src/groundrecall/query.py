@@ -121,6 +121,66 @@ def search_claims(
     }
 
 
+def _artifact_corpus(artifact) -> str:
+    corpus = artifact.metadata.get("corpus") if isinstance(getattr(artifact, "metadata", None), dict) else ""
+    return str(corpus or "")
+
+
+def search_documents(
+    store_dir: str | Path,
+    text: str,
+    corpora: list[str] | None = None,
+    include_rejected: bool = False,
+    limit: int = 20,
+) -> dict[str, Any]:
+    store = GroundRecallStore(store_dir)
+    artifacts = {item.artifact_id: item for item in store.list_artifacts()}
+    observations_by_artifact: dict[str, list[Any]] = {}
+    for observation in store.list_observations():
+        observations_by_artifact.setdefault(observation.artifact_id, []).append(observation)
+
+    active_corpora = {value for value in (corpora or []) if value}
+    matches: list[dict[str, Any]] = []
+
+    for artifact in artifacts.values():
+        corpus = _artifact_corpus(artifact)
+        if active_corpora and corpus not in active_corpora:
+            continue
+        if not include_rejected and artifact.current_status == "rejected":
+            continue
+
+        artifact_observations = observations_by_artifact.get(artifact.artifact_id, [])
+        haystack_parts = [
+            artifact.title,
+            artifact.path,
+            corpus,
+            str(artifact.metadata.get("document_kind", "")),
+            str(artifact.metadata.get("author", "")),
+            str(artifact.metadata.get("canonical_url", "")),
+            str(artifact.metadata.get("published_at", "")),
+        ]
+        haystack_parts.extend(observation.text for observation in artifact_observations)
+        haystack = " ".join(part for part in haystack_parts if part)
+        if _matches(text, haystack):
+            matches.append(
+                {
+                    "artifact": artifact.model_dump(),
+                    "corpus": corpus,
+                    "observation_count": len(artifact_observations),
+                    "matching_text": haystack[:800],
+                }
+            )
+        if len(matches) >= limit:
+            break
+
+    return {
+        "query_type": "document_search",
+        "query": text,
+        "active_corpora": sorted(active_corpora),
+        "matches": matches,
+    }
+
+
 def query_provenance(
     store_dir: str | Path,
     origin_path: str | None = None,
@@ -178,12 +238,34 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     }
 
 
+def build_search_bundle(
+    store_dir: str | Path,
+    text: str,
+    corpora: list[str] | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    payload = search_documents(store_dir, text=text, corpora=corpora, limit=limit)
+    return {
+        "bundle_kind": "groundrecall_search_bundle",
+        "query_type": "document_search",
+        "query": text,
+        "active_corpora": payload["active_corpora"],
+        "matches": payload["matches"],
+        "suggested_next_actions": [
+            "Open the matching documents and review the artifact metadata.",
+            "Tighten the corpus filter when the result set is too broad.",
+            "Use corpus defaults for a site-specific search preset and add others only when needed.",
+        ],
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Query canonical GroundRecall objects.")
     parser.add_argument("store_dir")
     parser.add_argument("query")
-    parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle"], default="concept")
+    parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle", "search"], default="concept")
     parser.add_argument("--source-url", default=None)
+    parser.add_argument("--corpus", action="append", default=[])
     return parser
 
 
@@ -195,6 +277,8 @@ def main() -> None:
         payload = search_claims(args.store_dir, args.query)
     elif args.kind == "provenance":
         payload = query_provenance(args.store_dir, origin_path=args.query, source_url=args.source_url)
+    elif args.kind == "search":
+        payload = build_search_bundle(args.store_dir, args.query, corpora=list(args.corpus or []))
     else:
         payload = build_query_bundle_for_concept(args.store_dir, args.query)
     print(json.dumps(payload, indent=2))

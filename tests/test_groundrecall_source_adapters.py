@@ -27,6 +27,8 @@ def test_groundrecall_source_adapter_registry_lists_expected_adapters() -> None:
     assert "transcript" in names
     assert "didactopus_pack" in names
     assert "doclift_bundle" in names
+    assert "indexcc" in names
+    assert "pandasthumb_mt" in names
 
 
 def test_detect_llmwiki_adapter(tmp_path: Path) -> None:
@@ -73,6 +75,70 @@ def test_markdown_notes_adapter_ingests_tex_files(tmp_path: Path) -> None:
     assert result.manifest["artifact_count"] == 1
     assert result.artifacts[0]["path"] == "draft.tex"
     assert result.claims
+
+
+def test_plain_markdown_directory_uses_markdown_notes_adapter(tmp_path: Path) -> None:
+    (tmp_path / "note.md").write_text("# Operational Note\n\nA plain note.\n", encoding="utf-8")
+
+    adapter = detect_source_adapter(tmp_path)
+
+    assert adapter.name == "markdown_notes"
+
+
+def test_indexcc_adapter_import_generates_rows(tmp_path: Path) -> None:
+    indexcc_dir = tmp_path / "site2_src" / "content" / "indexcc"
+    indexcc_dir.mkdir(parents=True)
+    (indexcc_dir / "CA100.md").write_text(
+        "\n".join(
+            [
+                "## Claim",
+                "",
+                "Argument from incredulity claim.",
+                "",
+                "## Response",
+                "",
+                "A lack of imagination is not evidence of impossibility.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (indexcc_dir / "CA100.meta.json").write_text(
+        '{"title": "CA100: Argument from Incredulity", "page_kind": "claim_entry", "legacy_source": "/indexcc/CA/CA100.html"}\n',
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="indexcc-test")
+
+    assert result.manifest["source_adapter"] == "indexcc"
+    assert result.manifest["import_intent"] == "grounded_knowledge"
+    assert result.manifest["fragment_count"] == 0
+    assert result.artifacts[0]["metadata"]["corpus"] == "indexcc"
+    assert result.claims[0]["claim_kind"] == "claim_entry"
+
+
+def test_pandasthumb_mt_adapter_import_generates_article_rows(tmp_path: Path) -> None:
+    public_html = tmp_path / "public_html"
+    archive_dir = public_html / "archives" / "2016" / "01"
+    archive_dir.mkdir(parents=True)
+    (public_html / "index.html").write_text("<html><body>PT</body></html>\n", encoding="utf-8")
+    (archive_dir / "sample.html").write_text(
+        "\n".join(
+            [
+                '<h1 class="post-title">Sample Article</h1>',
+                '<p class="post-meta">Posted 2016-01-01 by <span class="post-author">Author Name</span></p>',
+                '<div class="post-body"><p>Article body text.</p></div>',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="ptmt-test")
+
+    assert result.manifest["source_adapter"] == "pandasthumb_mt"
+    assert result.manifest["import_intent"] == "grounded_knowledge"
+    assert result.manifest["fragment_count"] == 0
+    assert result.artifacts[0]["metadata"]["corpus"] == "pandasthumb_mt"
+    assert result.observations[0]["text"] == "Article body text."
 
 
 def test_tex_import_uses_pandoc_markdown_when_available(tmp_path: Path, monkeypatch) -> None:
