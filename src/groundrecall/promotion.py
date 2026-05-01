@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,14 @@ from .models import (
 )
 from .review_schema import ReviewSession
 from .store import GroundRecallStore
+
+
+class PromotionGateError(RuntimeError):
+    """Raised when an import is not eligible for promotion."""
+
+    def __init__(self, message: str, payload: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -76,13 +85,50 @@ def _review_candidate_rationale(item: dict[str, Any]) -> str:
     return " | ".join(parts)
 
 
+def _load_lint_payload(import_dir: Path) -> dict[str, Any]:
+    lint_path = import_dir / "lint_findings.json"
+    if not lint_path.exists():
+        return {
+            "summary": {"error_count": 0, "warning_count": 0},
+            "findings": [],
+            "missing_lint_file": True,
+        }
+    payload = _read_json(lint_path)
+    payload.setdefault("summary", {})
+    payload.setdefault("findings", [])
+    return payload
+
+
+def _lint_error_payload(lint_payload: dict[str, Any]) -> dict[str, Any]:
+    findings = [item for item in lint_payload.get("findings", []) if item.get("severity") == "error"]
+    return {
+        "error_count": int(lint_payload.get("summary", {}).get("error_count", len(findings))),
+        "warning_count": int(lint_payload.get("summary", {}).get("warning_count", 0)),
+        "errors": findings,
+    }
+
+
+def _enforce_promotion_gate(import_dir: Path, allow_lint_errors: bool) -> dict[str, Any]:
+    lint_payload = _load_lint_payload(import_dir)
+    gate_payload = _lint_error_payload(lint_payload)
+    if gate_payload["error_count"] > 0 and not allow_lint_errors:
+        raise PromotionGateError(
+            "Import has lint errors; review or repair the import before promotion, "
+            "or pass allow_lint_errors=True / --allow-lint-errors to override.",
+            gate_payload,
+        )
+    return gate_payload
+
+
 def promote_import_to_store(
     import_dir: str | Path,
     store_dir: str | Path,
     reviewer: str | None = None,
     snapshot_id: str | None = None,
+    allow_lint_errors: bool = False,
 ) -> dict[str, Any]:
     base = Path(import_dir)
+    gate_payload = _enforce_promotion_gate(base, allow_lint_errors=allow_lint_errors)
     manifest = _read_json(base / "manifest.json")
     review_session = ReviewSession.model_validate_json((base / "review_session.json").read_text(encoding="utf-8"))
     queue_payload = _read_json(base / "review_queue.json")
@@ -244,6 +290,9 @@ def promote_import_to_store(
         "promoted_concept_count": len(promoted_concept_ids),
         "promoted_claim_count": len(promoted_claim_ids),
         "promoted_relation_count": len(promoted_relation_ids),
+        "lint_error_count": gate_payload["error_count"],
+        "lint_warning_count": gate_payload["warning_count"],
+        "lint_errors_allowed": allow_lint_errors,
         "snapshot_id": built_snapshot.snapshot_id,
     }
 
@@ -254,15 +303,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("store_dir")
     parser.add_argument("--reviewer", default=None)
     parser.add_argument("--snapshot-id", default=None)
+    parser.add_argument(
+        "--allow-lint-errors",
+        action="store_true",
+        help="Promote even when lint_findings.json contains errors. Warnings do not block promotion.",
+    )
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    payload = promote_import_to_store(
-        import_dir=args.import_dir,
-        store_dir=args.store_dir,
-        reviewer=args.reviewer,
-        snapshot_id=args.snapshot_id,
-    )
+    try:
+        payload = promote_import_to_store(
+            import_dir=args.import_dir,
+            store_dir=args.store_dir,
+            reviewer=args.reviewer,
+            snapshot_id=args.snapshot_id,
+            allow_lint_errors=args.allow_lint_errors,
+        )
+    except PromotionGateError as exc:
+        print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)
+        raise SystemExit(2) from exc
     print(json.dumps(payload, indent=2))

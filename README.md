@@ -69,11 +69,29 @@ Lint the import:
 groundrecall lint .groundrecall/imports/<import-id>
 ```
 
+Review significant imports:
+
+```bash
+groundrecall review-server .groundrecall/imports/<import-id>
+```
+
 Promote the import into a canonical store:
 
 ```bash
 groundrecall promote .groundrecall/imports/<import-id> .groundrecall/store --reviewer your-name
 ```
+
+Promotion refuses imports with lint errors by default. Fix the source material,
+adapter, or review data first. If you intentionally need to preserve a flawed
+import for triage or recovery, use:
+
+```bash
+groundrecall promote .groundrecall/imports/<import-id> .groundrecall/store \
+  --reviewer your-name \
+  --allow-lint-errors
+```
+
+Warnings remain visible in the review queue but do not block promotion.
 
 Inspect or query the store:
 

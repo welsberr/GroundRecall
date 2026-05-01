@@ -3,7 +3,7 @@ from __future__ import annotations
 from .inspect import inspect_store, summarize_store
 from .ingest import ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
 from .models import *  # noqa: F403
-from .promotion import build_parser as build_promotion_parser, main as promotion_main, promote_import_to_store
+from .promotion import PromotionGateError, build_parser as build_promotion_parser, main as promotion_main, promote_import_to_store
 from .query import (
     build_parser as build_query_parser,
     build_query_bundle_for_concept,
@@ -22,6 +22,7 @@ __all__ = [
     "build_import_parser",
     "import_main",
     "promote_import_to_store",
+    "PromotionGateError",
     "build_promotion_parser",
     "promotion_main",
     "query_concept",

@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from .citation_support import materialize_citegeist_store
-from .promotion import promote_import_to_store
+from .promotion import PromotionGateError, promote_import_to_store
 from .review_workspace import GroundRecallReviewWorkspace
 
 
@@ -177,12 +177,17 @@ class GroundRecallReviewHandler(BaseHTTPRequestHandler):
             if not store_dir:
                 _json_response(self, 400, {"ok": False, "error": "store_dir is required"})
                 return
-            result = promote_import_to_store(
-                import_dir=self.workspace.import_dir,
-                store_dir=store_dir,
-                reviewer=payload.get("reviewer"),
-                snapshot_id=payload.get("snapshot_id"),
-            )
+            try:
+                result = promote_import_to_store(
+                    import_dir=self.workspace.import_dir,
+                    store_dir=store_dir,
+                    reviewer=payload.get("reviewer"),
+                    snapshot_id=payload.get("snapshot_id"),
+                    allow_lint_errors=bool(payload.get("allow_lint_errors")),
+                )
+            except PromotionGateError as exc:
+                _json_response(self, 409, {"ok": False, "error": str(exc), "gate": exc.payload})
+                return
             _json_response(self, 200, {"ok": True, "promotion": result})
             return
         if parsed.path == "/api/citations/verify":

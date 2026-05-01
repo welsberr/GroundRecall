@@ -56,10 +56,24 @@ Inspect the import outputs:
 groundrecall lint imports/<import-id>
 ```
 
+For anything non-trivial, open the review bundle before promotion:
+
+```bash
+groundrecall review-server imports/<import-id>
+```
+
 Promote the imported review artifacts into a canonical store:
 
 ```bash
 groundrecall promote imports/<import-id> store/
+```
+
+Promotion is gated by lint errors. Warnings are retained for review, but errors
+must be repaired before promotion unless you explicitly choose to keep the
+import as triage material:
+
+```bash
+groundrecall promote imports/<import-id> store/ --allow-lint-errors
 ```
 
 ## Query The Canonical Store

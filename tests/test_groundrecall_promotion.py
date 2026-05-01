@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from groundrecall.ingest import run_groundrecall_import
-from groundrecall.promotion import promote_import_to_store
+from groundrecall.promotion import PromotionGateError, promote_import_to_store
 from groundrecall.store import GroundRecallStore
 
 
@@ -121,3 +123,54 @@ def test_groundrecall_promotion_preserves_queue_graph_rationale(tmp_path: Path) 
     assert "bridge_concept" in bridge_candidate.finding_codes
     assert "lane=conflict_resolution" in bridge_candidate.rationale
     assert "graph=bridge_concept" in bridge_candidate.rationale
+
+
+def test_groundrecall_promotion_blocks_lint_errors_by_default(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "bad.md").write_text("# Bad\n\n- A claim with a synthetic lint error.\n", encoding="utf-8")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="lint-gate-test")
+    lint_path = result.out_dir / "lint_findings.json"
+    lint_payload = json.loads(lint_path.read_text(encoding="utf-8"))
+    lint_payload["summary"]["error_count"] = 1
+    lint_payload["findings"].append(
+        {
+            "severity": "error",
+            "code": "claim_missing_observation",
+            "target_id": "clm_synthetic",
+            "message": "Synthetic test error.",
+        }
+    )
+    lint_path.write_text(json.dumps(lint_payload, indent=2), encoding="utf-8")
+
+    with pytest.raises(PromotionGateError) as excinfo:
+        promote_import_to_store(result.out_dir, tmp_path / "store", reviewer="R")
+
+    assert excinfo.value.payload["error_count"] == 1
+    assert excinfo.value.payload["errors"][0]["code"] == "claim_missing_observation"
+
+
+def test_groundrecall_promotion_can_override_lint_error_gate(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "override.md").write_text("# Override\n\n- A claim with an allowed lint error.\n", encoding="utf-8")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="lint-gate-override-test")
+    lint_path = result.out_dir / "lint_findings.json"
+    lint_payload = json.loads(lint_path.read_text(encoding="utf-8"))
+    lint_payload["summary"]["error_count"] = 1
+    lint_payload["findings"].append(
+        {
+            "severity": "error",
+            "code": "relation_missing_source",
+            "target_id": "rel_synthetic",
+            "message": "Synthetic test error.",
+        }
+    )
+    lint_path.write_text(json.dumps(lint_payload, indent=2), encoding="utf-8")
+
+    payload = promote_import_to_store(result.out_dir, tmp_path / "store", reviewer="R", allow_lint_errors=True)
+
+    assert payload["lint_error_count"] == 1
+    assert payload["lint_errors_allowed"] is True
