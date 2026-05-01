@@ -133,9 +133,27 @@ A simple local layout is:
 
 The current alpha does not require this exact layout, but it is a sensible starting point.
 
+## Initialize Assistant Memory
+
+For site, app, service, or deployment work, initialize the assistant-neutral
+GroundRecall protocol:
+
+```bash
+groundrecall protocol-init /opt/www \
+  --host-id local-dev \
+  --host-role development \
+  --assistant codex \
+  --assistant claude_code
+```
+
+This writes a host profile, GroundRecall workspace README, assistant bootstrap
+files, and local/remote inbox directories. See
+[assistant-protocol.md](assistant-protocol.md).
+
 ## Next Reading
 
 - [architecture.md](architecture.md)
+- [assistant-protocol.md](assistant-protocol.md)
 - [didactopus-bridge.md](didactopus-bridge.md)
 - [llmwiki-import.md](llmwiki-import.md)
 - [sync-roadmap.md](sync-roadmap.md)

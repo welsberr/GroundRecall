@@ -5,6 +5,7 @@ The top-level documentation in this repository is intended to describe `GroundRe
 Primary docs:
 
 - [quickstart.md](quickstart.md)
+- [assistant-protocol.md](assistant-protocol.md)
 - [architecture.md](architecture.md)
 - [llmwiki-import.md](llmwiki-import.md)
 - [sync-roadmap.md](sync-roadmap.md)

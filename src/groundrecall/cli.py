@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import assistant_export, export, ingest, inspect, lint, promotion, query, review_server
+from . import assistant_export, export, ingest, inspect, lint, promotion, protocol, query, review_server
 
 
 COMMANDS = {
     "import": ingest.main,
     "lint": lint.main,
     "promote": promotion.main,
+    "protocol-init": protocol.main,
     "query": query.main,
     "export": export.main,
     "assistant-export": assistant_export.main,
@@ -26,15 +27,20 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     argv = sys.argv[1:]
-    parser = build_parser()
-    args, remainder = parser.parse_known_args(argv)
-    if not args.command:
-        parser.print_help()
-        return
-    handler = COMMANDS[args.command]
+    if argv and argv[0] in COMMANDS:
+        command = argv[0]
+        remainder = argv[1:]
+    else:
+        parser = build_parser()
+        args, remainder = parser.parse_known_args(argv)
+        if not args.command:
+            parser.print_help()
+            return
+        command = args.command
+    handler = COMMANDS[command]
     original_argv = sys.argv
     try:
-        sys.argv = [f"groundrecall.cli {args.command}", *remainder]
+        sys.argv = [f"groundrecall.cli {command}", *remainder]
         handler()
     finally:
         sys.argv = original_argv
