@@ -6,6 +6,11 @@
 - `Didactopus`: learner-facing workflows and educational tooling
 - `GenieHive`: model and routing layer where runtime assistant/service resolution is needed
 
+For governed model access, GroundRecall treats the GenieHive Foundation gateway
+profile as an external endpoint and policy boundary. GroundRecall does not own
+GenieHive credentials, request audit logs, provider routing, or budget state.
+See [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md).
+
 ## Core Design
 
 The system is built around one canonical flow:
