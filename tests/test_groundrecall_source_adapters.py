@@ -350,3 +350,6 @@ def test_doclift_bundle_import_derives_claims_from_prose_when_chunks_are_body_on
 
     assert any("Random genetic drift can dominate allele-frequency change in small populations." in text for text in claim_texts)
     assert not any(text == "Drift Essay is a web_article in the imported doclift bundle." for text in claim_texts)
+    derived_observations = [item for item in result.observations if item["observation_id"].startswith("obs_doclift_1_derived_")]
+    assert derived_observations
+    assert derived_observations[0]["metadata"]["claim_strategy"] in {"conservative", "balanced", "broad"}

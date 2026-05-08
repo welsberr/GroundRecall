@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from groundrecall.doclift_claim_tournament import evaluate_doclift_claim_tracks
+from groundrecall.groundrecall_source_adapters.doclift_bundle import DocliftBundleSourceAdapter
 
 
 def _fixture_root() -> Path:
@@ -50,3 +52,27 @@ def test_doclift_claim_tournament_runs_on_real_corpus_fixture() -> None:
     assert tracks["balanced"]["matches"] >= 1
     assert tracks["balanced"]["recall"] >= tracks["broad"]["recall"]
     assert tracks["balanced"]["f1"] >= tracks["broad"]["f1"]
+
+
+def test_doclift_auto_bundle_strategy_prefers_balanced_on_real_corpus_fixture() -> None:
+    root = _pilot_fixture_root()
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    adapter = DocliftBundleSourceAdapter()
+    documents = [item for item in manifest["documents"]]
+
+    strategy = adapter.select_bundle_claim_strategy(
+        root,
+        documents,
+        limit=6,
+    )
+    assert strategy == "balanced"
+
+
+def test_doclift_auto_strategy_returns_available_track_on_synthetic_fixture() -> None:
+    root = _fixture_root()
+    manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    adapter = DocliftBundleSourceAdapter()
+    documents = {str(item["document_id"]): item for item in manifest["documents"]}
+
+    strategy = adapter.select_document_claim_strategy(root, documents["drift-essay"], limit=6)
+    assert strategy in {"conservative", "balanced", "broad"}
