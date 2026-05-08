@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import shutil
 
@@ -286,9 +287,66 @@ def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> 
     concept_ids = {item["concept_id"] for item in result.concepts}
     assert "concept::lecture-1" in concept_ids
     claim_ids = {item["claim_id"] for item in result.claims}
-    assert "clm_doclift_1" in claim_ids
     assert "clm_doclift_1_1" in claim_ids
+    assert "clm_doclift_1" not in claim_ids
     assert result.observations[0]["source_url"] == "legacy/lecture-1.doc"
     assert len(result.fragments) == 2
     assert result.fragments[0]["metadata"]["source_kind"] == "doclift_chunk"
-    assert result.claims[1]["supporting_fragment_ids"] == ["frag_doclift_1_1"]
+    claim_by_id = {item["claim_id"]: item for item in result.claims}
+    assert claim_by_id["clm_doclift_1_1"]["supporting_fragment_ids"] == ["frag_doclift_1_1"]
+
+
+def test_doclift_bundle_import_derives_claims_from_prose_when_chunks_are_body_only(tmp_path: Path) -> None:
+    root = tmp_path / "doclift_bundle_prose"
+    document_dir = root / "documents" / "essay-1"
+    document_dir.mkdir(parents=True)
+    (root / "manifest.json").write_text(
+        '{\n'
+        '  "documents": [\n'
+        '    {\n'
+        '      "document_id": "essay-1",\n'
+        '      "title": "Drift Essay",\n'
+        '      "document_kind": "web_article",\n'
+        '      "output_dir": "documents/essay-1",\n'
+        '      "markdown_path": "documents/essay-1/document.md"\n'
+        '    }\n'
+        '  ]\n'
+        '}\n',
+        encoding="utf-8",
+    )
+    (document_dir / "document.md").write_text(
+        "\n".join(
+            [
+                "# Drift Essay",
+                "",
+                "Random genetic drift can dominate allele-frequency change in small populations.",
+                "This matters because many alleles are fixed or lost without any adaptive advantage.",
+                "",
+                "Posted by Example Author",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (document_dir / "document.chunks.json").write_text(
+        json.dumps(
+            {
+                "chunks": [
+                    {
+                        "chunk_id": "essay-1-body-1",
+                        "role": "body",
+                        "section": "Drift Essay",
+                        "text": "Random genetic drift can dominate allele-frequency change in small populations.",
+                        "line_start": 1,
+                        "line_end": 2,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(root, mode="quick", import_id="doclift-prose-test")
+    claim_texts = [item["claim_text"] for item in result.claims]
+
+    assert any("Random genetic drift can dominate allele-frequency change in small populations." in text for text in claim_texts)
+    assert not any(text == "Drift Essay is a web_article in the imported doclift bundle." for text in claim_texts)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from hashlib import sha256
 from pathlib import Path
 
@@ -10,10 +11,30 @@ from .base import DiscoveredImportSource, StructuredImportRows, register_source_
 class DocliftBundleSourceAdapter:
     name = "doclift_bundle"
 
+    _PROSE_SENTENCE_SPLIT = re.compile(r"(?<=[.!?])\s+")
+    _METADATA_PREFIXES = (
+        "posted by",
+        "share to ",
+        "email this",
+        "blogthis",
+        "labels:",
+        "post a comment",
+        "older post",
+        "newer post",
+        "subscribe to",
+        "copyright",
+        "[last update",
+        "this essay has been transferred here",
+    )
+
     def _resolve_bundle_path(self, base: Path, value: str | Path | None) -> Path:
         if value is None:
             return Path()
+        if isinstance(value, str) and not value.strip():
+            return Path()
         path = Path(value)
+        if not str(path):
+            return Path()
         if path.is_absolute():
             return path
         return base / path
@@ -38,6 +59,131 @@ class DocliftBundleSourceAdapter:
         if isinstance(payload, list):
             return [chunk for chunk in payload if isinstance(chunk, dict)]
         return []
+
+    def _load_markdown_text(self, base: Path, document: dict) -> str:
+        markdown_path = self._resolve_bundle_path(base, document.get("markdown_path", ""))
+        if not markdown_path.exists():
+            return ""
+        return markdown_path.read_text(encoding="utf-8")
+
+    def _normalize_inline_text(self, value: str) -> str:
+        text = value.replace("\xa0", " ")
+        text = re.sub(r"\[[^\]]+\]\([^)]+\)", "", text)
+        text = re.sub(r"\[[^\]]+\]", "", text)
+        text = re.sub(r"\s+", " ", text)
+        return text.strip()
+
+    def _looks_like_metadata_line(self, value: str) -> bool:
+        lowered = value.strip().lower()
+        if not lowered:
+            return True
+        if any(lowered.startswith(prefix) for prefix in self._METADATA_PREFIXES):
+            return True
+        if lowered in {"home", "sandwalk", "comments", "recent comments", "loading..."}:
+            return True
+        if "property='og:" in lowered or lowered.startswith("http"):
+            return True
+        return False
+
+    def _is_claim_candidate(self, cleaned: str, *, title: str = "", strategy: str = "conservative") -> bool:
+        lowered = cleaned.lower()
+        normalized_title = self._normalize_inline_text(title).lower()
+        min_length = 70 if strategy == "conservative" else 40
+        if len(cleaned) < min_length:
+            return False
+        if strategy == "conservative" and len(cleaned) > 360:
+            return False
+        if strategy == "broad" and len(cleaned) > 520:
+            return False
+        if any(lowered.startswith(prefix) for prefix in self._METADATA_PREFIXES):
+            return False
+        if normalized_title and lowered == normalized_title:
+            return False
+        if cleaned.count(" ") < 8:
+            return False
+        return True
+
+    def _extract_claim_sentences_from_paragraphs(
+        self,
+        paragraphs: list[str],
+        *,
+        title: str = "",
+        limit: int = 4,
+        strategy: str = "conservative",
+    ) -> list[str]:
+        claims: list[str] = []
+        seen: set[str] = set()
+        for paragraph in paragraphs:
+            normalized_paragraph = self._normalize_inline_text(paragraph)
+            if len(normalized_paragraph) < 80:
+                continue
+            if strategy == "broad":
+                paragraph_key = normalized_paragraph.lower()
+                if self._is_claim_candidate(normalized_paragraph, title=title, strategy=strategy) and paragraph_key not in seen:
+                    seen.add(paragraph_key)
+                    claims.append(normalized_paragraph)
+                    if len(claims) >= limit:
+                        return claims
+            for sentence in self._PROSE_SENTENCE_SPLIT.split(normalized_paragraph):
+                cleaned = self._normalize_inline_text(sentence)
+                lowered = cleaned.lower()
+                if not self._is_claim_candidate(cleaned, title=title, strategy=strategy):
+                    continue
+                if lowered in seen:
+                    continue
+                seen.add(lowered)
+                claims.append(cleaned)
+                if len(claims) >= limit:
+                    return claims
+        return claims
+
+    def _extract_claim_sentences(self, markdown_text: str, *, title: str = "", limit: int = 4, strategy: str = "conservative") -> list[str]:
+        paragraphs: list[str] = []
+        current: list[str] = []
+        for raw_line in markdown_text.splitlines():
+            line = raw_line.strip()
+            if not line:
+                if current:
+                    paragraphs.append(" ".join(current))
+                    current = []
+                continue
+            if line.startswith("#") or line.startswith("![") or line.startswith("|"):
+                continue
+            if self._looks_like_metadata_line(line):
+                continue
+            if len(line) < 40:
+                continue
+            current.append(line)
+        if current:
+            paragraphs.append(" ".join(current))
+        if strategy == "broad":
+            broad_claims = self._extract_claim_sentences_from_paragraphs(
+                paragraphs,
+                title=title,
+                limit=max(limit * 2, limit),
+                strategy="broad",
+            )
+            if len(broad_claims) >= limit:
+                return broad_claims[:limit]
+            return broad_claims
+        return self._extract_claim_sentences_from_paragraphs(
+            paragraphs,
+            title=title,
+            limit=limit,
+            strategy="conservative",
+        )
+
+    def extract_document_claims(
+        self,
+        base: Path,
+        document: dict,
+        *,
+        strategy: str = "conservative",
+        limit: int = 4,
+    ) -> list[str]:
+        markdown_text = self._load_markdown_text(base, document)
+        title = str(document.get("title") or "")
+        return self._extract_claim_sentences(markdown_text, title=title, limit=limit, strategy=strategy)
 
     def discover(self, root: str | Path) -> list[DiscoveredImportSource]:
         base = Path(root)
@@ -108,7 +254,7 @@ class DocliftBundleSourceAdapter:
             artifact_id = artifact_by_path.get(str(relative_markdown), "")
             figures_path = self._resolve_bundle_path(base, document.get("figures_path", ""))
             figure_payload = {}
-            if figures_path.exists():
+            if figures_path.is_file():
                 figure_payload = json.loads(figures_path.read_text(encoding="utf-8"))
             source_path = str(figure_payload.get("source_path") or document.get("source_path") or relative_markdown)
             source_path_kind = str(figure_payload.get("source_path_kind") or document.get("source_path_kind") or "source_root_relative")
@@ -144,22 +290,7 @@ class DocliftBundleSourceAdapter:
                     "current_status": "draft",
                 }
             )
-            claim_rows.append(
-                {
-                    "claim_id": f"clm_doclift_{index}",
-                    "import_id": context.import_id,
-                    "claim_text": f"{title} is a {document.get('document_kind', 'document')} in the imported doclift bundle.",
-                    "claim_kind": "summary",
-                    "source_observation_ids": [observation_id],
-                    "supporting_fragment_ids": [],
-                    "concept_ids": [concept_id],
-                    "contradicts_claim_ids": [],
-                    "supersedes_claim_ids": [],
-                    "confidence_hint": 0.85,
-                    "grounding_status": "grounded",
-                    "current_status": "triaged",
-                }
-            )
+            document_claim_ids: list[str] = []
             for chunk_index, chunk in enumerate(self._load_chunks(base, document), start=1):
                 chunk_text = str(chunk.get("text") or "").strip()
                 if not chunk_text:
@@ -209,9 +340,10 @@ class DocliftBundleSourceAdapter:
                     }
                 )
                 if chunk_role in {"claim", "summary"}:
+                    claim_id = f"clm_doclift_{index}_{chunk_index}"
                     claim_rows.append(
                         {
-                            "claim_id": f"clm_doclift_{index}_{chunk_index}",
+                            "claim_id": claim_id,
                             "import_id": context.import_id,
                             "claim_text": chunk_text,
                             "claim_kind": "statement" if chunk_role == "claim" else "summary",
@@ -225,6 +357,69 @@ class DocliftBundleSourceAdapter:
                             "current_status": "triaged",
                         }
                     )
+                    document_claim_ids.append(claim_id)
+            if not document_claim_ids and str(document.get("document_kind") or "").strip() in {"web_article", "document"}:
+                for derived_index, claim_text in enumerate(self.extract_document_claims(base, document, strategy="conservative"), start=1):
+                    derived_observation_id = f"obs_doclift_{index}_derived_{derived_index}"
+                    claim_id = f"clm_doclift_{index}_derived_{derived_index}"
+                    observation_rows.append(
+                        {
+                            "observation_id": derived_observation_id,
+                            "import_id": context.import_id,
+                            "artifact_id": artifact_id,
+                            "role": "claim",
+                            "text": claim_text,
+                            "origin_path": relative_markdown,
+                            "origin_section": title,
+                            "line_start": 0,
+                            "line_end": 0,
+                            "source_url": source_path,
+                            "metadata": {
+                                "source_path_kind": source_path_kind,
+                                "derived_from": "markdown_sentence",
+                            },
+                            "grounding_status": "grounded",
+                            "support_kind": "direct_source",
+                            "confidence_hint": 0.65,
+                            "current_status": "draft",
+                        }
+                    )
+                    claim_rows.append(
+                        {
+                            "claim_id": claim_id,
+                            "import_id": context.import_id,
+                            "claim_text": claim_text,
+                            "claim_kind": "statement",
+                            "source_observation_ids": [derived_observation_id],
+                            "supporting_fragment_ids": [],
+                            "concept_ids": [concept_id],
+                            "contradicts_claim_ids": [],
+                            "supersedes_claim_ids": [],
+                            "confidence_hint": 0.65,
+                            "grounding_status": "grounded",
+                            "current_status": "triaged",
+                        }
+                    )
+                    document_claim_ids.append(claim_id)
+            if not document_claim_ids:
+                fallback_claim_id = f"clm_doclift_{index}"
+                claim_rows.append(
+                    {
+                        "claim_id": fallback_claim_id,
+                        "import_id": context.import_id,
+                        "claim_text": f"{title} is a {document.get('document_kind', 'document')} in the imported doclift bundle.",
+                        "claim_kind": "summary",
+                        "source_observation_ids": [observation_id],
+                        "supporting_fragment_ids": [],
+                        "concept_ids": [concept_id],
+                        "contradicts_claim_ids": [],
+                        "supersedes_claim_ids": [],
+                        "confidence_hint": 0.85,
+                        "grounding_status": "grounded",
+                        "current_status": "triaged",
+                    }
+                )
+                document_claim_ids.append(fallback_claim_id)
             if previous_concept_id is not None:
                 relation_rows.append(
                     {
@@ -233,7 +428,7 @@ class DocliftBundleSourceAdapter:
                         "source_id": previous_concept_id,
                         "target_id": concept_id,
                         "relation_type": "references",
-                        "evidence_ids": [f"clm_doclift_{index}"],
+                        "evidence_ids": document_claim_ids[:1],
                         "current_status": "draft",
                     }
                 )

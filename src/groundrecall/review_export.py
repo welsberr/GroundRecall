@@ -460,6 +460,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         concept_reviews.append(
             {
                 "concept_id": concept.concept_id,
+                "label": concept.title,
                 "title": concept.title,
                 "status": concept.status,
                 "description": concept.description,

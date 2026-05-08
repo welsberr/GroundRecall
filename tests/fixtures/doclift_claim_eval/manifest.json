@@ -1,0 +1,20 @@
+{
+  "documents": [
+    {
+      "document_id": "intro-essay",
+      "title": "Intro Essay",
+      "document_kind": "web_article",
+      "output_dir": "documents/intro-essay",
+      "markdown_path": "documents/intro-essay/document.md",
+      "chunks_path": "documents/intro-essay/document.chunks.json"
+    },
+    {
+      "document_id": "drift-essay",
+      "title": "Drift Essay",
+      "document_kind": "web_article",
+      "output_dir": "documents/drift-essay",
+      "markdown_path": "documents/drift-essay/document.md",
+      "chunks_path": "documents/drift-essay/document.chunks.json"
+    }
+  ]
+}
