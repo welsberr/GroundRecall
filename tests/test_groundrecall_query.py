@@ -27,6 +27,7 @@ def _seed_store(store: GroundRecallStore) -> None:
             artifact_kind="compiled_page",
             title="Channel Capacity",
             path="wiki/channel-capacity.md",
+            metadata={"source_role": "mechanism"},
             current_status="reviewed",
         )
     )
@@ -82,6 +83,21 @@ def _seed_store(store: GroundRecallStore) -> None:
     store.save_claim(
         ClaimRecord(
             claim_id="clm_002",
+            claim_text="Channel capacity does not imply error-free transmission without coding.",
+            concept_ids=["concept::channel-capacity"],
+            source_observation_ids=["obs_001"],
+            provenance=ProvenanceRecord(
+                origin_artifact_id="ia_001",
+                origin_path="wiki/channel-capacity.md",
+                support_kind="derived_from_page",
+                grounding_status="partially_grounded",
+            ),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_003",
             claim_text="Shannon entropy can inform channel coding intuition.",
             concept_ids=["concept::shannon-entropy"],
             contradicts_claim_ids=["clm_999"],
@@ -136,10 +152,11 @@ def test_query_concept_returns_neighborhood_and_support(tmp_path: Path) -> None:
     payload = query_concept(store.base_dir, "channel-capacity")
     assert payload is not None
     assert payload["concept"]["concept_id"] == "concept::channel-capacity"
-    assert len(payload["claims"]) == 1
+    assert len(payload["claims"]) == 2
     assert len(payload["relations"]) == 1
     assert any(item["concept_id"] == "concept::shannon-entropy" for item in payload["related_concepts"])
     assert payload["supporting_observations"][0]["origin_path"] == "wiki/channel-capacity.md"
+    assert payload["supporting_observations"][0]["source_role"] == "mechanism"
     assert len(payload["review_candidates"]) == 2
     assert any(item["candidate_id"] == "concept::channel-capacity" for item in payload["review_candidates"])
     assert any("graph=bridge_concept" in item["rationale"] for item in payload["review_candidates"])
@@ -151,7 +168,7 @@ def test_search_claims_matches_text_and_concept_titles(tmp_path: Path) -> None:
 
     payload = search_claims(store.base_dir, "entropy")
     assert payload["query_type"] == "claim_search"
-    assert any(match["claim"]["claim_id"] == "clm_002" for match in payload["matches"])
+    assert any(match["claim"]["claim_id"] == "clm_003" for match in payload["matches"])
 
 
 def test_query_provenance_filters_by_origin_path(tmp_path: Path) -> None:
@@ -159,7 +176,7 @@ def test_query_provenance_filters_by_origin_path(tmp_path: Path) -> None:
     _seed_store(store)
 
     payload = query_provenance(store.base_dir, origin_path="wiki/channel-capacity.md")
-    assert len(payload["claims"]) == 2
+    assert len(payload["claims"]) == 3
     assert len(payload["observations"]) == 1
 
 
@@ -173,6 +190,10 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload["concept"]["concept_id"] == "concept::channel-capacity"
     assert len(payload["relations"]) == 1
     assert payload["source_artifacts"][0]["artifact_id"] == "ia_001"
+    assert payload["source_artifacts"][0]["source_role"] == "mechanism"
+    assert payload["source_role_summary"]["mechanism"] == 1
+    assert payload["key_distinctions"][0]["distinction_type"] == "non_implication"
+    assert payload["relevant_claims"][0]["source_roles"] == ["mechanism"]
     assert len(payload["review_candidates"]) == 2
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
@@ -184,7 +205,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     _seed_store(store)
     store.save_claim(
         ClaimRecord(
-            claim_id="clm_003",
+            claim_id="clm_004",
             claim_text="Channel capacity is undefined in practice.",
             concept_ids=["concept::channel-capacity"],
             contradicts_claim_ids=["clm_001"],
@@ -199,7 +220,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     )
     store.save_claim(
         ClaimRecord(
-            claim_id="clm_004",
+            claim_id="clm_005",
             claim_text="Channel capacity should be interpreted relative to a specific channel model.",
             concept_ids=["concept::channel-capacity"],
             supersedes_claim_ids=["clm_001"],
@@ -217,5 +238,5 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert payload is not None
     contradiction_ids = {item["claim_id"] for item in payload["contradictions"]}
     supersession_ids = {item["claim_id"] for item in payload["supersessions"]}
-    assert "clm_003" in contradiction_ids
-    assert "clm_004" in supersession_ids
+    assert "clm_004" in contradiction_ids
+    assert "clm_005" in supersession_ids

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 from .store import GroundRecallStore
@@ -15,6 +16,59 @@ def _normalize(text: str) -> str:
 def _matches(query: str, *values: str) -> bool:
     needle = _normalize(query)
     return any(needle in _normalize(value) for value in values if value)
+
+
+_SOURCE_ROLE_ORDER = ["overview", "mechanism", "nuance", "controversy", "argumentation"]
+
+
+def _infer_source_role(artifact) -> str:
+    metadata = artifact.metadata if isinstance(getattr(artifact, "metadata", None), dict) else {}
+    explicit = str(metadata.get("source_role", "") or metadata.get("source_role_hint", "")).strip().lower()
+    if explicit in _SOURCE_ROLE_ORDER:
+        return explicit
+
+    title = str(getattr(artifact, "title", "") or "").lower()
+    path = str(getattr(artifact, "path", "") or "").lower()
+    corpus = str(metadata.get("corpus", "") or "").lower()
+    document_kind = str(metadata.get("document_kind", "") or "").lower()
+    joined = " ".join(part for part in (title, path, corpus, document_kind) if part)
+
+    if any(token in joined for token in ("pandasthumb", "indexcc", "talkorigins", "evidence", "rebuttal", "argument", "critique")):
+        return "argumentation"
+    if any(token in joined for token in ("controvers", "debate", "dispute", "polemic")):
+        return "controversy"
+    if any(token in joined for token in ("introduction", "overview", "chapter", "textbook", "handbook", "evolutionary biology", "ecology")):
+        return "overview"
+    if any(token in joined for token in ("mechanism", "model", "testing", "test", "how", "rate", "process")):
+        return "mechanism"
+    if any(token in joined for token in ("nuance", "qualification", "constraint", "plasticity", "epigenetic", "drift")):
+        return "nuance"
+    return "overview"
+
+
+def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
+    text = str(claim.get("claim_text", "")).strip()
+    lowered = text.lower()
+    if not text:
+        return None
+
+    patterns = [
+        ("non_implication", r"\bdoes not imply\b", "does not imply"),
+        ("decoupling", r"\b(can|may)\s+occur\s+without\b", "can or may occur without"),
+        ("contrast", r"\bversus\b|\bvs\.\b|\bvs\b", "versus"),
+        ("contrast", r"\brather than\b", "rather than"),
+        ("contrast", r"\bdifferent from\b|\bdistinguish(?:ed)? from\b", "different from"),
+        ("contrast", r"\bnot\b.+\bbut\b", "not ... but"),
+    ]
+    for distinction_type, pattern, cue in patterns:
+        if re.search(pattern, lowered):
+            return {
+                "claim_id": claim.get("claim_id", ""),
+                "distinction_type": distinction_type,
+                "cue": cue,
+                "text": text,
+            }
+    return None
 
 
 def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | None:
@@ -48,13 +102,16 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
         for observation_id in claim.source_observation_ids:
             observation = observations.get(observation_id)
             if observation is not None:
+                artifact = artifacts.get(observation.artifact_id)
                 supporting_observations.append(
                     {
                         "observation_id": observation.observation_id,
+                        "artifact_id": observation.artifact_id,
                         "text": observation.text,
                         "role": observation.role,
                         "origin_path": observation.provenance.origin_path,
                         "grounding_status": observation.provenance.grounding_status,
+                        "source_role": _infer_source_role(artifact) if artifact is not None else "",
                     }
                 )
 
@@ -67,11 +124,30 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
     )
     related_concepts = [item.model_dump() for item in concepts if item.concept_id in related_concept_ids]
 
-    source_artifacts = [
-        artifact.model_dump()
-        for artifact in artifacts.values()
-        if artifact.artifact_id in set(concept.source_artifact_ids)
-    ]
+    source_artifacts = []
+    for artifact in artifacts.values():
+        if artifact.artifact_id not in set(concept.source_artifact_ids):
+            continue
+        payload = artifact.model_dump()
+        payload["source_role"] = _infer_source_role(artifact)
+        source_artifacts.append(payload)
+
+    claim_payloads: list[dict[str, Any]] = []
+    for claim in claims:
+        payload = claim.model_dump()
+        source_roles = sorted(
+            {
+                _infer_source_role(artifacts[observations[item].artifact_id])
+                for item in claim.source_observation_ids
+                if item in observations and observations[item].artifact_id in artifacts
+            }
+        )
+        if source_roles:
+            payload["source_roles"] = source_roles
+        distinction = _claim_distinction_payload(payload)
+        if distinction is not None:
+            payload["distinction"] = distinction
+        claim_payloads.append(payload)
     related_review_candidates = [
         item.model_dump()
         for item in review_candidates
@@ -82,7 +158,7 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
     return {
         "query_type": "concept",
         "concept": concept.model_dump(),
-        "claims": [item.model_dump() for item in claims],
+        "claims": claim_payloads,
         "relations": [item.model_dump() for item in relations],
         "related_concepts": related_concepts,
         "supporting_observations": supporting_observations,
@@ -218,6 +294,12 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     relations = payload["relations"]
     contradictions = [item for item in claims if item.get("contradicts_claim_ids")]
     supersessions = [item for item in claims if item.get("supersedes_claim_ids")]
+    source_role_summary: dict[str, int] = {}
+    for artifact in payload["source_artifacts"]:
+        role = str(artifact.get("source_role", "")).strip()
+        if role:
+            source_role_summary[role] = source_role_summary.get(role, 0) + 1
+    key_distinctions = [item["distinction"] for item in claims if isinstance(item.get("distinction"), dict)]
     return {
         "bundle_kind": "groundrecall_query_bundle",
         "query_type": "concept",
@@ -226,6 +308,8 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "relations": relations,
         "supporting_observations": payload["supporting_observations"],
         "source_artifacts": payload["source_artifacts"],
+        "source_role_summary": dict(sorted(source_role_summary.items())),
+        "key_distinctions": key_distinctions[:8],
         "related_concepts": payload["related_concepts"],
         "review_candidates": payload["review_candidates"],
         "contradictions": contradictions,
