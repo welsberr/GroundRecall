@@ -136,9 +136,31 @@ def test_review_workspace_surfaces_local_bibliography_support_suggestions(tmp_pa
     concept_review = next(item for item in payload["concept_reviews"] if item["concept_id"] == "drift")
     suggestions = concept_review["top_claims"][0]["support_suggestions"]
     assert concept_review["analysis_lanes"]["empirical"] >= 1
+    assert concept_review["source_role_summary"]
     assert suggestions
     assert suggestions[0]["citation_key"] == "kimura1968evolutionary"
     assert "abstract" in suggestions[0]["reason"].lower() or "title" in suggestions[0]["reason"].lower()
+
+
+def test_review_workspace_surfaces_source_roles_and_distinctions(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "selection.md").write_text(
+        "# Selection\n\n"
+        "- Natural selection does not imply adaptation.\n",
+        encoding="utf-8",
+    )
+
+    import_result = run_groundrecall_import(root, out_root=tmp_path / "imports", mode="quick", import_id="distinction-review")
+    workspace = GroundRecallReviewWorkspace(import_result.out_dir)
+    payload = workspace.load_review_data()
+
+    concept_review = next(item for item in payload["concept_reviews"] if item["concept_id"] == "selection")
+    claim = concept_review["top_claims"][0]
+    assert claim["source_roles"] == ["overview"]
+    assert claim["distinction"]["distinction_type"] == "non_implication"
+    assert claim["supporting_observations"][0]["source_role"] == "overview"
+    assert concept_review["key_distinctions"][0]["distinction_type"] == "non_implication"
 
 
 def test_review_workspace_can_use_separate_bibliography_root(tmp_path: Path) -> None:
