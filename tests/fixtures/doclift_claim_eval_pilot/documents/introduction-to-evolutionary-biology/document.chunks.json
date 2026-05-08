@@ -1,0 +1,20 @@
+{
+  "chunks": [
+    {
+      "chunk_id": "intro-pilot-body-1",
+      "role": "body",
+      "section": "What is Evolution?",
+      "text": "Evolution is a change in the gene pool of a population over time. A gene is a hereditary unit that can be passed on unaltered for many generations. The gene pool is the set of all genes in a species or population.",
+      "line_start": 1,
+      "line_end": 4
+    },
+    {
+      "chunk_id": "intro-pilot-body-2",
+      "role": "body",
+      "section": "What is Evolution?",
+      "text": "Populations evolve. In order to understand evolution, it is necessary to view populations as a collection of individuals, each harboring a different set of traits. Individual organisms do not evolve, they retain the same genes throughout their life.",
+      "line_start": 6,
+      "line_end": 9
+    }
+  ]
+}

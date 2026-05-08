@@ -1,0 +1,18 @@
+{
+  "documents": [
+    {
+      "document_id": "introduction-to-evolutionary-biology",
+      "gold_claims": [
+        "Evolution is a change in the gene pool of a population over time.",
+        "Populations evolve, but individual organisms do not evolve during their lifetimes."
+      ]
+    },
+    {
+      "document_id": "sandwalk-on-the-importance-of-random-genetic-drift-in-modern-evolutionary-theory",
+      "gold_claims": [
+        "Random genetic drift is a fundamental and important part of evolution.",
+        "Neutral and slightly deleterious alleles can be fixed in a population by random genetic drift."
+      ]
+    }
+  ]
+}

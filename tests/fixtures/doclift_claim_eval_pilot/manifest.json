@@ -1,0 +1,20 @@
+{
+  "documents": [
+    {
+      "document_id": "introduction-to-evolutionary-biology",
+      "title": "Introduction to Evolutionary Biology",
+      "document_kind": "web_article",
+      "output_dir": "documents/introduction-to-evolutionary-biology",
+      "markdown_path": "documents/introduction-to-evolutionary-biology/document.md",
+      "chunks_path": "documents/introduction-to-evolutionary-biology/document.chunks.json"
+    },
+    {
+      "document_id": "sandwalk-on-the-importance-of-random-genetic-drift-in-modern-evolutionary-theory",
+      "title": "Sandwalk: On the importance of random genetic drift in modern evolutionary theory",
+      "document_kind": "web_article",
+      "output_dir": "documents/sandwalk-on-the-importance-of-random-genetic-drift-in-modern-evolutionary-theory",
+      "markdown_path": "documents/sandwalk-on-the-importance-of-random-genetic-drift-in-modern-evolutionary-theory/document.md",
+      "chunks_path": "documents/sandwalk-on-the-importance-of-random-genetic-drift-in-modern-evolutionary-theory/document.chunks.json"
+    }
+  ]
+}
