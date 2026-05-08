@@ -368,10 +368,12 @@ def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
     if not text:
         return None
     patterns = [
+        ("contrast", r"\bcompare\b", "compare"),
         ("non_implication", r"\bdoes not imply\b", "does not imply"),
         ("decoupling", r"\b(can|may)\s+occur\s+without\b", "can or may occur without"),
         ("contrast", r"\bversus\b|\bvs\.\b|\bvs\b", "versus"),
         ("contrast", r"\brather than\b", "rather than"),
+        ("contrast", r"\bdiffer(?:s|ed|ent)? from\b|\bdiffers?\b", "differs from"),
         ("contrast", r"\bdifferent from\b|\bdistinguish(?:ed)? from\b", "different from"),
         ("contrast", r"\bnot\b.+\bbut\b", "not ... but"),
     ]
@@ -384,6 +386,19 @@ def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
                 "text": text,
             }
     return None
+
+
+def _role_from_observation_or_claim(artifact_role: str, observation: dict[str, Any] | None, claim: dict[str, Any] | None) -> str:
+    observation_role = str((observation or {}).get("role", "") or "").lower()
+    claim_kind = str((claim or {}).get("claim_kind", "") or "").lower()
+    claim_text = str((claim or {}).get("claim_text", "") or "").lower()
+    if observation_role in {"distinction", "qualification", "constraint"} or claim_kind in {"distinction", "qualification", "constraint"}:
+        return "nuance"
+    if observation_role == "definition" or claim_kind == "definition":
+        return "overview"
+    if claim_kind == "mastery_signal" and re.search(r"\b(build|compute|derive|detect|protect|repair|compare|contrast|state why)\b", claim_text):
+        return "mechanism"
+    return artifact_role
 
 
 def build_citation_review_entries_from_import(import_dir: str | Path) -> list[CitationReviewEntry]:
@@ -512,7 +527,21 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         for claim in concept_claims[:25]:
             supporting_observations = [observations_by_id[item] for item in claim.get("source_observation_ids", []) if item in observations_by_id]
             artifact_ids = {item["artifact_id"] for item in supporting_observations}
-            source_roles = sorted({artifact_role_by_id.get(artifact_id, "") for artifact_id in artifact_ids if artifact_role_by_id.get(artifact_id, "")})
+            source_roles = sorted(
+                {
+                    _role_from_observation_or_claim(
+                        artifact_role_by_id.get(obs.get("artifact_id", ""), ""),
+                        obs,
+                        claim,
+                    )
+                    for obs in supporting_observations
+                    if _role_from_observation_or_claim(
+                        artifact_role_by_id.get(obs.get("artifact_id", ""), ""),
+                        obs,
+                        claim,
+                    )
+                }
+            )
             citation_support = [artifact_citation_summary.get(artifact_id, {}) for artifact_id in artifact_ids]
             has_citation_support = has_citation_support or any(item.get("has_citation_support") for item in citation_support)
             analysis = _claim_analysis_metadata(claim)
@@ -558,6 +587,11 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                             "artifact_id": obs.get("artifact_id", ""),
                             "origin_path": obs.get("origin_path", ""),
                             "origin_section": obs.get("origin_section", ""),
+                            "source_role": _role_from_observation_or_claim(
+                                artifact_role_by_id.get(obs.get("artifact_id", ""), ""),
+                                obs,
+                                claim,
+                            ),
                             "text": obs.get("text", ""),
                             "line_start": obs.get("line_start", 0),
                             "line_end": obs.get("line_end", 0),

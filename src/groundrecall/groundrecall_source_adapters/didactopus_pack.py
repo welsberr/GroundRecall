@@ -64,6 +64,52 @@ class DidactopusPackSourceAdapter:
         concept_rows: list[dict] = []
         relation_rows: list[dict] = []
 
+        def append_claim(
+            *,
+            claim_id: str,
+            observation_id: str,
+            artifact_id: str,
+            origin_section: str,
+            text: str,
+            claim_kind: str,
+            concept_id: str,
+            confidence_hint: float,
+            role: str = "summary",
+        ) -> None:
+            observation_rows.append(
+                {
+                    "observation_id": observation_id,
+                    "import_id": context.import_id,
+                    "artifact_id": artifact_id,
+                    "role": role,
+                    "text": text,
+                    "origin_path": concepts_src.relative_path,
+                    "origin_section": origin_section,
+                    "line_start": 0,
+                    "line_end": 0,
+                    "grounding_status": "grounded",
+                    "support_kind": "direct_source",
+                    "confidence_hint": confidence_hint,
+                    "current_status": "draft",
+                }
+            )
+            claim_rows.append(
+                {
+                    "claim_id": claim_id,
+                    "import_id": context.import_id,
+                    "claim_text": text,
+                    "claim_kind": claim_kind,
+                    "source_observation_ids": [observation_id],
+                    "supporting_fragment_ids": [],
+                    "concept_ids": [concept_id],
+                    "contradicts_claim_ids": [],
+                    "supersedes_claim_ids": [],
+                    "confidence_hint": confidence_hint,
+                    "grounding_status": "grounded",
+                    "current_status": "triaged",
+                }
+            )
+
         for source in sources:
             artifact_rows.append(
                 {
@@ -98,40 +144,65 @@ class DidactopusPackSourceAdapter:
                     "current_status": "triaged",
                 }
             )
-            observation_id = f"obs_pack_{concept.id}_{index}"
-            observation_rows.append(
-                {
-                    "observation_id": observation_id,
-                    "import_id": context.import_id,
-                    "artifact_id": concepts_artifact_id,
-                    "role": "summary",
-                    "text": concept.description or concept.title,
-                    "origin_path": concepts_src.relative_path,
-                    "origin_section": concept.title,
-                    "line_start": 0,
-                    "line_end": 0,
-                    "grounding_status": "grounded",
-                    "support_kind": "direct_source",
-                    "confidence_hint": 0.85,
-                    "current_status": "draft",
-                }
+            append_claim(
+                claim_id=f"clm_pack_{concept.id}",
+                observation_id=f"obs_pack_{concept.id}_{index}",
+                artifact_id=concepts_artifact_id,
+                origin_section=concept.title,
+                text=concept.description or f"{concept.title} is a concept in pack {pack_name}.",
+                claim_kind="summary",
+                concept_id=concept_key,
+                confidence_hint=0.85,
+                role="summary",
             )
-            claim_rows.append(
-                {
-                    "claim_id": f"clm_pack_{concept.id}",
-                    "import_id": context.import_id,
-                    "claim_text": concept.description or f"{concept.title} is a concept in pack {pack_name}.",
-                    "claim_kind": "summary",
-                    "source_observation_ids": [observation_id],
-                    "supporting_fragment_ids": [],
-                    "concept_ids": [concept_key],
-                    "contradicts_claim_ids": [],
-                    "supersedes_claim_ids": [],
-                    "confidence_hint": 0.85,
-                    "grounding_status": "grounded",
-                    "current_status": "triaged",
-                }
-            )
+            for item_index, definition in enumerate(concept.definition_candidates, start=1):
+                append_claim(
+                    claim_id=f"clm_def_{concept.id}_{item_index}",
+                    observation_id=f"obs_def_{concept.id}_{item_index}",
+                    artifact_id=concepts_artifact_id,
+                    origin_section=f"{concept.title} definition",
+                    text=definition,
+                    claim_kind="definition",
+                    concept_id=concept_key,
+                    confidence_hint=0.84,
+                    role="definition",
+                )
+            for item_index, distinction in enumerate(concept.distinctions, start=1):
+                append_claim(
+                    claim_id=f"clm_dist_{concept.id}_{item_index}",
+                    observation_id=f"obs_dist_{concept.id}_{item_index}",
+                    artifact_id=concepts_artifact_id,
+                    origin_section=f"{concept.title} distinction",
+                    text=distinction,
+                    claim_kind="distinction",
+                    concept_id=concept_key,
+                    confidence_hint=0.82,
+                    role="distinction",
+                )
+            for item_index, qualification in enumerate(concept.qualification_candidates, start=1):
+                append_claim(
+                    claim_id=f"clm_qual_{concept.id}_{item_index}",
+                    observation_id=f"obs_qual_{concept.id}_{item_index}",
+                    artifact_id=concepts_artifact_id,
+                    origin_section=f"{concept.title} qualification",
+                    text=qualification,
+                    claim_kind="qualification",
+                    concept_id=concept_key,
+                    confidence_hint=0.8,
+                    role="qualification",
+                )
+            for item_index, constraint in enumerate(concept.constraint_candidates, start=1):
+                append_claim(
+                    claim_id=f"clm_constraint_{concept.id}_{item_index}",
+                    observation_id=f"obs_constraint_{concept.id}_{item_index}",
+                    artifact_id=concepts_artifact_id,
+                    origin_section=f"{concept.title} constraint",
+                    text=constraint,
+                    claim_kind="constraint",
+                    concept_id=concept_key,
+                    confidence_hint=0.81,
+                    role="constraint",
+                )
             for prereq in concept.prerequisites:
                 relation_rows.append(
                     {
@@ -145,39 +216,16 @@ class DidactopusPackSourceAdapter:
                     }
                 )
             for signal_idx, signal in enumerate(concept.mastery_signals, start=1):
-                signal_obs_id = f"obs_signal_{concept.id}_{signal_idx}"
-                observation_rows.append(
-                    {
-                        "observation_id": signal_obs_id,
-                        "import_id": context.import_id,
-                        "artifact_id": concepts_artifact_id,
-                        "role": "summary",
-                        "text": signal,
-                        "origin_path": concepts_src.relative_path,
-                        "origin_section": f"{concept.title} mastery signal",
-                        "line_start": 0,
-                        "line_end": 0,
-                        "grounding_status": "grounded",
-                        "support_kind": "direct_source",
-                        "confidence_hint": 0.8,
-                        "current_status": "draft",
-                    }
-                )
-                claim_rows.append(
-                    {
-                        "claim_id": f"clm_signal_{concept.id}_{signal_idx}",
-                        "import_id": context.import_id,
-                        "claim_text": signal,
-                        "claim_kind": "mastery_signal",
-                        "source_observation_ids": [signal_obs_id],
-                        "supporting_fragment_ids": [],
-                        "concept_ids": [concept_key],
-                        "contradicts_claim_ids": [],
-                        "supersedes_claim_ids": [],
-                        "confidence_hint": 0.8,
-                        "grounding_status": "grounded",
-                        "current_status": "triaged",
-                    }
+                append_claim(
+                    claim_id=f"clm_signal_{concept.id}_{signal_idx}",
+                    observation_id=f"obs_signal_{concept.id}_{signal_idx}",
+                    artifact_id=concepts_artifact_id,
+                    origin_section=f"{concept.title} mastery signal",
+                    text=signal,
+                    claim_kind="mastery_signal",
+                    concept_id=concept_key,
+                    confidence_hint=0.8,
+                    role="mastery_signal",
                 )
 
         if roadmap_payload is not None and roadmap_src is not None:

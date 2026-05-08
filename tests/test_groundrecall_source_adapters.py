@@ -248,6 +248,10 @@ def test_didactopus_pack_import_generates_structured_concepts_and_relations(tmp_
                 "    title: Advanced",
                 "    description: Builds on basics.",
                 "    prerequisites: [basics]",
+                "    distinctions: [Advanced differs from basics in scope.]",
+                "    definition_candidates: [Advanced is a follow-on concept.]",
+                "    qualification_candidates: [Advanced builds on basics but assumes more context.]",
+                "    constraint_candidates: [Advanced cannot be understood without basics.]",
             ]
         ),
         encoding="utf-8",
@@ -275,6 +279,10 @@ def test_didactopus_pack_import_generates_structured_concepts_and_relations(tmp_
     claim_ids = {item["claim_id"] for item in result.claims}
     assert "clm_pack_basics" in claim_ids
     assert "clm_stage_stage1_basics" in claim_ids
+    assert "clm_dist_advanced_1" in claim_ids
+    assert "clm_def_advanced_1" in claim_ids
+    assert "clm_qual_advanced_1" in claim_ids
+    assert "clm_constraint_advanced_1" in claim_ids
 
 
 def test_doclift_bundle_import_generates_structured_concepts(tmp_path: Path) -> None:

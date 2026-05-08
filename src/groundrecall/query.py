@@ -53,10 +53,12 @@ def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
     patterns = [
+        ("contrast", r"\bcompare\b", "compare"),
         ("non_implication", r"\bdoes not imply\b", "does not imply"),
         ("decoupling", r"\b(can|may)\s+occur\s+without\b", "can or may occur without"),
         ("contrast", r"\bversus\b|\bvs\.\b|\bvs\b", "versus"),
         ("contrast", r"\brather than\b", "rather than"),
+        ("contrast", r"\bdiffer(?:s|ed|ent)? from\b|\bdiffers?\b", "differs from"),
         ("contrast", r"\bdifferent from\b|\bdistinguish(?:ed)? from\b", "different from"),
         ("contrast", r"\bnot\b.+\bbut\b", "not ... but"),
     ]
@@ -69,6 +71,20 @@ def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
                 "text": text,
             }
     return None
+
+
+def _role_from_observation_or_claim(artifact_role: str, observation: Any | None, claim: Any | dict[str, Any] | None) -> str:
+    observation_role = str(getattr(observation, "role", "") or "").lower() if observation is not None else ""
+    claim_kind = str(getattr(claim, "claim_kind", "") or (claim.get("claim_kind", "") if isinstance(claim, dict) else "")).lower()
+    claim_text = str(getattr(claim, "claim_text", "") or (claim.get("claim_text", "") if isinstance(claim, dict) else "")).lower()
+
+    if observation_role in {"distinction", "qualification", "constraint"} or claim_kind in {"distinction", "qualification", "constraint"}:
+        return "nuance"
+    if observation_role == "definition" or claim_kind == "definition":
+        return "overview"
+    if claim_kind == "mastery_signal" and re.search(r"\b(build|compute|derive|detect|protect|repair|compare|contrast|state why)\b", claim_text):
+        return "mechanism"
+    return artifact_role
 
 
 def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | None:
@@ -111,7 +127,11 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
                         "role": observation.role,
                         "origin_path": observation.provenance.origin_path,
                         "grounding_status": observation.provenance.grounding_status,
-                        "source_role": _infer_source_role(artifact) if artifact is not None else "",
+                        "source_role": _role_from_observation_or_claim(
+                            _infer_source_role(artifact) if artifact is not None else "",
+                            observation,
+                            claim,
+                        ),
                     }
                 )
 
@@ -137,7 +157,11 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
         payload = claim.model_dump()
         source_roles = sorted(
             {
-                _infer_source_role(artifacts[observations[item].artifact_id])
+                _role_from_observation_or_claim(
+                    _infer_source_role(artifacts[observations[item].artifact_id]),
+                    observations[item],
+                    claim,
+                )
                 for item in claim.source_observation_ids
                 if item in observations and observations[item].artifact_id in artifacts
             }
@@ -299,6 +323,14 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         role = str(artifact.get("source_role", "")).strip()
         if role:
             source_role_summary[role] = source_role_summary.get(role, 0) + 1
+    claim_role_summary: dict[str, int] = {}
+    for claim in claims:
+        for role in claim.get("source_roles", []) or []:
+            role = str(role).strip()
+            if role:
+                claim_role_summary[role] = claim_role_summary.get(role, 0) + 1
+    if claim_role_summary:
+        source_role_summary = dict(sorted(claim_role_summary.items()))
     key_distinctions = [item["distinction"] for item in claims if isinstance(item.get("distinction"), dict)]
     return {
         "bundle_kind": "groundrecall_query_bundle",

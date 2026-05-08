@@ -191,7 +191,7 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert len(payload["relations"]) == 1
     assert payload["source_artifacts"][0]["artifact_id"] == "ia_001"
     assert payload["source_artifacts"][0]["source_role"] == "mechanism"
-    assert payload["source_role_summary"]["mechanism"] == 1
+    assert payload["source_role_summary"]["mechanism"] == 2
     assert payload["key_distinctions"][0]["distinction_type"] == "non_implication"
     assert payload["relevant_claims"][0]["source_roles"] == ["mechanism"]
     assert len(payload["review_candidates"]) == 2
