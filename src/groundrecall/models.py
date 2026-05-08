@@ -69,6 +69,7 @@ class ClaimRecord(BaseModel):
     claim_id: str
     claim_text: str
     claim_kind: str = "statement"
+    metadata: dict = Field(default_factory=dict)
     source_observation_ids: list[str] = Field(default_factory=list)
     supporting_fragment_ids: list[str] = Field(default_factory=list)
     concept_ids: list[str] = Field(default_factory=list)

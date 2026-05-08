@@ -79,7 +79,9 @@ def test_review_workspace_resolves_citation_metadata_from_bibtex(tmp_path: Path)
         "  author = {W. M. Baum},\n"
         "  title = {On two types of deviation from the matching law: Bias and undermatching},\n"
         "  journal = {Journal of the Experimental Analysis of Behavior},\n"
-        "  year = {1974}\n"
+        "  year = {1974},\n"
+        "  doi = {10.1901/jeab.1974.22-231},\n"
+        "  abstract = {Classic analysis of deviations from the matching law in operant choice experiments.}\n"
         "}\n",
         encoding="utf-8",
     )
@@ -93,3 +95,47 @@ def test_review_workspace_resolves_citation_metadata_from_bibtex(tmp_path: Path)
     assert entry["source_bib_path"] == "refs.bib"
     assert entry["raw_bibtex"]
     assert payload["bibliography"]["entry_count"] >= 1
+    assert payload["bibliography"]["abstract_entry_count"] == 1
+    assert payload["bibliography"]["doi_entry_count"] == 1
+    assert payload["bibliography"]["year_range"] == [1974, 1974]
+    concept_review = next(item for item in payload["concept_reviews"] if item["concept_id"] == "matching")
+    assert "analysis_lanes" in concept_review
+    citation_support = concept_review["top_claims"][0]["citation_support"][0]
+    assert concept_review["top_claims"][0]["analysis_lane"] == "empirical"
+    assert concept_review["top_claims"][0]["argument_role"] in {"premise", "context"}
+    assert citation_support["resolved_entry_count"] == 1
+    assert citation_support["abstract_entry_count"] == 1
+    assert "matching law" in citation_support["abstract_snippets"][0].lower()
+    suggestions = concept_review["top_claims"][0]["support_suggestions"]
+    assert suggestions == []
+
+
+def test_review_workspace_surfaces_local_bibliography_support_suggestions(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "drift.md").write_text(
+        "# Drift\n\n"
+        "- Random genetic drift can dominate allele-frequency change in small populations.\n",
+        encoding="utf-8",
+    )
+    (root / "refs.bib").write_text(
+        "@article{kimura1968evolutionary,\n"
+        "  author = {Motoo Kimura},\n"
+        "  title = {Evolutionary Rate at the Molecular Level},\n"
+        "  journal = {Nature},\n"
+        "  year = {1968},\n"
+        "  abstract = {The rate of molecular evolution is compatible with neutral changes driven by random genetic drift in populations.}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    import_result = run_groundrecall_import(root, out_root=tmp_path / "imports", mode="quick", import_id="support-suggestions")
+    workspace = GroundRecallReviewWorkspace(import_result.out_dir)
+    payload = workspace.load_review_data()
+
+    concept_review = next(item for item in payload["concept_reviews"] if item["concept_id"] == "drift")
+    suggestions = concept_review["top_claims"][0]["support_suggestions"]
+    assert concept_review["analysis_lanes"]["empirical"] >= 1
+    assert suggestions
+    assert suggestions[0]["citation_key"] == "kimura1968evolutionary"
+    assert "abstract" in suggestions[0]["reason"].lower() or "title" in suggestions[0]["reason"].lower()

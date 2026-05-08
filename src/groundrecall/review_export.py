@@ -6,7 +6,12 @@ import re
 import sys
 from collections import defaultdict
 from typing import Any, Callable
-from .citation_support import bibliography_summary_payload, load_bibliography_index, serialize_bib_entry
+from .citation_support import (
+    bibliography_summary_payload,
+    build_local_claim_support_suggestions,
+    load_bibliography_index,
+    serialize_bib_entry,
+)
 from .review_schema import CitationReviewEntry, ReviewSession
 
 def export_review_state_json(session: ReviewSession, path: str | Path) -> None:
@@ -220,13 +225,55 @@ def _artifact_citation_payloads(
             "extracted_reference_count": len(extracted_refs),
             "citegeist_backends": backends,
         }
+        resolved_entries = [entry for entry in payload["resolved_entries"] if entry]
+        abstract_entries = [
+            entry
+            for entry in resolved_entries
+            if str(entry.get("fields", {}).get("abstract", "")).strip()
+        ]
         artifact_payloads.append(payload)
         summaries[artifact["artifact_id"]] = {
             "citation_key_count": len(citation_keys),
             "extracted_reference_count": len(extracted_refs),
+            "resolved_entry_count": len(resolved_entries),
+            "abstract_entry_count": len(abstract_entries),
+            "title_samples": [
+                str(entry.get("fields", {}).get("title", "")).strip()
+                for entry in resolved_entries[:3]
+                if str(entry.get("fields", {}).get("title", "")).strip()
+            ],
+            "abstract_snippets": [
+                str(entry.get("fields", {}).get("abstract", "")).strip().replace("\n", " ")[:280]
+                for entry in abstract_entries[:2]
+            ],
             "has_citation_support": bool(citation_keys or extracted_refs),
         }
     return artifact_payloads, summaries
+
+
+def _claim_analysis_metadata(claim: dict[str, Any]) -> dict[str, Any]:
+    metadata = dict(claim.get("metadata", {}))
+    lane = str(metadata.get("analysis_lane", "")).strip() or "empirical"
+    argument_role = str(metadata.get("argument_role", "")).strip()
+    if not argument_role:
+        if claim.get("contradicts_claim_ids"):
+            argument_role = "counterargument"
+        elif claim.get("supersedes_claim_ids"):
+            argument_role = "revision"
+        elif claim.get("claim_kind") == "summary":
+            argument_role = "context"
+        else:
+            argument_role = "premise"
+    risk_flags = [str(item) for item in metadata.get("risk_flags", []) if str(item).strip()]
+    if claim.get("contradicts_claim_ids") and "contradiction_linked" not in risk_flags:
+        risk_flags.append("contradiction_linked")
+    if claim.get("supersedes_claim_ids") and "supersession_linked" not in risk_flags:
+        risk_flags.append("supersession_linked")
+    return {
+        "analysis_lane": lane,
+        "argument_role": argument_role,
+        "risk_flags": risk_flags,
+    }
 
 
 def build_citation_review_entries_from_import(import_dir: str | Path) -> list[CitationReviewEntry]:
@@ -310,6 +357,7 @@ def build_citation_review_entries_from_import(import_dir: str | Path) -> list[Ci
 def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> dict[str, Any]:
     manifest = _read_json(import_dir / "manifest.json")
     resolved_source_root = _resolve_source_root(import_dir, manifest.get("source_root", ""))
+    bibliography_index = load_bibliography_index(resolved_source_root) if resolved_source_root else {}
     lint_payload = _read_json(import_dir / "lint_findings.json")
     queue_payload = _read_json(import_dir / "review_queue.json")
     graph_payload = _read_json(import_dir / "graph_diagnostics.json")
@@ -344,16 +392,37 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         queue_entry = queue_by_candidate_id.get(full_concept_id, {})
         claim_payloads: list[dict[str, Any]] = []
         has_citation_support = False
+        lane_counts: dict[str, int] = defaultdict(int)
         for claim in concept_claims[:25]:
             supporting_observations = [observations_by_id[item] for item in claim.get("source_observation_ids", []) if item in observations_by_id]
             artifact_ids = {item["artifact_id"] for item in supporting_observations}
             citation_support = [artifact_citation_summary.get(artifact_id, {}) for artifact_id in artifact_ids]
             has_citation_support = has_citation_support or any(item.get("has_citation_support") for item in citation_support)
+            analysis = _claim_analysis_metadata(claim)
+            lane_counts[analysis["analysis_lane"]] += 1
+            cited_keys = {
+                key
+                for artifact_id in artifact_ids
+                for key in next(
+                    (item.get("citation_keys", []) for item in artifact_citations if item.get("artifact_id") == artifact_id),
+                    [],
+                )
+            }
+            support_suggestions = build_local_claim_support_suggestions(
+                bibliography_index,
+                claim.get("claim_text", ""),
+                context=concept.title,
+                limit=3,
+                exclude_keys=cited_keys,
+            )
             claim_payloads.append(
                 {
                     "claim_id": claim["claim_id"],
                     "claim_text": claim.get("claim_text", ""),
                     "claim_kind": claim.get("claim_kind", ""),
+                    "analysis_lane": analysis["analysis_lane"],
+                    "argument_role": analysis["argument_role"],
+                    "risk_flags": analysis["risk_flags"],
                     "grounding_status": claim.get("grounding_status", "unknown"),
                     "supporting_observations": [
                         {
@@ -367,6 +436,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                         for obs in supporting_observations
                     ],
                     "citation_support": citation_support,
+                    "support_suggestions": support_suggestions,
                     "artifact_paths": [artifact_by_id[item]["path"] for item in artifact_ids if item in artifact_by_id],
                     "finding_messages": [item["message"] for item in findings_by_target.get(claim["claim_id"], [])],
                 }
@@ -390,6 +460,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                 "triage_lane": str(queue_entry.get("triage_lane", "knowledge_capture")),
                 "finding_codes": list(queue_entry.get("finding_codes", [])),
                 "graph_codes": list(queue_entry.get("graph_codes", [])),
+                "analysis_lanes": dict(sorted(lane_counts.items())),
                 "top_claims": claim_payloads,
                 "notes": list(concept.notes),
             }
@@ -413,10 +484,18 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                 "Downgrade or reject concepts whose claims are fragmented, duplicated, or missing meaningful support.",
                 "For academic material, citation-bearing claims deserve special scrutiny for fit, contradiction, and fabrication risk.",
             ],
+            "analysis_lanes": [
+                "Empirical lane: what the source directly supports.",
+                "Citation lane: whether cited work exists and materially fits the claim.",
+                "Burden lane: what explanatory burden is being imposed or evaded.",
+                "Rhetorical lane: bundling, overstatement, equivocation, or burden shifting.",
+                "Research-program lane: what evidence or experiments would reduce the objection.",
+            ],
             "citation_guidance": [
                 "A citation key or extracted reference is evidence of traceability, not correctness.",
                 "Check whether the cited work actually supports the claim and whether the claim overstates it.",
                 "Use the citation track to prioritize claims that can move into a separate citation-ingestion workflow.",
+                "Treat abstract-based support suggestions as triage help, not as a substitute for direct source inspection.",
             ],
         },
         "field_specs": [

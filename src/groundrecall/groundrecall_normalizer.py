@@ -101,11 +101,25 @@ def build_claim_record(
     index: int,
     fragment_ids: list[str] | None = None,
 ) -> dict[str, Any]:
+    claim_kind = "statement" if observation_record["role"] == "claim" else "summary"
+    argument_role = "premise" if claim_kind == "statement" else "context"
+    risk_flags: list[str] = []
+    if observation.contradict_keys:
+        argument_role = "counterargument"
+        risk_flags.append("contradiction_linked")
+    if observation.supersede_keys:
+        argument_role = "revision"
+        risk_flags.append("supersession_linked")
     return {
         "claim_id": _claim_id_for_observation(observation_record, observation, index),
         "import_id": context.import_id,
         "claim_text": observation_record["text"],
-        "claim_kind": "statement" if observation_record["role"] == "claim" else "summary",
+        "claim_kind": claim_kind,
+        "metadata": {
+            "analysis_lane": "empirical",
+            "argument_role": argument_role,
+            "risk_flags": risk_flags,
+        },
         "source_observation_ids": [observation_record["observation_id"]],
         "supporting_fragment_ids": list(fragment_ids or []),
         "concept_ids": [f"concept::{concept_id}" for concept_id in concept_ids],

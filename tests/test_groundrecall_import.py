@@ -55,6 +55,8 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     claims = _read_jsonl(result.out_dir / "claims.jsonl")
     assert any("Reliable rate upper bound" in item["claim_text"] for item in claims)
     assert any(item["supporting_fragment_ids"] for item in claims)
+    assert all("metadata" in item for item in claims)
+    assert any(item["metadata"].get("analysis_lane") == "empirical" for item in claims)
 
     concepts = _read_jsonl(result.out_dir / "concepts.jsonl")
     concept_ids = {item["concept_id"] for item in concepts}
@@ -87,6 +89,7 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     assert "concept_reviews" in review_data
     assert "citations" in review_data
     assert "citation_reviews" in review_data
+    assert "analysis_lanes" in review_data["review_guidance"]
 
 
 def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:

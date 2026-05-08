@@ -126,11 +126,20 @@ function renderConceptPanel(concept) {
   const review = concept.review || {};
   const statusSpec = (state.reviewData.field_specs || []).find((item) => item.field === "status");
   const guidance = (state.reviewData.review_guidance?.priorities || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const laneGuidance = (state.reviewData.review_guidance?.analysis_lanes || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  const laneSummary = Object.entries(review.analysis_lanes || {}).map(([lane, count]) => `
+    <span class="chip">${escapeHtml(lane)} · ${escapeHtml(count)}</span>
+  `).join("");
   const claims = (review.top_claims || []).map((claim) => `
     <article class="claim-card">
       <div class="claim-head">
         <strong>${escapeHtml(claim.claim_kind || "claim")}</strong>
         <span class="chip">${escapeHtml(claim.grounding_status || "unknown")}</span>
+      </div>
+      <div class="meta-row">
+        <span class="chip">${escapeHtml(claim.analysis_lane || "empirical")}</span>
+        <span class="chip">${escapeHtml(claim.argument_role || "premise")}</span>
+        ${(claim.risk_flags || []).map((flag) => `<span class="chip chip-warn">${escapeHtml(flag)}</span>`).join("")}
       </div>
       <p>${escapeHtml(claim.claim_text || "")}</p>
       <div class="tiny">Artifacts: ${escapeHtml((claim.artifact_paths || []).join(", ") || "none")}</div>
@@ -140,6 +149,19 @@ function renderConceptPanel(concept) {
           <div>${escapeHtml(obs.text || "")}</div>
         </div>
       `).join("")}
+      ${(claim.support_suggestions || []).length ? `
+        <div class="suggestion-block">
+          <div class="tiny"><strong>Local support suggestions</strong></div>
+          ${(claim.support_suggestions || []).map((item) => `
+            <div class="support-block">
+              <div><strong>${escapeHtml(item.title || item.citation_key || "candidate source")}</strong></div>
+              <div class="tiny">${escapeHtml(item.citation_key || "")}${item.year ? ` · ${escapeHtml(item.year)}` : ""}${item.venue ? ` · ${escapeHtml(item.venue)}` : ""}</div>
+              <div class="tiny">${escapeHtml(item.reason || "")}${item.score !== undefined ? ` · score ${escapeHtml(item.score)}` : ""}</div>
+              ${item.abstract_snippet ? `<div>${escapeHtml(item.abstract_snippet)}</div>` : ""}
+            </div>
+          `).join("")}
+        </div>
+      ` : ""}
     </article>
   `).join("");
 
@@ -178,6 +200,11 @@ function renderConceptPanel(concept) {
       <section class="subpanel">
         <h3>Reviewer guidance</h3>
         <ul>${guidance}</ul>
+      </section>
+      <section class="subpanel">
+        <h3>Analysis lanes</h3>
+        <div class="chip-row">${laneSummary || "<span class=\"muted\">No analytical lane summary available.</span>"}</div>
+        <ul>${laneGuidance}</ul>
       </section>
       <section class="subpanel">
         <h3>Representative claims</h3>

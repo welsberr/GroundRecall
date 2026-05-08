@@ -194,10 +194,24 @@ textarea {
   border: 1px solid var(--line);
 }
 
+.suggestion-block {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
 .claim-head {
   display: flex;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 8px;
+}
+
+.meta-row,
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 8px;
 }
 
@@ -217,6 +231,10 @@ textarea {
 }
 
 .pill-warn {
+  color: var(--warn);
+}
+
+.chip-warn {
   color: var(--warn);
 }
 

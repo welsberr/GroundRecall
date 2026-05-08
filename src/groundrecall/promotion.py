@@ -209,6 +209,7 @@ def promote_import_to_store(
                 claim_id=claim["claim_id"],
                 claim_text=claim.get("claim_text", ""),
                 claim_kind=claim.get("claim_kind", "statement"),
+                metadata=dict(claim.get("metadata", {})),
                 source_observation_ids=list(claim.get("source_observation_ids", [])),
                 supporting_fragment_ids=list(claim.get("supporting_fragment_ids", [])),
                 concept_ids=concept_ids,
