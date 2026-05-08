@@ -54,6 +54,14 @@ class DocliftBundleSourceAdapter:
         " by random genetic drift",
         " over time",
     )
+    _LEADIN_PREFIXES = (
+        "some popular accounts give the impression",
+        "perhaps they think",
+        "perhaps they don't think",
+        "i'm not sure how",
+        "this is the important point",
+        "it means that",
+    )
 
     def _resolve_bundle_path(self, base: Path, value: str | Path | None) -> Path:
         if value is None:
@@ -142,11 +150,17 @@ class DocliftBundleSourceAdapter:
             return False
         if any(lowered.startswith(prefix) for prefix in self._METADATA_PREFIXES):
             return False
+        if "?" in cleaned:
+            return False
+        if any(lowered.startswith(prefix) for prefix in self._LEADIN_PREFIXES):
+            return False
         if normalized_title and lowered == normalized_title:
             return False
         if cleaned.count(" ") < 8:
             return False
         if strategy in {"balanced", "conservative"} and cleaned[:1].islower():
+            return False
+        if not cleaned.endswith((".", "!", "?", '"')):
             return False
         return True
 
