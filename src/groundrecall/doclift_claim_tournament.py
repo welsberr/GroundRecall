@@ -107,10 +107,11 @@ def evaluate_doclift_claim_tracks(bundle_root: str | Path, benchmark_path: str |
     adapter = DocliftBundleSourceAdapter()
     documents = {str(item.get("document_id")): item for item in manifest.get("documents", []) if isinstance(item, dict)}
 
+    strategies = ("conservative", "balanced", "broad")
     per_document: list[dict[str, Any]] = []
     aggregate: dict[str, dict[str, float]] = {
-        "conservative": {"matches": 0.0, "predicted": 0.0, "gold": 0.0, "meta_noise": 0.0},
-        "broad": {"matches": 0.0, "predicted": 0.0, "gold": 0.0, "meta_noise": 0.0},
+        strategy: {"matches": 0.0, "predicted": 0.0, "gold": 0.0, "meta_noise": 0.0}
+        for strategy in strategies
     }
 
     for entry in benchmark.get("documents", []):
@@ -118,7 +119,7 @@ def evaluate_doclift_claim_tracks(bundle_root: str | Path, benchmark_path: str |
         document = documents[document_id]
         gold_claims = [str(item).strip() for item in entry.get("gold_claims", []) if str(item).strip()]
         track_scores = []
-        for strategy in ("conservative", "broad"):
+        for strategy in strategies:
             predicted_claims = adapter.extract_document_claims(base, document, strategy=strategy, limit=6)
             score = _score_track(predicted_claims, gold_claims, strategy)
             track_scores.append(score)

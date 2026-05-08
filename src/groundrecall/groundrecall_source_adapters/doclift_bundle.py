@@ -26,6 +26,21 @@ class DocliftBundleSourceAdapter:
         "[last update",
         "this essay has been transferred here",
     )
+    _CLAIM_CUES = (
+        " is ",
+        " are ",
+        " can ",
+        " do ",
+        " does ",
+        " means ",
+        " requires ",
+        " due to ",
+        " part of evolution",
+        " fixed in a population",
+        " by natural selection",
+        " by random genetic drift",
+        " over time",
+    )
 
     def _resolve_bundle_path(self, base: Path, value: str | Path | None) -> Path:
         if value is None:
@@ -88,10 +103,17 @@ class DocliftBundleSourceAdapter:
     def _is_claim_candidate(self, cleaned: str, *, title: str = "", strategy: str = "conservative") -> bool:
         lowered = cleaned.lower()
         normalized_title = self._normalize_inline_text(title).lower()
-        min_length = 70 if strategy == "conservative" else 40
+        if strategy == "conservative":
+            min_length = 70
+        elif strategy == "balanced":
+            min_length = 50
+        else:
+            min_length = 40
         if len(cleaned) < min_length:
             return False
         if strategy == "conservative" and len(cleaned) > 360:
+            return False
+        if strategy == "balanced" and len(cleaned) > 320:
             return False
         if strategy == "broad" and len(cleaned) > 520:
             return False
@@ -101,7 +123,21 @@ class DocliftBundleSourceAdapter:
             return False
         if cleaned.count(" ") < 8:
             return False
+        if strategy in {"balanced", "conservative"} and cleaned[:1].islower():
+            return False
         return True
+
+    def _claim_priority(self, cleaned: str, *, strategy: str = "conservative") -> tuple[int, int]:
+        lowered = cleaned.lower()
+        cue_hits = sum(1 for cue in self._CLAIM_CUES if cue in lowered)
+        penalties = 0
+        if lowered.startswith(("the latest issue", "this is a brief introduction", "mistakes permeate")):
+            penalties += 1
+        if '"' in cleaned:
+            penalties += 1
+        if strategy == "balanced":
+            return (cue_hits - penalties, -abs(len(cleaned) - 140))
+        return (cue_hits - penalties, -len(cleaned))
 
     def _extract_claim_sentences_from_paragraphs(
         self,
@@ -113,6 +149,7 @@ class DocliftBundleSourceAdapter:
     ) -> list[str]:
         claims: list[str] = []
         seen: set[str] = set()
+        candidates: list[tuple[str, tuple[int, int]]] = []
         for paragraph in paragraphs:
             normalized_paragraph = self._normalize_inline_text(paragraph)
             if len(normalized_paragraph) < 80:
@@ -132,9 +169,15 @@ class DocliftBundleSourceAdapter:
                 if lowered in seen:
                     continue
                 seen.add(lowered)
-                claims.append(cleaned)
-                if len(claims) >= limit:
-                    return claims
+                if strategy == "balanced":
+                    candidates.append((cleaned, self._claim_priority(cleaned, strategy=strategy)))
+                else:
+                    claims.append(cleaned)
+                    if len(claims) >= limit:
+                        return claims
+        if strategy == "balanced":
+            ranked = sorted(candidates, key=lambda item: item[1], reverse=True)
+            return [item[0] for item in ranked[:limit]]
         return claims
 
     def _extract_claim_sentences(self, markdown_text: str, *, title: str = "", limit: int = 4, strategy: str = "conservative") -> list[str]:
@@ -170,7 +213,7 @@ class DocliftBundleSourceAdapter:
             paragraphs,
             title=title,
             limit=limit,
-            strategy="conservative",
+            strategy=strategy,
         )
 
     def extract_document_claims(

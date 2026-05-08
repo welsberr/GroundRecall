@@ -17,12 +17,14 @@ def test_doclift_claim_tournament_scores_two_tracks() -> None:
     root = _fixture_root()
     result = evaluate_doclift_claim_tracks(root, root / "benchmark.json")
 
-    assert result["judge_summary"]["winner"] in {"conservative", "broad"}
-    assert set(result["judge_summary"]["tracks"].keys()) == {"conservative", "broad"}
+    assert result["judge_summary"]["winner"] in {"conservative", "balanced", "broad"}
+    assert set(result["judge_summary"]["tracks"].keys()) == {"conservative", "balanced", "broad"}
     assert len(result["per_document"]) == 2
     intro = next(item for item in result["per_document"] if item["document_id"] == "intro-essay")
+    assert len(intro["tracks"]) == 3
     assert intro["tracks"][0]["predicted_claims"]
     assert intro["tracks"][1]["predicted_claims"]
+    assert intro["tracks"][2]["predicted_claims"]
 
 
 def test_doclift_claim_tournament_broad_track_improves_recall_on_fixture() -> None:
@@ -32,6 +34,7 @@ def test_doclift_claim_tournament_broad_track_improves_recall_on_fixture() -> No
 
     assert tracks["broad"]["recall"] >= tracks["conservative"]["recall"]
     assert tracks["broad"]["matches"] >= tracks["conservative"]["matches"]
+    assert tracks["balanced"]["precision"] >= tracks["conservative"]["precision"]
 
 
 def test_doclift_claim_tournament_runs_on_real_corpus_fixture() -> None:
@@ -41,5 +44,9 @@ def test_doclift_claim_tournament_runs_on_real_corpus_fixture() -> None:
 
     assert len(result["per_document"]) == 2
     assert tracks["conservative"]["gold_claims"] == 4
+    assert tracks["balanced"]["gold_claims"] == 4
     assert tracks["broad"]["gold_claims"] == 4
     assert tracks["broad"]["matches"] >= 1
+    assert tracks["balanced"]["matches"] >= 1
+    assert tracks["balanced"]["recall"] >= tracks["broad"]["recall"]
+    assert tracks["balanced"]["f1"] >= tracks["broad"]["f1"]
