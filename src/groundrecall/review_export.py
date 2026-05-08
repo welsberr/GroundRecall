@@ -287,6 +287,49 @@ def _claim_analysis_metadata(claim: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _claim_secondary_products(claim: dict[str, Any]) -> dict[str, Any]:
+    text = str(claim.get("claim_text", "")).strip()
+    lowered = text.lower()
+    claim_kind = str(claim.get("claim_kind", "")).strip().lower()
+
+    definition_candidate = False
+    qualification_candidate = False
+    constraint_candidate = False
+    quote_candidate = False
+
+    if text:
+        if re.search(r"\b(is|are|means|refers to|defined as|describes)\b", lowered):
+            definition_candidate = True
+        if re.search(r"\b(however|although|but|except|unless|only if|in some cases|under some conditions|may not|does not always)\b", lowered):
+            qualification_candidate = True
+        if re.search(r"\b(must|requires|required|cannot|depends on|limited to|constraint|scope)\b", lowered):
+            constraint_candidate = True
+        if claim_kind in {"quote", "quotation"}:
+            quote_candidate = True
+        elif re.search(r"[\"“”]", text) and len(text) >= 40:
+            quote_candidate = True
+        elif len(text) >= 140 and text.endswith((".", "!", '"', "”")):
+            quote_candidate = True
+
+    labels: list[str] = []
+    if definition_candidate:
+        labels.append("definition")
+    if qualification_candidate:
+        labels.append("qualification")
+    if constraint_candidate:
+        labels.append("constraint")
+    if quote_candidate:
+        labels.append("quote_candidate")
+
+    return {
+        "definition_candidate": definition_candidate,
+        "qualification_candidate": qualification_candidate,
+        "constraint_candidate": constraint_candidate,
+        "quote_candidate": quote_candidate,
+        "secondary_labels": labels,
+    }
+
+
 def build_citation_review_entries_from_import(import_dir: str | Path) -> list[CitationReviewEntry]:
     base = Path(import_dir)
     manifest = _read_json(base / "manifest.json")
@@ -408,13 +451,17 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         claim_payloads: list[dict[str, Any]] = []
         has_citation_support = False
         lane_counts: dict[str, int] = defaultdict(int)
+        secondary_counts: dict[str, int] = defaultdict(int)
         for claim in concept_claims[:25]:
             supporting_observations = [observations_by_id[item] for item in claim.get("source_observation_ids", []) if item in observations_by_id]
             artifact_ids = {item["artifact_id"] for item in supporting_observations}
             citation_support = [artifact_citation_summary.get(artifact_id, {}) for artifact_id in artifact_ids]
             has_citation_support = has_citation_support or any(item.get("has_citation_support") for item in citation_support)
             analysis = _claim_analysis_metadata(claim)
+            secondary = _claim_secondary_products(claim)
             lane_counts[analysis["analysis_lane"]] += 1
+            for label in secondary["secondary_labels"]:
+                secondary_counts[label] += 1
             cited_keys = {
                 key
                 for artifact_id in artifact_ids
@@ -438,6 +485,11 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                     "analysis_lane": analysis["analysis_lane"],
                     "argument_role": analysis["argument_role"],
                     "risk_flags": analysis["risk_flags"],
+                    "definition_candidate": secondary["definition_candidate"],
+                    "qualification_candidate": secondary["qualification_candidate"],
+                    "constraint_candidate": secondary["constraint_candidate"],
+                    "quote_candidate": secondary["quote_candidate"],
+                    "secondary_labels": secondary["secondary_labels"],
                     "grounding_status": claim.get("grounding_status", "unknown"),
                     "supporting_observations": [
                         {
@@ -477,6 +529,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                 "finding_codes": list(queue_entry.get("finding_codes", [])),
                 "graph_codes": list(queue_entry.get("graph_codes", [])),
                 "analysis_lanes": dict(sorted(lane_counts.items())),
+                "secondary_products": dict(sorted(secondary_counts.items())),
                 "top_claims": claim_payloads,
                 "notes": list(concept.notes),
             }
@@ -507,11 +560,22 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                 "Rhetorical lane: bundling, overstatement, equivocation, or burden shifting.",
                 "Research-program lane: what evidence or experiments would reduce the objection.",
             ],
+            "secondary_products": [
+                "Definition candidates: source-grounded terminology or explicit meaning statements.",
+                "Qualification candidates: scope, exceptions, caveats, or cautionary modifiers.",
+                "Constraint candidates: requirements, limits, dependencies, and non-equivalence conditions.",
+                "Quote candidates: attributed wording useful for workbench argumentation, not default Notebook prose.",
+            ],
             "citation_guidance": [
                 "A citation key or extracted reference is evidence of traceability, not correctness.",
                 "Check whether the cited work actually supports the claim and whether the claim overstates it.",
                 "Use the citation track to prioritize claims that can move into a separate citation-ingestion workflow.",
                 "Treat abstract-based support suggestions as triage help, not as a substitute for direct source inspection.",
+            ],
+            "public_output_policy": [
+                "Direct quotations should remain visibly marked and source-attributed.",
+                "Public Notebook exposition should paraphrase source material unless a quote is intentionally displayed.",
+                "Do not surface unmarked source wording as if it were original Notebook prose.",
             ],
         },
         "field_specs": [
