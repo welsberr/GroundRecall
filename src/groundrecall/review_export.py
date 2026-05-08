@@ -177,16 +177,27 @@ def _resolve_source_root(import_dir: Path, source_root: str) -> str:
     return str((import_dir.parent.parent / root).resolve())
 
 
+def _resolve_bibliography_root(import_dir: Path, manifest: dict[str, Any], resolved_source_root: str) -> str:
+    bibliography_root = str(manifest.get("bibliography_root", "")).strip()
+    if not bibliography_root:
+        return resolved_source_root
+    root = Path(bibliography_root)
+    if root.is_absolute():
+        return str(root)
+    return str((import_dir.parent.parent / root).resolve())
+
+
 def _artifact_citation_payloads(
     artifacts: list[dict[str, Any]],
     *,
     source_root: str,
+    bibliography_root: str | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
     extract_references, backends = _load_citegeist_extract()
     artifact_payloads: list[dict[str, Any]] = []
     summaries: dict[str, dict[str, Any]] = {}
     root = Path(source_root) if source_root else None
-    bibliography_index = load_bibliography_index(source_root) if source_root else {}
+    bibliography_index = load_bibliography_index(bibliography_root or source_root) if (bibliography_root or source_root) else {}
 
     for artifact in artifacts:
         path = Path(source_root) / artifact["path"] if root is not None else None
@@ -280,14 +291,16 @@ def build_citation_review_entries_from_import(import_dir: str | Path) -> list[Ci
     base = Path(import_dir)
     manifest = _read_json(base / "manifest.json")
     resolved_source_root = _resolve_source_root(base, manifest.get("source_root", ""))
+    resolved_bibliography_root = _resolve_bibliography_root(base, manifest, resolved_source_root)
     artifacts = _read_jsonl(base / "artifacts.jsonl")
     observations = _read_jsonl(base / "observations.jsonl")
     claims = _read_jsonl(base / "claims.jsonl")
-    bibliography_index = load_bibliography_index(resolved_source_root)
+    bibliography_index = load_bibliography_index(resolved_bibliography_root)
 
     artifact_payloads, _ = _artifact_citation_payloads(
         artifacts,
         source_root=resolved_source_root,
+        bibliography_root=resolved_bibliography_root,
     )
     observations_by_id = {item["observation_id"]: item for item in observations}
     artifact_claim_links: dict[str, dict[str, set[str]]] = defaultdict(lambda: {"claim_ids": set(), "concept_ids": set()})
@@ -357,7 +370,8 @@ def build_citation_review_entries_from_import(import_dir: str | Path) -> list[Ci
 def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> dict[str, Any]:
     manifest = _read_json(import_dir / "manifest.json")
     resolved_source_root = _resolve_source_root(import_dir, manifest.get("source_root", ""))
-    bibliography_index = load_bibliography_index(resolved_source_root) if resolved_source_root else {}
+    resolved_bibliography_root = _resolve_bibliography_root(import_dir, manifest, resolved_source_root)
+    bibliography_index = load_bibliography_index(resolved_bibliography_root) if resolved_bibliography_root else {}
     lint_payload = _read_json(import_dir / "lint_findings.json")
     queue_payload = _read_json(import_dir / "review_queue.json")
     graph_payload = _read_json(import_dir / "graph_diagnostics.json")
@@ -377,6 +391,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
     artifact_citations, artifact_citation_summary = _artifact_citation_payloads(
         artifacts,
         source_root=resolved_source_root,
+        bibliography_root=resolved_bibliography_root,
     )
     artifact_by_id = {item["artifact_id"]: item for item in artifacts}
     queue_by_candidate_id = {
@@ -510,7 +525,7 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
         ],
         "concept_reviews": concept_reviews,
         "citation_reviews": [entry.model_dump() for entry in session.citation_reviews],
-        "bibliography": bibliography_summary_payload(resolved_source_root),
+        "bibliography": bibliography_summary_payload(resolved_bibliography_root),
         "graph_diagnostics": graph_payload,
         "citations": {
             "enabled": True,

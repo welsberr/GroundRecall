@@ -139,3 +139,40 @@ def test_review_workspace_surfaces_local_bibliography_support_suggestions(tmp_pa
     assert suggestions
     assert suggestions[0]["citation_key"] == "kimura1968evolutionary"
     assert "abstract" in suggestions[0]["reason"].lower() or "title" in suggestions[0]["reason"].lower()
+
+
+def test_review_workspace_can_use_separate_bibliography_root(tmp_path: Path) -> None:
+    root = tmp_path / "pilot"
+    source_root = root / "source"
+    bib_root = root / "bibliography"
+    (source_root / "wiki").mkdir(parents=True)
+    bib_root.mkdir(parents=True)
+    (source_root / "wiki" / "drift.md").write_text(
+        "# Drift\n\n"
+        "- Random genetic drift can dominate allele-frequency change in small populations.\n",
+        encoding="utf-8",
+    )
+    (bib_root / "refs.bib").write_text(
+        "@article{kimura1968evolutionary,\n"
+        "  author = {Motoo Kimura},\n"
+        "  title = {Evolutionary Rate at the Molecular Level},\n"
+        "  journal = {Nature},\n"
+        "  year = {1968},\n"
+        "  abstract = {The rate of molecular evolution is compatible with neutral changes driven by random genetic drift in populations.}\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="separate-bib-root")
+    manifest_path = import_result.out_dir / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["bibliography_root"] = str(bib_root)
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+    workspace = GroundRecallReviewWorkspace(import_result.out_dir)
+    payload = workspace.load_review_data()
+    concept_review = next(item for item in payload["concept_reviews"] if item["concept_id"] == "drift")
+    suggestions = concept_review["top_claims"][0]["support_suggestions"]
+    assert payload["bibliography"]["entry_count"] == 1
+    assert suggestions
+    assert suggestions[0]["citation_key"] == "kimura1968evolutionary"
