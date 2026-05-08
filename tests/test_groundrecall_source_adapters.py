@@ -353,3 +353,62 @@ def test_doclift_bundle_import_derives_claims_from_prose_when_chunks_are_body_on
     derived_observations = [item for item in result.observations if item["observation_id"].startswith("obs_doclift_1_derived_")]
     assert derived_observations
     assert derived_observations[0]["metadata"]["claim_strategy"] in {"conservative", "balanced", "broad"}
+
+
+def test_doclift_bundle_import_ignores_blog_comment_trailers(tmp_path: Path) -> None:
+    root = tmp_path / "doclift_bundle_blog"
+    document_dir = root / "documents" / "blog-1"
+    document_dir.mkdir(parents=True)
+    (root / "manifest.json").write_text(
+        '{\n'
+        '  "documents": [\n'
+        '    {\n'
+        '      "document_id": "blog-1",\n'
+        '      "title": "Blog Essay",\n'
+        '      "document_kind": "web_article",\n'
+        '      "output_dir": "documents/blog-1",\n'
+        '      "markdown_path": "documents/blog-1/document.md"\n'
+        '    }\n'
+        '  ]\n'
+        '}\n',
+        encoding="utf-8",
+    )
+    (document_dir / "document.md").write_text(
+        "\n".join(
+                [
+                    "# Blog Essay",
+                    "",
+                    "Random genetic drift is a fundamental and important part of evolution because many population-level changes are not driven by selection alone.",
+                "",
+                "Posted by Example Author",
+                "",
+                "3 comments:",
+                "",
+                "A mistake can do this glory is very unlikely and opposite to the first instinct that biology is complexity from a thinking being.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (document_dir / "document.chunks.json").write_text(
+        json.dumps(
+            {
+                "chunks": [
+                        {
+                            "chunk_id": "blog-1-body-1",
+                            "role": "body",
+                            "section": "Blog Essay",
+                            "text": "Random genetic drift is a fundamental and important part of evolution because many population-level changes are not driven by selection alone.",
+                            "line_start": 1,
+                            "line_end": 2,
+                        }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(root, mode="quick", import_id="doclift-blog-test")
+    claim_texts = [item["claim_text"] for item in result.claims]
+
+    assert any("Random genetic drift is a fundamental and important part of evolution" in text for text in claim_texts)
+    assert not any("A mistake can do this glory" in text for text in claim_texts)

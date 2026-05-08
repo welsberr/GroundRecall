@@ -27,6 +27,18 @@ class DocliftBundleSourceAdapter:
         "[last update",
         "this essay has been transferred here",
     )
+    _TERMINAL_METADATA_PREFIXES = (
+        "posted by",
+        "comments",
+        "post a comment",
+        "newer post",
+        "older post",
+        "subscribe to",
+        "email this",
+        "blogthis",
+        "share to ",
+        "labels:",
+    )
     _CLAIM_CUES = (
         " is ",
         " are ",
@@ -98,6 +110,16 @@ class DocliftBundleSourceAdapter:
         if lowered in {"home", "sandwalk", "comments", "recent comments", "loading..."}:
             return True
         if "property='og:" in lowered or lowered.startswith("http"):
+            return True
+        return False
+
+    def _is_terminal_metadata_line(self, value: str) -> bool:
+        lowered = value.strip().lower()
+        if not lowered:
+            return False
+        if any(lowered.startswith(prefix) for prefix in self._TERMINAL_METADATA_PREFIXES):
+            return True
+        if re.match(r"^\d+\s+comments\b", lowered):
             return True
         return False
 
@@ -266,6 +288,10 @@ class DocliftBundleSourceAdapter:
                     paragraphs.append(" ".join(current))
                     current = []
                 continue
+            if self._is_terminal_metadata_line(line):
+                if current:
+                    paragraphs.append(" ".join(current))
+                break
             if line.startswith("#") or line.startswith("![") or line.startswith("|"):
                 continue
             if self._looks_like_metadata_line(line):
