@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .search_index import search_index
 from .store import GroundRecallStore
 
 
@@ -358,19 +359,23 @@ def build_search_bundle(
     store_dir: str | Path,
     text: str,
     corpora: list[str] | None = None,
+    object_kinds: list[str] | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
-    payload = search_documents(store_dir, text=text, corpora=corpora, limit=limit)
+    payload = search_index(store_dir, text, corpora=corpora, kinds=object_kinds, limit=limit, expand=True)
     return {
         "bundle_kind": "groundrecall_search_bundle",
-        "query_type": "document_search",
+        "query_type": payload["query_type"],
         "query": text,
+        "index_path": payload["index_path"],
         "active_corpora": payload["active_corpora"],
         "matches": payload["matches"],
+        "associations": payload.get("associations", {}),
         "suggested_next_actions": [
-            "Open the matching documents and review the artifact metadata.",
-            "Tighten the corpus filter when the result set is too broad.",
-            "Use corpus defaults for a site-specific search preset and add others only when needed.",
+            "Open the highest-ranked source note or canonical object before relying on it.",
+            "Use --corpus or --object-kind filters when the result set is too broad.",
+            "Inspect associations for linked claims, concepts, observations, artifacts, and review candidates.",
+            "Rebuild the index after bulk imports or source-note edits.",
         ],
     }
 
@@ -382,6 +387,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle", "search"], default="concept")
     parser.add_argument("--source-url", default=None)
     parser.add_argument("--corpus", action="append", default=[])
+    parser.add_argument("--object-kind", action="append", default=[])
     return parser
 
 
@@ -394,7 +400,16 @@ def main() -> None:
     elif args.kind == "provenance":
         payload = query_provenance(args.store_dir, origin_path=args.query, source_url=args.source_url)
     elif args.kind == "search":
-        payload = build_search_bundle(args.store_dir, args.query, corpora=list(args.corpus or []))
+        payload = build_search_bundle(
+            args.store_dir,
+            args.query,
+            corpora=list(args.corpus or []),
+            object_kinds=list(args.object_kind or []),
+        )
     else:
         payload = build_query_bundle_for_concept(args.store_dir, args.query)
     print(json.dumps(payload, indent=2))
+
+
+if __name__ == "__main__":
+    main()

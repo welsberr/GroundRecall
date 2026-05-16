@@ -7,6 +7,7 @@ Primary docs:
 - [quickstart.md](quickstart.md)
 - [assistant-protocol.md](assistant-protocol.md)
 - [architecture.md](architecture.md)
+- [reasoning-scaffold-operational-principles.md](reasoning-scaffold-operational-principles.md)
 - [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md)
 - [llmwiki-import.md](llmwiki-import.md)
 - [sync-roadmap.md](sync-roadmap.md)

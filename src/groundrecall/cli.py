@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import assistant_export, export, ingest, inspect, lint, promotion, protocol, query, review_server
+from . import assistant_export, export, ingest, inspect, lint, promotion, protocol, query, review_server, search_index
 
 
 COMMANDS = {
@@ -12,6 +12,7 @@ COMMANDS = {
     "promote": promotion.main,
     "protocol-init": protocol.main,
     "query": query.main,
+    "index": search_index.main,
     "export": export.main,
     "assistant-export": assistant_export.main,
     "inspect": inspect.main,

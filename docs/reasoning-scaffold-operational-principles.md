@@ -25,6 +25,19 @@ Related local memory notes:
 ## Downstream Responsibilities
 
 - Didactopus consumes prompt seeds for learner-facing prediction, evidence, and revision activities.
+  This should be operational, not decorative: scaffold fields are meant to
+  change the first question asked, the evidence check emphasized, the
+  misconception guarded against, and the revision step requested from the
+  learner.
 - doclift extracts or emits scaffold-shaped records from longer documents.
 - CiteGeist resolves bibliography source slots.
 - Notebook exposes the reviewed learner-facing summary.
+
+## Ownership Boundary
+
+- GroundRecall owns durable scaffold memory, review state, provenance, pending
+  source slots, and revision history.
+- GroundRecall does not own learner-session prompting or bibliography
+  resolution.
+- Didactopus should consume reviewed scaffold artifacts, not become the
+  canonical home for scaffold schema or review lifecycle.
