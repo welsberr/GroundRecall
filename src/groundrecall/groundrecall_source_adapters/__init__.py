@@ -9,6 +9,7 @@ from . import llmwiki  # noqa: F401
 from . import polypaper  # noqa: F401
 from . import doclift_bundle  # noqa: F401
 from . import indexcc  # noqa: F401
+from . import textbook_ocr  # noqa: F401
 from . import markdown_notes  # noqa: F401
 from . import transcript  # noqa: F401
 from . import didactopus_pack  # noqa: F401

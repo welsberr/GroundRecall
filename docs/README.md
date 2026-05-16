@@ -10,6 +10,7 @@ Primary docs:
 - [reasoning-scaffold-operational-principles.md](reasoning-scaffold-operational-principles.md)
 - [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md)
 - [llmwiki-import.md](llmwiki-import.md)
+- [textbook-ocr-ingestion.md](textbook-ocr-ingestion.md)
 - [sync-roadmap.md](sync-roadmap.md)
 
 Legacy extraction notes:

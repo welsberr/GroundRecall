@@ -86,6 +86,66 @@ def test_plain_markdown_directory_uses_markdown_notes_adapter(tmp_path: Path) ->
     assert adapter.name == "markdown_notes"
 
 
+def test_textbook_ocr_adapter_segments_paragraphs_and_suppresses_references(tmp_path: Path) -> None:
+    (tmp_path / ".groundrecall-textbook.json").write_text(
+        json.dumps(
+            {
+                "schema": "groundrecall.textbook_ocr.v1",
+                "id": "pianka-evolutionary-ecology",
+                "title": "Evolutionary Ecology",
+                "authors": ["Eric R. Pianka"],
+                "year": "1988",
+                "promote_sections": True,
+                "files": ["part-000.txt"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "part-000.txt").write_text(
+        "\n".join(
+            [
+                "Chapter 1. Background                                    1",
+                "",
+                "Natural Selection",
+                "",
+                "Although natural selection is not a difficult concept, it is frequently",
+                "misunderstood. A common misconception is that natural selection is simply",
+                "any evolutionary change, whereas the mechanism specifically depends on",
+                "differential reproductive success among heritable variants.",
+                "",
+                "\f10                                                            Background",
+                "",
+                "Selection can be treated as a source candidate for a Notebook scaffold",
+                "when the text connects mechanism, population context, and evidence in a",
+                "way that can later be checked against the surrounding page image.",
+                "",
+                "Selected References",
+                "",
+                "Darwin, C. 1859. This bibliography row is long enough that a naive line",
+                "importer would turn it into a review item, but the textbook adapter should",
+                "suppress it once the selected references region begins.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "textbook_ocr"
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="textbook-test")
+    claim_texts = [item["claim_text"] for item in result.claims]
+
+    assert result.manifest["source_adapter"] == "textbook_ocr"
+    assert result.manifest["import_intent"] == "both"
+    assert len(result.claims) == 2
+    assert all("bibliography row" not in text for text in claim_texts)
+    assert result.fragments[0]["metadata"]["page_start"] == 1
+    assert result.fragments[1]["metadata"]["page_start"] == 2
+    concept_ids = {item["concept_id"] for item in result.concepts}
+    assert "concept::pianka-evolutionary-ecology" in concept_ids
+    assert "concept::natural-selection" in concept_ids
+
+
 def test_indexcc_adapter_import_generates_rows(tmp_path: Path) -> None:
     indexcc_dir = tmp_path / "site2_src" / "content" / "indexcc"
     indexcc_dir.mkdir(parents=True)
