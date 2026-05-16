@@ -7,6 +7,8 @@ from groundrecall.groundrecall_normalizer import standardize_concept_rows
 from groundrecall.ingest import run_groundrecall_import
 from groundrecall.graph_diagnostics import build_graph_diagnostics
 from groundrecall.lint import lint_import_directory
+from groundrecall.models import ConceptRecord
+from groundrecall.store import GroundRecallStore
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -133,6 +135,49 @@ def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:
     assert concepts[0]["source_artifact_ids"] == ["ia_one", "ia_two"]
     assert claims[0]["concept_ids"] == ["concept::signal-processing"]
     assert relations[0]["source_id"] == "concept::signal-processing"
+
+
+def test_import_can_align_claims_to_existing_seed_concepts(tmp_path: Path) -> None:
+    seed_store = GroundRecallStore(tmp_path / "seed-store")
+    seed_store.save_concept(
+        ConceptRecord(
+            concept_id="concept::evo-edu-notebook-allele-frequency-scaffold-pilot",
+            title="Evo Edu Notebook Allele Frequency Scaffold Pilot",
+            description="Reviewed Notebook scaffold pilot.",
+            current_status="reviewed",
+        )
+    )
+
+    root = tmp_path / "notes"
+    root.mkdir()
+    (root / "incoming.md").write_text(
+        "# Incoming Note\n\n"
+        "- The Notebook allele frequency scaffold pilot should guide future source-slot work.\n",
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(
+        root,
+        mode="quick",
+        import_id="alignment-test",
+        concept_seed_store=seed_store.base_dir,
+    )
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    claims = _read_jsonl(result.out_dir / "claims.jsonl")
+    aligned_claim = next(item for item in claims if "source-slot work" in item["claim_text"])
+
+    assert manifest["concept_alignment"]["aligned_claim_count"] == 1
+    assert manifest["external_concept_ids"] == ["concept::evo-edu-notebook-allele-frequency-scaffold-pilot"]
+    assert "concept::evo-edu-notebook-allele-frequency-scaffold-pilot" in aligned_claim["concept_ids"]
+    assert aligned_claim["metadata"]["concept_seed_alignments"][0]["concept_id"] == (
+        "concept::evo-edu-notebook-allele-frequency-scaffold-pilot"
+    )
+
+    lint_payload = json.loads((result.out_dir / "lint_findings.json").read_text(encoding="utf-8"))
+    missing_concept_errors = [
+        item for item in lint_payload["findings"] if item["code"] in {"claim_concept_missing", "relation_missing_target"}
+    ]
+    assert missing_concept_errors == []
 
 
 def test_graph_diagnostics_detect_bridge_concepts() -> None:

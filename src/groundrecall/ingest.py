@@ -26,6 +26,7 @@ from .groundrecall_normalizer import (
     manifest_record,
     standardize_concept_rows,
 )
+from .concept_alignment import align_claim_rows_to_seed_concepts
 from .groundrecall_review_bridge import export_review_bundle_from_import
 from .groundrecall_review_queue import build_review_queue
 from .groundrecall_segmenter import SegmentedPage, segment_markdown_artifact
@@ -122,6 +123,8 @@ def run_groundrecall_import(
     import_id: str | None = None,
     machine_id: str | None = None,
     agent_id: str = "groundrecall.ingest",
+    concept_seed_store: str | Path | None = None,
+    concept_alignment_threshold: float = 0.55,
 ) -> ImportResult:
     source_path = Path(source_root).resolve()
     if mode not in VALID_MODES:
@@ -203,6 +206,13 @@ def run_groundrecall_import(
 
     fragment_rows = _dedupe_by_key(fragment_rows, "fragment_id")
     concept_rows, claim_rows, relation_rows = standardize_concept_rows(concept_rows, claim_rows, relation_rows)
+    concept_alignment_summary: dict[str, Any] | None = None
+    if concept_seed_store is not None:
+        concept_alignment_summary = align_claim_rows_to_seed_concepts(
+            claim_rows,
+            concept_seed_store,
+            threshold=concept_alignment_threshold,
+        )
     concept_rows = _dedupe_by_key(concept_rows, "concept_id")
     relation_rows = _dedupe_by_key(relation_rows, "relation_id")
     artifact_rows = _dedupe_by_key(artifact_rows, "artifact_id")
@@ -220,6 +230,9 @@ def run_groundrecall_import(
         "concept_count": len(concept_rows),
         "relation_count": len(relation_rows),
     }
+    if concept_alignment_summary is not None:
+        manifest["concept_alignment"] = concept_alignment_summary
+        manifest["external_concept_ids"] = concept_alignment_summary.get("external_concept_ids", [])
 
     _write_json(output_dir / "manifest.json", manifest)
     _write_jsonl(output_dir / "artifacts.jsonl", artifact_rows)
@@ -255,6 +268,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--import-id", default=None)
     parser.add_argument("--machine-id", default=None)
     parser.add_argument("--agent-id", default="groundrecall.ingest")
+    parser.add_argument("--concept-seed-store", default=None)
+    parser.add_argument("--concept-alignment-threshold", type=float, default=0.55)
     return parser
 
 
@@ -267,5 +282,7 @@ def main() -> None:
         import_id=args.import_id,
         machine_id=args.machine_id,
         agent_id=args.agent_id,
+        concept_seed_store=args.concept_seed_store,
+        concept_alignment_threshold=args.concept_alignment_threshold,
     )
     print(f"Wrote import artifacts to {result.out_dir}")

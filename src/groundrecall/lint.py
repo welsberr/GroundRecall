@@ -32,7 +32,8 @@ def lint_import_directory(import_dir: str | Path) -> dict[str, Any]:
 
     findings: list[dict[str, Any]] = []
     observation_by_id = {row["observation_id"]: row for row in observations}
-    concept_ids = {row["concept_id"] for row in concepts}
+    external_concept_ids = {str(item) for item in manifest.get("external_concept_ids", [])}
+    concept_ids = {row["concept_id"] for row in concepts} | external_concept_ids
 
     text_counter = Counter(row["claim_text"].strip().lower() for row in claims if row.get("claim_text", "").strip())
     claim_ids = {row["claim_id"] for row in claims}

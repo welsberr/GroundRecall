@@ -71,6 +71,28 @@ groundrecall index ~/.groundrecall/store "host profile" --kind concept
 groundrecall index ~/.groundrecall/store "host profile" --kind concept --expand
 ```
 
+## Ingestion Alignment
+
+Promoted concepts can also guide future imports. Use a canonical store as a
+concept seed store when importing new notes or source material:
+
+```bash
+groundrecall import ./new-notes \
+  --out-root ~/.groundrecall/imports \
+  --mode quick \
+  --concept-seed-store ~/.groundrecall/store
+```
+
+The importer will conservatively attach matching reviewed/promoted concept IDs
+to imported claims and record the match evidence in claim metadata under
+`concept_seed_alignments`. Concepts supplied by the seed store are listed in
+the import manifest as `external_concept_ids`, so lint can distinguish them
+from missing local concept rows.
+
+This keeps source ingestion from minting avoidable duplicate concepts when a
+new artifact clearly belongs to an existing operational topic such as the
+Notebook scaffold pilot or the GroundRecall search index.
+
 ## Later Layer: Embeddings
 
 Embeddings should be added only after FTS and graph expansion have clear gaps. A good embedding layer should:
