@@ -15,6 +15,13 @@ GroundRecall is intended for work where durable context matters:
 - learner-facing workflows through `Didactopus`
 - assistant handoff between Codex, Claude Code, and other file-aware tools
 
+GroundRecall's assistant protocol also defines an update policy for
+long-running operational work. The policy asks assistants to record task
+definition, plan/implementation details, and results as durable source notes.
+The rationale is practical: project goals, task boundaries, planning tradeoffs,
+and intermediate service states are often lost because memory updates happen
+only at the end, or not at all.
+
 ## Current Features
 
 - Import from llmwiki-style trees, plain notes, normalized `doclift` bundles,
@@ -139,6 +146,15 @@ Use `--force` only when you intend to overwrite existing bootstrap files.
 For a two-host local/remote setup, each host should maintain its own
 GroundRecall store and exchange source notes or exports. Do not make both hosts
 write directly into the same mutable store.
+
+For substantial work, update GroundRecall at three points:
+
+- Task definition: objective, scope, paths, targets, verification criteria, and
+  constraints.
+- Plan or implementation specification: chosen approach, touched files/services,
+  checks, rollback notes, risks, and relevant rejected alternatives.
+- Results: outcomes, evidence, commands/tests, artifact/log paths, unresolved
+  risks, and next safe action.
 
 See [docs/assistant-protocol.md](docs/assistant-protocol.md).
 

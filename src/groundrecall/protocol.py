@@ -109,9 +109,28 @@ Assistants should:
 1. Read `ASSISTANT_PROJECT.md`, `CODEX_PROJECT.md`, or `CLAUDE.md` if present.
 2. Read this file and `source-notes/host-profile-*.md`.
 3. Identify this host role before changing services or deployment state.
-4. Query or inspect GroundRecall for the project/service in scope.
-5. Write source notes for durable findings and promote/export them after
-   significant work.
+4. Query or inspect GroundRecall for the project/service in scope before broad
+   filesystem searches, repo scans, service restarts, deployment actions, or
+   planning changes.
+5. If an assistant-specific export is empty or lacks enough context to orient
+   the task, read relevant `source-notes/` and `exports/canonical/` entries,
+   then write or update a concise project summary source note so future startup
+   has sufficient context.
+6. Write source notes for task definition, plan/implementation details, and
+   results as work progresses; promote/export them and rebuild the FTS5 index
+   after significant work.
+
+## Update Policy
+
+Record substantial work at three points so project goals, task boundaries,
+planning tradeoffs, and intermediate operational states are not lost:
+
+- Task definition: objective, scope, paths, targets, verification criteria, and
+  constraints.
+- Plan or implementation specification: chosen approach, touched files/services,
+  checks, rollback notes, risks, and relevant rejected alternatives.
+- Results: outcomes, evidence, commands/tests, artifact/log paths, unresolved
+  risks, and next safe action.
 
 ## No-Secrets Rule
 
@@ -136,9 +155,14 @@ On startup:
 1. Identify this host and host role from `{groundrecall_root}/source-notes/host-profile-*.md`.
 2. Inspect relevant GroundRecall context before planning site, app, service,
    deployment, or recovery work.
-3. Check version-control status before edits.
-4. Update GroundRecall source notes as durable work progresses.
-5. Do not store secrets in GroundRecall, chat, docs, or commits.
+3. Fall back to source notes and canonical exports when the assistant-specific
+   export is empty or insufficient.
+4. Check version-control status before edits.
+5. Update GroundRecall source notes for task definition, plan/implementation
+   details, and results as durable work progresses.
+6. Promote/export source notes and rebuild the FTS5 index after significant
+   work.
+7. Do not store secrets in GroundRecall, chat, docs, or commits.
 
 Use assistant-specific exports when available; otherwise use the canonical
 GroundRecall export.
@@ -155,10 +179,13 @@ Primary durable memory is GroundRecall.
 - canonical export: `{groundrecall_root}/exports/canonical`
 - Codex export: `{groundrecall_root}/exports/codex`
 
-On startup, identify this host role, read the relevant GroundRecall export, and
-query or inspect project/service memory before planning changes. Update
-GroundRecall source notes as durable work progresses. Do not store secrets in
-GroundRecall, chat, docs, or commits.
+On startup, identify this host role, read GroundRecall before broad filesystem
+searches, repo scans, service restarts, deployment actions, or planning changes,
+and query or inspect project/service memory. If the Codex export is empty or
+insufficient, fall back to source notes and canonical exports. For substantial
+work, update GroundRecall source notes for task definition,
+plan/implementation details, and results; then promote/export notes and rebuild
+the FTS5 index. Do not store secrets in GroundRecall, chat, docs, or commits.
 """
 
 
@@ -173,8 +200,10 @@ Primary durable memory is GroundRecall.
 - Claude Code export: `{groundrecall_root}/exports/claude_code`
 
 On startup, identify this host role, read relevant GroundRecall context, and
-check project/service memory before planning changes. Update source notes for
-durable findings. Do not store secrets in memory, chat, docs, or commits.
+check project/service memory before planning changes. For substantial work,
+update source notes for task definition, plan/implementation details, and
+results; then promote/export notes and rebuild the FTS5 index. Do not store
+secrets in memory, chat, docs, or commits.
 """
 
 
