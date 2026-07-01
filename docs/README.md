@@ -11,6 +11,7 @@ Primary docs:
 - [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md)
 - [llmwiki-import.md](llmwiki-import.md)
 - [textbook-ocr-ingestion.md](textbook-ocr-ingestion.md)
+- [library-argument-ingestion.md](library-argument-ingestion.md)
 - [sync-roadmap.md](sync-roadmap.md)
 
 Legacy extraction notes:
