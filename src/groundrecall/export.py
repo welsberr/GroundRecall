@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
 from .query import build_query_bundle_for_concept
 from .store import GroundRecallStore
 
@@ -41,6 +42,8 @@ def export_canonical_snapshot(
         created_at=_now(),
         metadata={"export_kind": "canonical", **(metadata or {})},
     )
+    snapshot, guardrail_report = filter_snapshot_for_public_export(snapshot)
+    snapshot.metadata["export_guardrails"] = guardrail_report
     store.save_snapshot(snapshot)
 
     snapshot_path = target / "groundrecall_snapshot.json"
@@ -54,11 +57,13 @@ def export_canonical_snapshot(
         "source_count": len(snapshot.sources),
         "artifact_count": len(snapshot.artifacts),
         "observation_count": len(snapshot.observations),
+        "export_guardrails": guardrail_report,
     }
     _write_json(target / "provenance_manifest.json", provenance_manifest)
     manifest = {
         "export_kind": "canonical",
         "snapshot_id": snapshot.snapshot_id,
+        "export_guardrails": guardrail_report,
         "files": [
             "groundrecall_snapshot.json",
             "claims.jsonl",
@@ -86,6 +91,8 @@ def export_query_bundle(
     payload = build_query_bundle_for_concept(store_dir, concept_ref)
     if payload is None:
         raise KeyError(f"Unknown concept reference: {concept_ref}")
+    payload, guardrail_report = filter_query_payload_for_public_export(payload)
+    payload["export_guardrails"] = guardrail_report
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _write_json(path, payload)
