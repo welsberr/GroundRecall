@@ -28,6 +28,7 @@ def test_groundrecall_source_adapter_registry_lists_expected_adapters() -> None:
     assert "transcript" in names
     assert "didactopus_pack" in names
     assert "doclift_bundle" in names
+    assert "citegeist_okf" in names
     assert "indexcc" in names
     assert "pandasthumb_mt" in names
 
@@ -51,6 +52,99 @@ def test_detect_doclift_bundle_adapter() -> None:
     adapter = detect_source_adapter(_fixture_doclift_bundle())
     assert adapter.name == "doclift_bundle"
     assert adapter.import_intent() == "both"
+
+
+def test_citegeist_okf_adapter_imports_works_topics_and_edges(tmp_path: Path) -> None:
+    (tmp_path / "works").mkdir()
+    (tmp_path / "topics").mkdir()
+    (tmp_path / "manifest.json").write_text(
+        json.dumps(
+            {
+                "bundle_kind": "citegeist_okf_bundle",
+                "okf_profile": "citegeist.work.topic.v1",
+                "citation_keys": ["smith2024graphs", "miller2023search"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "index.md").write_text("# CiteGeist OKF Bundle\n", encoding="utf-8")
+    (tmp_path / "log.md").write_text("# Export Log\n", encoding="utf-8")
+    (tmp_path / "bibliography.bib").write_text("@article{smith2024graphs,}\n", encoding="utf-8")
+    (tmp_path / "topics" / "graph-methods.md").write_text(
+        "\n".join(
+            [
+                "---",
+                'okf_type: "citegeist.topic"',
+                'slug: "graph-methods"',
+                'name: "Graph Methods"',
+                "---",
+                "# Graph Methods",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "works" / "smith2024graphs.md").write_text(
+        "\n".join(
+            [
+                "---",
+                'okf_type: "citegeist.work"',
+                'citation_key: "smith2024graphs"',
+                'entry_type: "article"',
+                'review_status: "reviewed"',
+                'title: "Graph-first bibliography augmentation"',
+                'year: "2024"',
+                "authors:",
+                '  - "Smith, Jane"',
+                "topic_slugs:",
+                '  - "graph-methods"',
+                "---",
+                "# Graph-first bibliography augmentation",
+                "",
+                "## Abstract",
+                "",
+                "We study citation graphs for literature discovery.",
+                "",
+                "## Citation Graph",
+                "",
+                "### cites",
+                "- [miller2023search](miller2023search.md)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "works" / "miller2023search.md").write_text(
+        "\n".join(
+            [
+                "---",
+                'okf_type: "citegeist.work"',
+                'citation_key: "miller2023search"',
+                'entry_type: "inproceedings"',
+                'title: "Semantic search for research corpora"',
+                "---",
+                "# Semantic search for research corpora",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    adapter = detect_source_adapter(tmp_path)
+    assert adapter.name == "citegeist_okf"
+    assert adapter.import_intent() == "grounded_knowledge"
+
+    result = run_groundrecall_import(tmp_path, mode="quick", import_id="citegeist-okf-test")
+
+    assert result.manifest["source_adapter"] == "citegeist_okf"
+    assert result.manifest["import_intent"] == "grounded_knowledge"
+    concept_ids = {row["concept_id"] for row in result.concepts}
+    assert "concept::citegeist-work-smith2024graphs" in concept_ids
+    assert "concept::citegeist-topic-graph-methods" in concept_ids
+    relations = {(row["source_id"], row["target_id"], row["relation_type"]) for row in result.relations}
+    assert (
+        "concept::citegeist-work-smith2024graphs",
+        "concept::citegeist-work-miller2023search",
+        "cites",
+    ) in relations
+    assert any("citation graphs" in row["claim_text"] for row in result.claims)
 
 
 def test_groundrecall_import_records_adapter_and_intent(tmp_path: Path) -> None:
@@ -84,6 +178,27 @@ def test_plain_markdown_directory_uses_markdown_notes_adapter(tmp_path: Path) ->
     adapter = detect_source_adapter(tmp_path)
 
     assert adapter.name == "markdown_notes"
+
+
+def test_plain_markdown_file_uses_markdown_notes_adapter(tmp_path: Path) -> None:
+    source = tmp_path / "note.md"
+    source.write_text("# Operational Note\n\nA plain note.\n", encoding="utf-8")
+
+    adapter = detect_source_adapter(source)
+
+    assert adapter.name == "markdown_notes"
+
+
+def test_groundrecall_import_accepts_single_markdown_file(tmp_path: Path) -> None:
+    source = tmp_path / "note.md"
+    source.write_text("# Operational Note\n\nA plain note.\n", encoding="utf-8")
+
+    result = run_groundrecall_import(source, out_root=tmp_path / "imports", mode="quick", import_id="single-file-test")
+
+    assert result.manifest["source_adapter"] == "markdown_notes"
+    assert result.manifest["artifact_count"] == 1
+    assert result.artifacts[0]["path"] == "note.md"
+    assert result.claims
 
 
 def test_textbook_ocr_adapter_segments_paragraphs_and_suppresses_references(tmp_path: Path) -> None:

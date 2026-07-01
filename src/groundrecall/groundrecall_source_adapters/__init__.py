@@ -5,6 +5,7 @@ Prefer imports under ``didactopus.groundrecall.source_adapters`` for new code.
 """
 
 from .base import get_source_adapter, list_source_adapters
+from . import citegeist_okf  # noqa: F401
 from . import llmwiki  # noqa: F401
 from . import polypaper  # noqa: F401
 from . import doclift_bundle  # noqa: F401

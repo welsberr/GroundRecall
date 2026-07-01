@@ -13,6 +13,8 @@ class DidactopusPackSourceAdapter:
 
     def detect(self, root: str | Path) -> bool:
         base = Path(root)
+        if not base.is_dir():
+            return False
         required = {"pack.yaml", "concepts.yaml"}
         return required.issubset({path.name for path in base.iterdir() if path.exists()})
 

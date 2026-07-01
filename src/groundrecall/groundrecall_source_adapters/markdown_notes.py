@@ -13,16 +13,24 @@ class MarkdownNotesSourceAdapter:
 
     def detect(self, root: str | Path) -> bool:
         base = Path(root)
+        if base.is_file():
+            return base.suffix.lower() in TEXT_SUFFIXES
         return any(path.suffix.lower() in TEXT_SUFFIXES for path in base.rglob("*") if path.is_file())
 
     def discover(self, root: str | Path) -> list[DiscoveredImportSource]:
         base = Path(root)
         rows: list[DiscoveredImportSource] = []
-        for path in sorted(p for p in base.rglob("*") if p.is_file() and p.suffix.lower() in TEXT_SUFFIXES):
+        if base.is_file():
+            paths = [base] if base.suffix.lower() in TEXT_SUFFIXES else []
+            relative_base = base.parent
+        else:
+            paths = sorted(p for p in base.rglob("*") if p.is_file() and p.suffix.lower() in TEXT_SUFFIXES)
+            relative_base = base
+        for path in paths:
             rows.append(
                 DiscoveredImportSource(
                     path=path,
-                    relative_path=path.relative_to(base).as_posix(),
+                    relative_path=path.relative_to(relative_base).as_posix(),
                     source_kind="markdown_notes",
                     artifact_kind="markdown_note",
                     is_text=True,

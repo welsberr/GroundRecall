@@ -57,8 +57,6 @@ class IndexCcSourceAdapter:
 
     def detect(self, root: str | Path) -> bool:
         base = _site_root(Path(root))
-        if not base.is_dir():
-            return False
         md_files = _discover_md_files(base)
         if not md_files:
             return False
