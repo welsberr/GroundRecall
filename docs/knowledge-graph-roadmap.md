@@ -68,11 +68,15 @@ implemented.
 
 ### P2: Candidate Graph Extraction
 
+- Status: initial heuristic relation extraction implemented.
 - Add an opt-in `groundrecall import --extract-graph` flag.
 - Add deterministic chunk-backed extraction before any optional LLM extractor.
 - Emit candidate concepts, claims, and relations with chunk provenance.
 - Support extractor modes: `none`, `heuristic`, and later `llm`.
 - Keep inferred candidates in draft/triage state.
+- Current heuristic mode emits draft `co_occurs_with` relation candidates from
+  existing concept co-mentions in imported observations, with observation
+  evidence ids and `support_kind=inferred`.
 
 ### P3: Entity And Concept Standardization
 

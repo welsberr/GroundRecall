@@ -57,6 +57,7 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
     graph_payload = _read_json(base / "graph_diagnostics.json")
     claims = _read_jsonl(base / "claims.jsonl")
     concepts = _read_jsonl(base / "concepts.jsonl")
+    relations = _read_jsonl(base / "relations.jsonl")
 
     findings_by_target: defaultdict[str, list[dict[str, Any]]] = defaultdict(list)
     for finding in lint_payload.get("findings", []):
@@ -102,6 +103,32 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
                 "finding_codes": sorted(finding_codes | graph_codes),
                 "concept_ids": [concept["concept_id"]],
                 "graph_codes": sorted(graph_codes),
+            }
+        )
+
+    for relation in relations:
+        related = findings_by_target.get(relation["relation_id"], [])
+        finding_codes = {item["code"] for item in related}
+        if relation.get("support_kind") == "inferred" or relation.get("extraction_method"):
+            finding_codes.add("relation_inferred")
+        queue.append(
+            {
+                "queue_id": f"rq_{relation['relation_id']}",
+                "candidate_type": "relation",
+                "candidate_id": relation["relation_id"],
+                "title": (
+                    f"{relation.get('source_id', '')} "
+                    f"{relation.get('relation_type', 'references')} "
+                    f"{relation.get('target_id', '')}"
+                )[:100],
+                "triage_lane": _triage_lane(relation, finding_codes),
+                "priority": _priority(relation, finding_codes),
+                "grounding_status": relation.get("grounding_status", "partially_grounded"),
+                "status": "needs_review",
+                "finding_codes": sorted(finding_codes),
+                "concept_ids": [relation.get("source_id", ""), relation.get("target_id", "")],
+                "relation_type": relation.get("relation_type", "references"),
+                "evidence_ids": list(relation.get("evidence_ids", [])),
             }
         )
 

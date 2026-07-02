@@ -18,6 +18,17 @@ def _read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in text.splitlines()]
 
 
+def _build_graph_extraction_fixture(root: Path) -> Path:
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "concepts.md").write_text(
+        "# Channel Capacity\n\n"
+        "## Shannon Entropy\n\n"
+        "- Channel capacity and Shannon entropy are compared in coding theorem examples.\n",
+        encoding="utf-8",
+    )
+    return root
+
+
 def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     root = tmp_path / "llmwiki"
     (root / "wiki").mkdir(parents=True)
@@ -92,6 +103,48 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     assert "citations" in review_data
     assert "citation_reviews" in review_data
     assert "analysis_lanes" in review_data["review_guidance"]
+
+
+def test_graph_extraction_is_disabled_by_default(tmp_path: Path) -> None:
+    root = _build_graph_extraction_fixture(tmp_path / "llmwiki")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="graph-default")
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    relations = _read_jsonl(result.out_dir / "relations.jsonl")
+    candidates = json.loads((result.out_dir / "graph_extraction_candidates.json").read_text(encoding="utf-8"))
+
+    assert manifest["graph_extraction"]["mode"] == "none"
+    assert candidates["candidate_relation_count"] == 0
+    assert not any(item["relation_type"] == "co_occurs_with" for item in relations)
+
+
+def test_heuristic_graph_extraction_emits_reviewable_relation_candidates(tmp_path: Path) -> None:
+    root = _build_graph_extraction_fixture(tmp_path / "llmwiki")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="graph-heuristic", extract_graph="heuristic")
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    relations = _read_jsonl(result.out_dir / "relations.jsonl")
+    candidates = json.loads((result.out_dir / "graph_extraction_candidates.json").read_text(encoding="utf-8"))
+    review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
+
+    extracted = [item for item in relations if item["relation_type"] == "co_occurs_with"]
+    assert manifest["graph_extraction"]["mode"] == "heuristic"
+    assert manifest["graph_extraction"]["candidate_relation_count"] == 1
+    assert candidates["candidate_relation_count"] == 1
+    assert len(extracted) == 1
+    assert extracted[0]["source_id"] == "concept::channel-capacity"
+    assert extracted[0]["target_id"] == "concept::shannon-entropy"
+    assert extracted[0]["support_kind"] == "inferred"
+    assert extracted[0]["grounding_status"] == "partially_grounded"
+    assert extracted[0]["current_status"] == "draft"
+    assert extracted[0]["evidence_ids"]
+
+    relation_items = [item for item in review_queue["items"] if item["candidate_type"] == "relation"]
+    assert len(relation_items) == 1
+    assert relation_items[0]["candidate_id"] == extracted[0]["relation_id"]
+    assert "relation_inferred" in relation_items[0]["finding_codes"]
 
 
 def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:

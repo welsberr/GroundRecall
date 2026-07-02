@@ -72,6 +72,7 @@ Import a source:
 
 ```bash
 groundrecall import /path/to/source --out-root .groundrecall/imports --mode quick
+groundrecall import /path/to/source --out-root .groundrecall/imports --mode quick --extract-graph heuristic
 ```
 
 Lint the import:

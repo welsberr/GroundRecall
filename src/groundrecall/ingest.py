@@ -14,6 +14,7 @@ from typing import Any
 
 from .groundrecall_discovery import DiscoveredArtifact
 from .graph_diagnostics import build_graph_diagnostics
+from .graph_extraction import extract_heuristic_graph_relations
 from .groundrecall_lint import lint_import_directory
 from .groundrecall_normalizer import (
     ImportContext,
@@ -35,6 +36,7 @@ import groundrecall.groundrecall_source_adapters  # noqa: F401
 
 
 VALID_MODES = {"archive", "quick", "grounded"}
+VALID_GRAPH_EXTRACTION_MODES = {"none", "heuristic"}
 
 
 @dataclass
@@ -116,6 +118,17 @@ def _segment_artifact(artifact: DiscoveredArtifact) -> SegmentedPage | None:
     return segment_markdown_artifact(artifact)
 
 
+def _normalize_graph_extraction_mode(value: str | bool | None) -> str:
+    if value is True:
+        return "heuristic"
+    if value in {False, None, ""}:
+        return "none"
+    mode = str(value)
+    if mode not in VALID_GRAPH_EXTRACTION_MODES:
+        raise ValueError(f"Unsupported graph extraction mode: {mode}")
+    return mode
+
+
 def run_groundrecall_import(
     source_root: str | Path,
     out_root: str | Path | None = None,
@@ -125,10 +138,12 @@ def run_groundrecall_import(
     agent_id: str = "groundrecall.ingest",
     concept_seed_store: str | Path | None = None,
     concept_alignment_threshold: float = 0.55,
+    extract_graph: str | bool | None = "none",
 ) -> ImportResult:
     source_path = Path(source_root).resolve()
     if mode not in VALID_MODES:
         raise ValueError(f"Unsupported import mode: {mode}")
+    graph_extraction_mode = _normalize_graph_extraction_mode(extract_graph)
     adapter = detect_source_adapter(source_path)
     discovered = adapter.discover(source_path)
     artifacts = [
@@ -214,10 +229,23 @@ def run_groundrecall_import(
             threshold=concept_alignment_threshold,
         )
     concept_rows = _dedupe_by_key(concept_rows, "concept_id")
-    relation_rows = _dedupe_by_key(relation_rows, "relation_id")
     artifact_rows = _dedupe_by_key(artifact_rows, "artifact_id")
     observation_rows = _dedupe_by_key(observation_rows, "observation_id")
     claim_rows = _dedupe_by_key(claim_rows, "claim_id")
+    graph_extraction_summary: dict[str, Any] = {
+        "mode": graph_extraction_mode,
+        "candidate_relation_count": 0,
+        "candidate_relations": [],
+    }
+    if graph_extraction_mode == "heuristic":
+        extracted_relations, graph_extraction_summary = extract_heuristic_graph_relations(
+            concept_rows,
+            observation_rows,
+            import_id=actual_import_id,
+            machine_id=context.machine_id,
+        )
+        relation_rows.extend(extracted_relations)
+    relation_rows = _dedupe_by_key(relation_rows, "relation_id")
 
     manifest = manifest_record(context) | {
         "source_adapter": adapter.name,
@@ -229,6 +257,7 @@ def run_groundrecall_import(
         "claim_count": len(claim_rows),
         "concept_count": len(concept_rows),
         "relation_count": len(relation_rows),
+        "graph_extraction": graph_extraction_summary,
     }
     if concept_alignment_summary is not None:
         manifest["concept_alignment"] = concept_alignment_summary
@@ -241,6 +270,7 @@ def run_groundrecall_import(
     _write_jsonl(output_dir / "claims.jsonl", claim_rows)
     _write_jsonl(output_dir / "concepts.jsonl", concept_rows)
     _write_jsonl(output_dir / "relations.jsonl", relation_rows)
+    _write_json(output_dir / "graph_extraction_candidates.json", graph_extraction_summary)
     _write_json(output_dir / "graph_diagnostics.json", build_graph_diagnostics(concept_rows, relation_rows))
     lint_payload = lint_import_directory(output_dir)
     _write_json(output_dir / "lint_findings.json", lint_payload)
@@ -270,6 +300,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--agent-id", default="groundrecall.ingest")
     parser.add_argument("--concept-seed-store", default=None)
     parser.add_argument("--concept-alignment-threshold", type=float, default=0.55)
+    parser.add_argument("--extract-graph", choices=sorted(VALID_GRAPH_EXTRACTION_MODES), default="none")
     return parser
 
 
@@ -284,5 +315,6 @@ def main() -> None:
         agent_id=args.agent_id,
         concept_seed_store=args.concept_seed_store,
         concept_alignment_threshold=args.concept_alignment_threshold,
+        extract_graph=args.extract_graph,
     )
     print(f"Wrote import artifacts to {result.out_dir}")
