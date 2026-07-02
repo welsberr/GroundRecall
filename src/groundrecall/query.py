@@ -423,6 +423,20 @@ def build_graph_bundle_for_concept(
         for observation in store.list_observations()
         if observation.observation_id in observation_ids and (include_rejected or observation.current_status != "rejected")
     ]
+    artifacts = {item.artifact_id: item for item in store.list_artifacts()}
+    source_artifact_ids = sorted(
+        {
+            artifact_id
+            for concept in selected_concepts
+            for artifact_id in concept.source_artifact_ids
+        }
+        | {observation.artifact_id for observation in observations if observation.artifact_id}
+    )
+    source_artifacts = [
+        artifacts[artifact_id].model_dump()
+        for artifact_id in source_artifact_ids
+        if artifact_id in artifacts and (include_rejected or artifacts[artifact_id].current_status != "rejected")
+    ]
 
     concept_rows = [item.model_dump() for item in selected_concepts]
     relation_rows = [item.model_dump() for item in selected_relations]
@@ -458,6 +472,7 @@ def build_graph_bundle_for_concept(
         ],
         "relevant_claims": [claim.model_dump() for claim in selected_claims],
         "supporting_observations": [observation.model_dump() for observation in observations],
+        "source_artifacts": source_artifacts,
         "graph_diagnostics": build_graph_diagnostics(concept_rows, relation_rows),
         "suggested_next_actions": [
             "Inspect inferred or weakly grounded edges before relying on graph structure.",

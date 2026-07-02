@@ -7,6 +7,7 @@ from typing import Any, Iterable
 
 from pydantic import BaseModel
 
+from .graph_diagnostics import build_graph_diagnostics
 from .models import (
     ClaimRecord,
     GroundRecallSnapshot,
@@ -448,6 +449,78 @@ def _prune_query_payload_references(payload: dict[str, Any], findings: list[Guar
         concept["source_artifact_ids"] = [
             value for value in concept["source_artifact_ids"] if isinstance(value, str) and value in allowed_artifact_ids
         ]
+    _prune_graph_payload_references(payload, allowed_artifact_ids, allowed_observation_ids, findings)
+
+
+def _prune_graph_payload_references(
+    payload: dict[str, Any],
+    allowed_artifact_ids: set[str],
+    allowed_observation_ids: set[str],
+    findings: list[GuardrailFinding],
+) -> None:
+    nodes = payload.get("nodes")
+    if not isinstance(nodes, list):
+        return
+
+    kept_nodes = []
+    allowed_concept_ids: set[str] = set()
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("node_id", ""))
+        record = node.get("record")
+        if not isinstance(record, dict) or record.get("concept_id") != node_id:
+            findings.append(GuardrailFinding("concept", node_id or "unknown", "non_exportable_graph_node"))
+            continue
+        source_artifact_ids = [value for value in record.get("source_artifact_ids", []) if isinstance(value, str)]
+        exportable_source_artifact_ids = [value for value in source_artifact_ids if value in allowed_artifact_ids]
+        if source_artifact_ids and not exportable_source_artifact_ids:
+            findings.append(GuardrailFinding("concept", node_id or "unknown", "no_exportable_artifacts"))
+            continue
+        record["source_artifact_ids"] = exportable_source_artifact_ids
+        node["title"] = str(record.get("title", ""))
+        node["status"] = str(record.get("current_status", ""))
+        kept_nodes.append(node)
+        allowed_concept_ids.add(node_id)
+    payload["nodes"] = kept_nodes
+
+    root = payload.get("root_concept")
+    if isinstance(root, dict):
+        root_id = str(root.get("concept_id", ""))
+        if root_id not in allowed_concept_ids:
+            findings.append(GuardrailFinding("concept", root_id or "unknown", "non_exportable_graph_root"))
+            payload.pop("root_concept", None)
+
+    edges = payload.get("edges")
+    kept_edges = []
+    if isinstance(edges, list):
+        for edge in edges:
+            if not isinstance(edge, dict):
+                continue
+            edge_id = str(edge.get("edge_id", ""))
+            source_id = str(edge.get("source_id", ""))
+            target_id = str(edge.get("target_id", ""))
+            record = edge.get("record")
+            if source_id not in allowed_concept_ids or target_id not in allowed_concept_ids:
+                findings.append(GuardrailFinding("relation", edge_id or "unknown", "non_exportable_relation_endpoint"))
+                continue
+            if not isinstance(record, dict) or record.get("relation_id") != edge_id:
+                findings.append(GuardrailFinding("relation", edge_id or "unknown", "non_exportable_graph_edge"))
+                continue
+            evidence_ids = [
+                value
+                for value in edge.get("evidence_ids", [])
+                if isinstance(value, str) and value in allowed_observation_ids
+            ]
+            edge["evidence_ids"] = evidence_ids
+            record["evidence_ids"] = evidence_ids
+            kept_edges.append(edge)
+        payload["edges"] = kept_edges
+
+    payload["graph_diagnostics"] = build_graph_diagnostics(
+        [node["record"] for node in kept_nodes if isinstance(node.get("record"), dict)],
+        [edge["record"] for edge in kept_edges if isinstance(edge.get("record"), dict)],
+    )
 
 
 def _payload_record_identity(value: dict[str, Any]) -> tuple[str, str]:

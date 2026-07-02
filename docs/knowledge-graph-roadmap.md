@@ -53,7 +53,8 @@ promotion semantics.
 
 ### P1: Canonical Graph Query And Export
 
-Status: first bounded graph query bundle implemented in this pass.
+Status: bounded graph query bundle and guardrailed graph bundle export
+implemented.
 
 - Add a first-class graph query mode for bounded concept traversal:
   `groundrecall query STORE CONCEPT --kind graph`.
@@ -61,6 +62,9 @@ Status: first bounded graph query bundle implemented in this pass.
   evidence ids.
 - Include relevant claims, supporting observations, and graph diagnostics.
 - Add regression tests for traversal depth, status filtering, and provenance.
+- Export public graph bundles through `groundrecall export --graph-concept`,
+  with node/edge wrappers pruned by public export guardrails and diagnostics
+  recomputed after filtering.
 
 ### P2: Candidate Graph Extraction
 

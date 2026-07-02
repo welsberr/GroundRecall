@@ -120,3 +120,29 @@ def test_groundrecall_cli_query_graph_dispatches(tmp_path: Path, capsys) -> None
     assert '"bundle_kind": "groundrecall_graph_bundle"' in output
     assert '"nodes"' in output
     assert '"edges"' in output
+
+
+def test_groundrecall_cli_export_graph_dispatches(tmp_path: Path, capsys) -> None:
+    source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir)
+    out_dir = tmp_path / "exports"
+
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall.cli",
+            "export",
+            str(store_dir),
+            str(out_dir),
+            "--graph-concept",
+            "channel-capacity",
+        ]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    output = capsys.readouterr().out
+    assert '"graph_bundles"' in output
+    assert (out_dir / "graph_bundle__channel-capacity.json").exists()

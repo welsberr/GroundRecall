@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
-from .query import build_query_bundle_for_concept
+from .query import build_graph_bundle_for_concept, build_query_bundle_for_concept
 from .store import GroundRecallStore
 
 
@@ -99,6 +99,24 @@ def export_query_bundle(
     return payload
 
 
+def export_graph_bundle(
+    store_dir: str | Path,
+    concept_ref: str,
+    out_path: str | Path,
+    *,
+    depth: int = 1,
+) -> dict[str, Any]:
+    payload = build_graph_bundle_for_concept(store_dir, concept_ref, depth=depth)
+    if payload is None:
+        raise KeyError(f"Unknown concept reference: {concept_ref}")
+    payload, guardrail_report = filter_query_payload_for_public_export(payload)
+    payload["export_guardrails"] = guardrail_report
+    path = Path(out_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(path, payload)
+    return payload
+
+
 def export_groundrecall_query_bundle(
     store_dir: str | Path,
     concept_ref: str,
@@ -115,10 +133,30 @@ def export_groundrecall_query_bundle(
     }
 
 
+def export_groundrecall_graph_bundle(
+    store_dir: str | Path,
+    concept_ref: str,
+    out_dir: str | Path,
+    *,
+    depth: int = 1,
+) -> dict[str, Any]:
+    target = Path(out_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    out_path = target / "groundrecall_graph_bundle.json"
+    payload = export_graph_bundle(store_dir, concept_ref, out_path, depth=depth)
+    return {
+        "concept_ref": concept_ref,
+        "bundle_path": str(out_path),
+        "bundle": payload,
+    }
+
+
 def export_canonical_bundle(
     store_dir: str | Path,
     out_dir: str | Path,
     concept_refs: list[str] | None = None,
+    graph_concept_refs: list[str] | None = None,
+    graph_depth: int = 1,
     snapshot_id: str | None = None,
     pack_ready_concept: str | None = None,
 ) -> dict[str, Any]:
@@ -131,17 +169,25 @@ def export_canonical_bundle(
         bundle_path = target / f"query_bundle__{safe_name}.json"
         export_query_bundle(store_dir, concept_ref, bundle_path)
         query_bundle_paths.append(str(bundle_path))
+    graph_bundle_paths: list[str] = []
+    for concept_ref in graph_concept_refs or []:
+        safe_name = concept_ref.lower().replace(" ", "-").replace("::", "-")
+        bundle_path = target / f"graph_bundle__{safe_name}.json"
+        export_graph_bundle(store_dir, concept_ref, bundle_path, depth=graph_depth)
+        graph_bundle_paths.append(str(bundle_path))
     pack_ready_bundle = None
     if pack_ready_concept:
         pack_ready_bundle = export_groundrecall_query_bundle(store_dir, pack_ready_concept, target)
     manifest = json.loads((target / "export_manifest.json").read_text(encoding="utf-8"))
     manifest["query_bundles"] = query_bundle_paths
+    manifest["graph_bundles"] = graph_bundle_paths
     if pack_ready_bundle is not None:
         manifest["groundrecall_query_bundle"] = pack_ready_bundle["bundle_path"]
     _write_json(target / "export_manifest.json", manifest)
     return {
         "canonical_outputs": outputs,
         "query_bundles": query_bundle_paths,
+        "graph_bundles": graph_bundle_paths,
         "groundrecall_query_bundle": pack_ready_bundle,
     }
 
@@ -152,6 +198,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("out_dir")
     parser.add_argument("--snapshot-id", default=None)
     parser.add_argument("--concept", action="append", default=[])
+    parser.add_argument("--graph-concept", action="append", default=[])
+    parser.add_argument("--graph-depth", type=int, default=1)
     parser.add_argument("--pack-ready-concept", default=None)
     return parser
 
@@ -162,6 +210,8 @@ def main() -> None:
         store_dir=args.store_dir,
         out_dir=args.out_dir,
         concept_refs=list(args.concept or []),
+        graph_concept_refs=list(args.graph_concept or []),
+        graph_depth=args.graph_depth,
         snapshot_id=args.snapshot_id,
         pack_ready_concept=args.pack_ready_concept,
     )

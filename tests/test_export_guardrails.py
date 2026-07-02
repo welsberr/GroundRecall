@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 
 from groundrecall.assistant_export import export_assistant_bundle
-from groundrecall.export import export_canonical_bundle, export_query_bundle
-from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, SourceRecord
+from groundrecall.export import export_canonical_bundle, export_graph_bundle, export_query_bundle
+from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, RelationRecord, SourceRecord
 from groundrecall.store import GroundRecallStore
 
 
@@ -211,6 +211,36 @@ def test_query_bundle_prunes_private_support_references(tmp_path: Path) -> None:
         finding["record_kind"] == "observation" and finding["reason"] == "non_exportable_artifact"
         for finding in report["findings"]
     )
+
+
+def test_graph_bundle_prunes_private_nodes_edges_and_diagnostics(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_public_base(store)
+    _seed_sensitive_records(store)
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_private",
+            source_id="concept::channel-capacity",
+            target_id="concept::private-ops",
+            relation_type="references",
+            current_status="promoted",
+        )
+    )
+
+    out_path = tmp_path / "graph.json"
+    payload = export_graph_bundle(store.base_dir, "channel-capacity", out_path, depth=1)
+
+    export_text = out_path.read_text(encoding="utf-8")
+    assert PRIVATE_CANARY not in export_text
+    assert "concept::private-ops" not in export_text
+    assert "rel_private" not in export_text
+    assert [node["node_id"] for node in payload["nodes"]] == ["concept::channel-capacity"]
+    assert payload["edges"] == []
+    assert payload["graph_diagnostics"]["summary"]["concept_count"] == 1
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == 0
+    reasons = {finding["reason"] for finding in payload["export_guardrails"]["findings"]}
+    assert "no_exportable_artifacts" in reasons
+    assert "non_exportable_relation_endpoint" in reasons
 
 
 def test_assistant_export_does_not_release_privileged_store_content(tmp_path: Path) -> None:

@@ -13,7 +13,7 @@ from .query import (
     query_provenance,
     search_claims,
 )
-from .export import export_groundrecall_query_bundle
+from .export import export_graph_bundle, export_groundrecall_graph_bundle, export_groundrecall_query_bundle
 from .store import GroundRecallStore
 
 __all__ = [
@@ -31,7 +31,9 @@ __all__ = [
     "search_claims",
     "build_query_bundle_for_concept",
     "build_graph_bundle_for_concept",
+    "export_graph_bundle",
     "export_groundrecall_query_bundle",
+    "export_groundrecall_graph_bundle",
     "build_query_parser",
     "query_main",
     "summarize_store",
