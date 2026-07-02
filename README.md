@@ -75,6 +75,9 @@ groundrecall import /path/to/source --out-root .groundrecall/imports --mode quic
 groundrecall import /path/to/source --out-root .groundrecall/imports --mode quick --extract-graph heuristic
 ```
 
+Imports also write review sidecars such as `concept_standardization.json` and
+`graph_extraction_candidates.json` when applicable.
+
 Lint the import:
 
 ```bash

@@ -55,6 +55,7 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
     manifest = _read_json(base / "manifest.json")
     lint_payload = _read_json(base / "lint_findings.json")
     graph_payload = _read_json(base / "graph_diagnostics.json")
+    standardization_payload = _read_json(base / "concept_standardization.json") if (base / "concept_standardization.json").exists() else {}
     claims = _read_jsonl(base / "claims.jsonl")
     concepts = _read_jsonl(base / "concepts.jsonl")
     relations = _read_jsonl(base / "relations.jsonl")
@@ -63,6 +64,7 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
     for finding in lint_payload.get("findings", []):
         findings_by_target[finding["target_id"]].append(finding)
     graph_codes_by_concept = _graph_codes_by_concept(graph_payload)
+    standardization_codes_by_concept = _standardization_codes_by_concept(standardization_payload)
 
     queue: list[dict[str, Any]] = []
 
@@ -88,7 +90,8 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
         related = findings_by_target.get(concept["concept_id"], [])
         finding_codes = {item["code"] for item in related}
         graph_codes = graph_codes_by_concept.get(concept["concept_id"], set())
-        if not finding_codes and not graph_codes:
+        standardization_codes = standardization_codes_by_concept.get(concept["concept_id"], set())
+        if not finding_codes and not graph_codes and not standardization_codes:
             continue
         queue.append(
             {
@@ -96,11 +99,11 @@ def build_review_queue(import_dir: str | Path) -> dict[str, Any]:
                 "candidate_type": "concept",
                 "candidate_id": concept["concept_id"],
                 "title": concept["title"],
-                "triage_lane": _triage_lane(concept, finding_codes, graph_codes),
-                "priority": _priority(concept, finding_codes, graph_codes),
+                "triage_lane": _triage_lane(concept, finding_codes | standardization_codes, graph_codes),
+                "priority": _priority(concept, finding_codes | standardization_codes, graph_codes),
                 "grounding_status": concept.get("grounding_status", "triaged"),
                 "status": "needs_review",
-                "finding_codes": sorted(finding_codes | graph_codes),
+                "finding_codes": sorted(finding_codes | graph_codes | standardization_codes),
                 "concept_ids": [concept["concept_id"]],
                 "graph_codes": sorted(graph_codes),
             }
@@ -155,6 +158,20 @@ def _graph_codes_by_concept(graph_payload: dict[str, Any]) -> dict[str, set[str]
         concept_id = str(bridge.get("concept_id", ""))
         if concept_id:
             codes[concept_id].add("bridge_concept")
+    return codes
+
+
+def _standardization_codes_by_concept(standardization_payload: dict[str, Any]) -> dict[str, set[str]]:
+    codes: defaultdict[str, set[str]] = defaultdict(set)
+    for group in standardization_payload.get("deterministic_merge_groups", []):
+        concept_id = str(group.get("canonical_concept_id", ""))
+        if concept_id:
+            codes[concept_id].add("concept_deterministic_merge")
+    for candidate in standardization_payload.get("ambiguous_alias_candidates", []):
+        for key in ("left_concept_id", "right_concept_id"):
+            concept_id = str(candidate.get(key, ""))
+            if concept_id:
+                codes[concept_id].add("concept_alias_candidate")
     return codes
 
 

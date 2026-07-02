@@ -24,6 +24,7 @@ from .groundrecall_normalizer import (
     build_fragment_record,
     build_observation_record,
     build_relation_records,
+    build_concept_standardization_report,
     manifest_record,
     standardize_concept_rows,
 )
@@ -220,6 +221,7 @@ def run_groundrecall_import(
                 )
 
     fragment_rows = _dedupe_by_key(fragment_rows, "fragment_id")
+    raw_concept_rows = [dict(row) for row in concept_rows]
     concept_rows, claim_rows, relation_rows = standardize_concept_rows(concept_rows, claim_rows, relation_rows)
     concept_alignment_summary: dict[str, Any] | None = None
     if concept_seed_store is not None:
@@ -246,6 +248,7 @@ def run_groundrecall_import(
         )
         relation_rows.extend(extracted_relations)
     relation_rows = _dedupe_by_key(relation_rows, "relation_id")
+    concept_standardization_report = build_concept_standardization_report(raw_concept_rows, concept_rows)
 
     manifest = manifest_record(context) | {
         "source_adapter": adapter.name,
@@ -257,6 +260,10 @@ def run_groundrecall_import(
         "claim_count": len(claim_rows),
         "concept_count": len(concept_rows),
         "relation_count": len(relation_rows),
+        "concept_standardization": {
+            "deterministic_merge_group_count": concept_standardization_report["deterministic_merge_group_count"],
+            "ambiguous_alias_candidate_count": concept_standardization_report["ambiguous_alias_candidate_count"],
+        },
         "graph_extraction": graph_extraction_summary,
     }
     if concept_alignment_summary is not None:
@@ -270,6 +277,7 @@ def run_groundrecall_import(
     _write_jsonl(output_dir / "claims.jsonl", claim_rows)
     _write_jsonl(output_dir / "concepts.jsonl", concept_rows)
     _write_jsonl(output_dir / "relations.jsonl", relation_rows)
+    _write_json(output_dir / "concept_standardization.json", concept_standardization_report)
     _write_json(output_dir / "graph_extraction_candidates.json", graph_extraction_summary)
     _write_json(output_dir / "graph_diagnostics.json", build_graph_diagnostics(concept_rows, relation_rows))
     lint_payload = lint_import_directory(output_dir)

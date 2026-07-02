@@ -80,10 +80,15 @@ implemented.
 
 ### P3: Entity And Concept Standardization
 
+- Status: initial auditable concept standardization reporting implemented.
 - Add deterministic alias normalization for obvious duplicates.
 - Emit review candidates for ambiguous alias clusters.
 - Preserve original surface forms and source locations.
 - Avoid silent merges when evidence is weak.
+- Current import output writes `concept_standardization.json`, records
+  deterministic merge groups, reports ambiguous alias candidates without
+  merging them, and surfaces `concept_deterministic_merge` /
+  `concept_alias_candidate` codes in the review queue.
 
 ### P4: Relation Inference And Review
 

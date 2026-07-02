@@ -29,6 +29,18 @@ def _build_graph_extraction_fixture(root: Path) -> Path:
     return root
 
 
+def _build_standardization_fixture(root: Path) -> Path:
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "standardization.md").write_text(
+        "# Signal Processing\n\n"
+        "## The Signal Processing\n\n"
+        "## Signal Processing Model\n\n"
+        "- Signal processing and the signal processing model should be distinguished during review.\n",
+        encoding="utf-8",
+    )
+    return root
+
+
 def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     root = tmp_path / "llmwiki"
     (root / "wiki").mkdir(parents=True)
@@ -188,6 +200,26 @@ def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:
     assert concepts[0]["source_artifact_ids"] == ["ia_one", "ia_two"]
     assert claims[0]["concept_ids"] == ["concept::signal-processing"]
     assert relations[0]["source_id"] == "concept::signal-processing"
+
+
+def test_import_writes_concept_standardization_report_and_review_codes(tmp_path: Path) -> None:
+    root = _build_standardization_fixture(tmp_path / "llmwiki")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="standardization-test")
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    report = json.loads((result.out_dir / "concept_standardization.json").read_text(encoding="utf-8"))
+    review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
+    concept_items = {item["candidate_id"]: item for item in review_queue["items"] if item["candidate_type"] == "concept"}
+
+    assert manifest["concept_standardization"]["deterministic_merge_group_count"] == 1
+    assert manifest["concept_standardization"]["ambiguous_alias_candidate_count"] == 1
+    assert report["deterministic_merge_groups"][0]["canonical_concept_id"] == "concept::signal-processing"
+    assert report["ambiguous_alias_candidates"][0]["left_concept_id"] == "concept::signal-processing"
+    assert report["ambiguous_alias_candidates"][0]["right_concept_id"] == "concept::signal-processing-model"
+    assert "concept_deterministic_merge" in concept_items["concept::signal-processing"]["finding_codes"]
+    assert "concept_alias_candidate" in concept_items["concept::signal-processing"]["finding_codes"]
+    assert "concept_alias_candidate" in concept_items["concept::signal-processing-model"]["finding_codes"]
 
 
 def test_import_can_align_claims_to_existing_seed_concepts(tmp_path: Path) -> None:
