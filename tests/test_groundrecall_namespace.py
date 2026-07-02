@@ -5,7 +5,7 @@ from groundrecall.cli import main as groundrecall_cli_main
 from groundrecall.export import export_canonical_bundle
 from groundrecall.ingest import run_groundrecall_import
 from groundrecall.inspect import inspect_store
-from groundrecall.models import ClaimRecord
+from groundrecall.models import ClaimRecord, ConceptRecord, ProvenanceRecord, RelationRecord
 from groundrecall.query import query_concept
 from groundrecall.store import GroundRecallStore
 from groundrecall.lint import lint_import_directory
@@ -57,13 +57,31 @@ def test_groundrecall_inspect_can_include_graph_diagnostics(tmp_path: Path) -> N
     import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
     store_dir = tmp_path / "store"
     promote_import_to_store(import_result.out_dir, store_dir)
+    store = GroundRecallStore(store_dir)
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::rejected-diagnostic-node",
+            title="Rejected Diagnostic Node",
+            current_status="rejected",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_rejected_diagnostic_edge",
+            source_id="concept::rejected-diagnostic-node",
+            target_id="concept::channel-capacity",
+            relation_type="mentions_topic",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="rejected",
+        )
+    )
 
     payload = inspect_store(store_dir, out_path=tmp_path / "inspect-graph.json", include_graph=True)
 
     assert (tmp_path / "inspect-graph.json").exists()
     assert "graph_diagnostics" in payload
-    assert payload["graph_diagnostics"]["summary"]["concept_count"] == payload["concept_count"]
-    assert payload["graph_diagnostics"]["summary"]["relation_count"] == payload["relation_count"]
+    assert payload["graph_diagnostics"]["summary"]["concept_count"] == payload["concept_count"] - 1
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == payload["relation_count"] - 1
     assert payload["graph_diagnostics"]["summary"]["connected_component_count"] >= 1
 
 

@@ -27,11 +27,15 @@ def summarize_store(store_dir: str | Path, *, include_graph: bool = False) -> di
         "latest_snapshot_id": latest_snapshot.snapshot_id if latest_snapshot is not None else "",
     }
     if include_graph:
+        active_concepts = [item for item in store.list_concepts() if item.current_status != "rejected"]
+        active_relations = [item for item in store.list_relations() if item.current_status != "rejected"]
+        active_claims = [item for item in store.list_claims() if item.current_status != "rejected"]
+        active_observations = [item for item in store.list_observations() if item.current_status != "rejected"]
         payload["graph_diagnostics"] = build_graph_diagnostics(
-            [item.model_dump() for item in store.list_concepts()],
-            [item.model_dump() for item in store.list_relations()],
-            claims=[item.model_dump() for item in store.list_claims()],
-            observations=[item.model_dump() for item in store.list_observations()],
+            [item.model_dump() for item in active_concepts],
+            [item.model_dump() for item in active_relations],
+            claims=[item.model_dump() for item in active_claims],
+            observations=[item.model_dump() for item in active_observations],
         )
     return payload
 
