@@ -491,8 +491,43 @@ def _prune_graph_payload_references(
             findings.append(GuardrailFinding("concept", root_id or "unknown", "non_exportable_graph_root"))
             payload.pop("root_concept", None)
 
-    edges = payload.get("edges")
-    kept_edges = []
+    kept_edges = _filter_graph_edges(
+        payload,
+        "edges",
+        allowed_concept_ids=allowed_concept_ids,
+        allowed_observation_ids=allowed_observation_ids,
+        findings=findings,
+    )
+    kept_provenance_edges = _filter_graph_edges(
+        payload,
+        "provenance_edges",
+        allowed_concept_ids=allowed_concept_ids,
+        allowed_observation_ids=allowed_observation_ids,
+        findings=findings,
+    )
+
+    payload["graph_diagnostics"] = build_graph_diagnostics(
+        [node["record"] for node in kept_nodes if isinstance(node.get("record"), dict)],
+        [
+            edge["record"]
+            for edge in [*kept_edges, *kept_provenance_edges]
+            if isinstance(edge.get("record"), dict)
+        ],
+        claims=[claim for claim in payload.get("relevant_claims", []) if isinstance(claim, dict)],
+        observations=[observation for observation in payload.get("supporting_observations", []) if isinstance(observation, dict)],
+    )
+
+
+def _filter_graph_edges(
+    payload: dict[str, Any],
+    field_name: str,
+    *,
+    allowed_concept_ids: set[str],
+    allowed_observation_ids: set[str],
+    findings: list[GuardrailFinding],
+) -> list[dict[str, Any]]:
+    edges = payload.get(field_name)
+    kept_edges: list[dict[str, Any]] = []
     if isinstance(edges, list):
         for edge in edges:
             if not isinstance(edge, dict):
@@ -515,14 +550,8 @@ def _prune_graph_payload_references(
             edge["evidence_ids"] = evidence_ids
             record["evidence_ids"] = evidence_ids
             kept_edges.append(edge)
-        payload["edges"] = kept_edges
-
-    payload["graph_diagnostics"] = build_graph_diagnostics(
-        [node["record"] for node in kept_nodes if isinstance(node.get("record"), dict)],
-        [edge["record"] for edge in kept_edges if isinstance(edge.get("record"), dict)],
-        claims=[claim for claim in payload.get("relevant_claims", []) if isinstance(claim, dict)],
-        observations=[observation for observation in payload.get("supporting_observations", []) if isinstance(observation, dict)],
-    )
+        payload[field_name] = kept_edges
+    return kept_edges
 
 
 def _payload_record_identity(value: dict[str, Any]) -> tuple[str, str]:

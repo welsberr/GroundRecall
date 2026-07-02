@@ -221,6 +221,53 @@ def test_build_graph_bundle_for_concept_returns_bounded_neighborhood(tmp_path: P
     assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
 
 
+def test_graph_bundle_keeps_source_family_out_of_semantic_traversal(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_concept(ConceptRecord(concept_id="concept::alpha", title="Alpha", current_status="reviewed"))
+    store.save_concept(ConceptRecord(concept_id="concept::beta", title="Beta", current_status="reviewed"))
+    store.save_concept(ConceptRecord(concept_id="concept::gamma", title="Gamma", current_status="reviewed"))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_semantic",
+            source_id="concept::alpha",
+            target_id="concept::beta",
+            relation_type="related_topic",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_source_family_selected",
+            source_id="concept::alpha",
+            target_id="concept::beta",
+            relation_type="same_source_family",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_source_family_unselected",
+            source_id="concept::alpha",
+            target_id="concept::gamma",
+            relation_type="same_source_family",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+
+    payload = build_graph_bundle_for_concept(store.base_dir, "alpha", depth=1)
+
+    assert payload is not None
+    node_ids = {item["node_id"] for item in payload["nodes"]}
+    assert node_ids == {"concept::alpha", "concept::beta"}
+    assert [item["edge_id"] for item in payload["edges"]] == ["rel_semantic"]
+    assert [item["edge_id"] for item in payload["provenance_edges"]] == ["rel_source_family_selected"]
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
+    assert payload["graph_diagnostics"]["summary"]["provenance_relation_count"] == 1
+
+
 def test_build_graph_search_bundle_discovers_roots_from_text_matches(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "groundrecall")
     _seed_store(store)

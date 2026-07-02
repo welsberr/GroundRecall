@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from .graph_diagnostics import build_graph_diagnostics
+from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
 from .search_index import search_index
 from .store import GroundRecallStore
 
@@ -379,8 +379,10 @@ def build_graph_bundle_for_concept(
         return None
 
     relations = [item for item in store.list_relations() if include_rejected or item.current_status != "rejected"]
+    semantic_relations = [item for item in relations if item.relation_type not in PROVENANCE_RELATION_TYPES]
+    provenance_relations = [item for item in relations if item.relation_type in PROVENANCE_RELATION_TYPES]
     adjacency: dict[str, list[Any]] = {concept_id: [] for concept_id in concept_by_id}
-    for relation in relations:
+    for relation in semantic_relations:
         if relation.source_id not in concept_by_id or relation.target_id not in concept_by_id:
             continue
         adjacency.setdefault(relation.source_id, []).append(relation)
@@ -403,7 +405,12 @@ def build_graph_bundle_for_concept(
     selected_concepts = [concept_by_id[concept_id] for concept_id in sorted(selected_ids)]
     selected_relations = [
         relation
-        for relation in relations
+        for relation in semantic_relations
+        if relation.source_id in selected_ids and relation.target_id in selected_ids
+    ]
+    selected_provenance_relations = [
+        relation
+        for relation in provenance_relations
         if relation.source_id in selected_ids and relation.target_id in selected_ids
     ]
     selected_claims = [
@@ -439,7 +446,7 @@ def build_graph_bundle_for_concept(
     ]
 
     concept_rows = [item.model_dump() for item in selected_concepts]
-    relation_rows = [item.model_dump() for item in selected_relations]
+    relation_rows = [item.model_dump() for item in [*selected_relations, *selected_provenance_relations]]
     return {
         "bundle_kind": "groundrecall_graph_bundle",
         "query_type": "graph",
@@ -469,6 +476,20 @@ def build_graph_bundle_for_concept(
                 "record": relation.model_dump(),
             }
             for relation in selected_relations
+        ],
+        "provenance_edges": [
+            {
+                "edge_id": relation.relation_id,
+                "edge_kind": "relation",
+                "source_id": relation.source_id,
+                "target_id": relation.target_id,
+                "relation_type": relation.relation_type,
+                "status": relation.current_status,
+                "evidence_ids": relation.evidence_ids,
+                "provenance": relation.provenance.model_dump(),
+                "record": relation.model_dump(),
+            }
+            for relation in selected_provenance_relations
         ],
         "relevant_claims": [claim.model_dump() for claim in selected_claims],
         "supporting_observations": [observation.model_dump() for observation in observations],

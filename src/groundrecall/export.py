@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
-from .graph_diagnostics import build_graph_diagnostics
+from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
 from .query import build_graph_bundle_for_concept, build_query_bundle_for_concept
 from .store import GroundRecallStore
 
@@ -52,6 +52,7 @@ def _graph_interchange_bundle(snapshot, diagnostics: dict[str, Any]) -> dict[str
                 "source_id": relation.source_id,
                 "target_id": relation.target_id,
                 "relation_type": relation.relation_type,
+                "edge_role": "provenance" if relation.relation_type in PROVENANCE_RELATION_TYPES else "semantic",
                 "evidence_ids": list(relation.evidence_ids),
                 "support_kind": relation.provenance.support_kind,
                 "grounding_status": relation.provenance.grounding_status,
