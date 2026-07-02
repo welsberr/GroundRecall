@@ -115,6 +115,8 @@ implemented.
   `claim_quality`, `concept_quality`, and `quality_controls` sections.
   Import, inspect, query, review, and public graph export paths recompute these
   diagnostics with the available filtered claims and observations.
+- Canonical exports can now write filtered `graph_diagnostics.json` through
+  `groundrecall export --include-graph-diagnostics`.
 
 ### P6: Downstream Interchange
 

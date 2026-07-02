@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
+from .graph_diagnostics import build_graph_diagnostics
 from .query import build_graph_bundle_for_concept, build_query_bundle_for_concept
 from .store import GroundRecallStore
 
@@ -31,6 +32,7 @@ def export_canonical_snapshot(
     out_dir: str | Path,
     snapshot_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    include_graph_diagnostics: bool = False,
 ) -> dict[str, str]:
     store = GroundRecallStore(store_dir)
     target = Path(out_dir)
@@ -51,6 +53,17 @@ def export_canonical_snapshot(
     _write_jsonl(target / "claims.jsonl", [item.model_dump() for item in snapshot.claims])
     _write_jsonl(target / "concepts.jsonl", [item.model_dump() for item in snapshot.concepts])
     _write_jsonl(target / "relations.jsonl", [item.model_dump() for item in snapshot.relations])
+    graph_diagnostics_path = target / "graph_diagnostics.json"
+    if include_graph_diagnostics:
+        _write_json(
+            graph_diagnostics_path,
+            build_graph_diagnostics(
+                [item.model_dump() for item in snapshot.concepts],
+                [item.model_dump() for item in snapshot.relations],
+                claims=[item.model_dump() for item in snapshot.claims],
+                observations=[item.model_dump() for item in snapshot.observations],
+            ),
+        )
     provenance_manifest = {
         "snapshot_id": snapshot.snapshot_id,
         "created_at": snapshot.created_at,
@@ -58,6 +71,7 @@ def export_canonical_snapshot(
         "artifact_count": len(snapshot.artifacts),
         "observation_count": len(snapshot.observations),
         "export_guardrails": guardrail_report,
+        "graph_diagnostics": str(graph_diagnostics_path) if include_graph_diagnostics else "",
     }
     _write_json(target / "provenance_manifest.json", provenance_manifest)
     manifest = {
@@ -72,8 +86,10 @@ def export_canonical_snapshot(
             "provenance_manifest.json",
         ],
     }
+    if include_graph_diagnostics:
+        manifest["files"].append("graph_diagnostics.json")
     _write_json(target / "export_manifest.json", manifest)
-    return {
+    outputs = {
         "snapshot_json": str(snapshot_path),
         "claims_jsonl": str(target / "claims.jsonl"),
         "concepts_jsonl": str(target / "concepts.jsonl"),
@@ -81,6 +97,9 @@ def export_canonical_snapshot(
         "provenance_manifest_json": str(target / "provenance_manifest.json"),
         "export_manifest_json": str(target / "export_manifest.json"),
     }
+    if include_graph_diagnostics:
+        outputs["graph_diagnostics_json"] = str(graph_diagnostics_path)
+    return outputs
 
 
 def export_query_bundle(
@@ -157,12 +176,18 @@ def export_canonical_bundle(
     concept_refs: list[str] | None = None,
     graph_concept_refs: list[str] | None = None,
     graph_depth: int = 1,
+    include_graph_diagnostics: bool = False,
     snapshot_id: str | None = None,
     pack_ready_concept: str | None = None,
 ) -> dict[str, Any]:
     target = Path(out_dir)
     target.mkdir(parents=True, exist_ok=True)
-    outputs = export_canonical_snapshot(store_dir, target, snapshot_id=snapshot_id)
+    outputs = export_canonical_snapshot(
+        store_dir,
+        target,
+        snapshot_id=snapshot_id,
+        include_graph_diagnostics=include_graph_diagnostics,
+    )
     query_bundle_paths: list[str] = []
     for concept_ref in concept_refs or []:
         safe_name = concept_ref.lower().replace(" ", "-").replace("::", "-")
@@ -200,6 +225,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concept", action="append", default=[])
     parser.add_argument("--graph-concept", action="append", default=[])
     parser.add_argument("--graph-depth", type=int, default=1)
+    parser.add_argument("--include-graph-diagnostics", action="store_true")
     parser.add_argument("--pack-ready-concept", default=None)
     return parser
 
@@ -212,6 +238,7 @@ def main() -> None:
         concept_refs=list(args.concept or []),
         graph_concept_refs=list(args.graph_concept or []),
         graph_depth=args.graph_depth,
+        include_graph_diagnostics=args.include_graph_diagnostics,
         snapshot_id=args.snapshot_id,
         pack_ready_concept=args.pack_ready_concept,
     )

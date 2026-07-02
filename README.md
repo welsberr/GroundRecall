@@ -121,6 +121,7 @@ groundrecall inspect .groundrecall/store --graph
 groundrecall query .groundrecall/store channel-capacity
 groundrecall query .groundrecall/store channel-capacity --kind graph
 groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
+groundrecall export .groundrecall/store exports/canonical --include-graph-diagnostics
 ```
 
 Export assistant-neutral data:

@@ -189,3 +189,27 @@ def test_export_groundrecall_graph_bundle_uses_pack_ready_filename(tmp_path: Pat
     assert (out_dir / "groundrecall_graph_bundle.json").exists()
     assert payload["bundle_path"].endswith("groundrecall_graph_bundle.json")
     assert payload["bundle"]["bundle_kind"] == "groundrecall_graph_bundle"
+
+
+def test_export_canonical_bundle_can_include_graph_diagnostics(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    out_dir = tmp_path / "exports-with-graph"
+    payload = export_canonical_bundle(
+        store_dir=store.base_dir,
+        out_dir=out_dir,
+        snapshot_id="snap_export_graph",
+        include_graph_diagnostics=True,
+    )
+
+    assert (out_dir / "graph_diagnostics.json").exists()
+    manifest = json.loads((out_dir / "export_manifest.json").read_text(encoding="utf-8"))
+    diagnostics = json.loads((out_dir / "graph_diagnostics.json").read_text(encoding="utf-8"))
+    provenance_manifest = json.loads((out_dir / "provenance_manifest.json").read_text(encoding="utf-8"))
+
+    assert "graph_diagnostics.json" in manifest["files"]
+    assert payload["canonical_outputs"]["graph_diagnostics_json"].endswith("graph_diagnostics.json")
+    assert provenance_manifest["graph_diagnostics"].endswith("graph_diagnostics.json")
+    assert diagnostics["summary"]["concept_count"] == 2
+    assert "quality_summary" in diagnostics
