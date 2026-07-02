@@ -105,11 +105,16 @@ implemented.
 
 ### P5: Graph Diagnostics And Quality Controls
 
+- Status: initial graph quality diagnostics implemented.
 - Expand diagnostics beyond connected components and bridges:
   weak grounding, inferred-edge density, high-fanout noisy concepts,
   unsupported claims, contradiction clusters, and stale/superseded neighborhoods.
 - Add `groundrecall export --include-graph-diagnostics`.
 - Add quality thresholds usable by review and CI.
+- Current graph diagnostics include `quality_summary`, `relation_quality`,
+  `claim_quality`, `concept_quality`, and `quality_controls` sections.
+  Import, inspect, query, review, and public graph export paths recompute these
+  diagnostics with the available filtered claims and observations.
 
 ### P6: Downstream Interchange
 

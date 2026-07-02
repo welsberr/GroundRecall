@@ -279,7 +279,10 @@ def run_groundrecall_import(
     _write_jsonl(output_dir / "relations.jsonl", relation_rows)
     _write_json(output_dir / "concept_standardization.json", concept_standardization_report)
     _write_json(output_dir / "graph_extraction_candidates.json", graph_extraction_summary)
-    _write_json(output_dir / "graph_diagnostics.json", build_graph_diagnostics(concept_rows, relation_rows))
+    _write_json(
+        output_dir / "graph_diagnostics.json",
+        build_graph_diagnostics(concept_rows, relation_rows, claims=claim_rows, observations=observation_rows),
+    )
     lint_payload = lint_import_directory(output_dir)
     _write_json(output_dir / "lint_findings.json", lint_payload)
     review_queue = build_review_queue(output_dir)

@@ -30,6 +30,8 @@ def summarize_store(store_dir: str | Path, *, include_graph: bool = False) -> di
         payload["graph_diagnostics"] = build_graph_diagnostics(
             [item.model_dump() for item in store.list_concepts()],
             [item.model_dump() for item in store.list_relations()],
+            claims=[item.model_dump() for item in store.list_claims()],
+            observations=[item.model_dump() for item in store.list_observations()],
         )
     return payload
 

@@ -93,6 +93,9 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     graph_diagnostics = json.loads((result.out_dir / "graph_diagnostics.json").read_text(encoding="utf-8"))
     assert graph_diagnostics["summary"]["connected_component_count"] >= 1
     assert graph_diagnostics["summary"]["concept_count"] == len(concepts)
+    assert "quality_summary" in graph_diagnostics
+    assert "relation_quality" in graph_diagnostics
+    assert "claim_quality" in graph_diagnostics
 
     lint_payload = json.loads((result.out_dir / "lint_findings.json").read_text(encoding="utf-8"))
     assert "summary" in lint_payload
@@ -142,6 +145,7 @@ def test_heuristic_graph_extraction_emits_reviewable_relation_candidates(tmp_pat
     relations = _read_jsonl(result.out_dir / "relations.jsonl")
     candidates = json.loads((result.out_dir / "graph_extraction_candidates.json").read_text(encoding="utf-8"))
     review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
+    graph_diagnostics = json.loads((result.out_dir / "graph_diagnostics.json").read_text(encoding="utf-8"))
 
     extracted = [item for item in relations if item["relation_type"] == "co_occurs_with"]
     assert manifest["graph_extraction"]["mode"] == "heuristic"
@@ -154,6 +158,11 @@ def test_heuristic_graph_extraction_emits_reviewable_relation_candidates(tmp_pat
     assert extracted[0]["grounding_status"] == "partially_grounded"
     assert extracted[0]["current_status"] == "draft"
     assert extracted[0]["evidence_ids"]
+    assert graph_diagnostics["quality_summary"]["inferred_relation_count"] >= 1
+    assert graph_diagnostics["relation_quality"]["inferred_relation_count"] >= 1
+    assert "high_inferred_relation_density" in {
+        item["code"] for item in graph_diagnostics["quality_controls"]["flags"]
+    }
 
     relation_items = [item for item in review_queue["items"] if item["candidate_type"] == "relation"]
     assert len(relation_items) == 1
@@ -285,6 +294,70 @@ def test_graph_diagnostics_detect_bridge_concepts() -> None:
     assert diagnostics["summary"]["connected_component_count"] == 1
     assert diagnostics["summary"]["bridge_concept_count"] == 2
     assert [item["concept_id"] for item in diagnostics["bridge_concepts"]] == ["concept::b", "concept::c"]
+
+
+def test_graph_diagnostics_reports_quality_controls() -> None:
+    diagnostics = build_graph_diagnostics(
+        concepts=[
+            {"concept_id": "concept::hub"},
+            {"concept_id": "concept::a"},
+            {"concept_id": "concept::b"},
+            {"concept_id": "concept::c"},
+            {"concept_id": "concept::d"},
+            {"concept_id": "concept::e"},
+            {"concept_id": "concept::f"},
+            {"concept_id": "concept::g"},
+            {"concept_id": "concept::h"},
+        ],
+        relations=[
+            {
+                "relation_id": f"rel_{index}",
+                "source_id": "concept::hub",
+                "target_id": f"concept::{target}",
+                "relation_type": "co_occurs_with",
+                "support_kind": "inferred",
+                "grounding_status": "partially_grounded",
+            }
+            for index, target in enumerate(["a", "b", "c", "d", "e", "f", "g", "h"], start=1)
+        ],
+        observations=[
+            {
+                "observation_id": "obs_grounded",
+                "grounding_status": "grounded",
+            }
+        ],
+        claims=[
+            {
+                "claim_id": "clm_missing_support",
+                "claim_text": "Unsupported claim.",
+                "concept_ids": ["concept::hub"],
+                "source_observation_ids": [],
+                "grounding_status": "ungrounded",
+                "contradicts_claim_ids": ["clm_absent"],
+            },
+            {
+                "claim_id": "clm_revision",
+                "claim_text": "Revision claim.",
+                "concept_ids": ["concept::hub"],
+                "source_observation_ids": ["obs_grounded"],
+                "grounding_status": "grounded",
+                "supersedes_claim_ids": ["clm_missing_support"],
+            },
+        ],
+    )
+
+    assert diagnostics["quality_summary"]["inferred_relation_count"] == 8
+    assert diagnostics["quality_summary"]["unsupported_claim_count"] == 1
+    assert diagnostics["quality_summary"]["high_fanout_concept_count"] == 1
+    assert diagnostics["concept_quality"]["high_fanout_concepts"][0]["concept_id"] == "concept::hub"
+    assert diagnostics["claim_quality"]["contradiction_links"][0]["target_exists"] is False
+    assert diagnostics["claim_quality"]["superseded_neighborhoods"][0]["concept_id"] == "concept::hub"
+    flag_codes = {item["code"] for item in diagnostics["quality_controls"]["flags"]}
+    assert "high_inferred_relation_density" in flag_codes
+    assert "weak_relation_grounding" in flag_codes
+    assert "unsupported_claims" in flag_codes
+    assert "high_fanout_concepts" in flag_codes
+    assert "unresolved_claim_conflict_links" in flag_codes
 
 
 def test_review_queue_uses_graph_diagnostics_for_concept_triage(tmp_path: Path) -> None:

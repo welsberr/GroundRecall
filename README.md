@@ -35,6 +35,8 @@ only at the end, or not at all.
 - Query by concept and export query bundles.
 - Inspect graph shape and concept/relation diagnostics with
   `groundrecall inspect --graph`.
+- Surface graph quality diagnostics for inferred-edge density, weak relation
+  grounding, unsupported claims, high-fanout concepts, and conflict links.
 - Export assistant-neutral canonical snapshots.
 - Export assistant-specific bundles:
   - Codex: `SKILL.md` plus `codex_bundle.json`

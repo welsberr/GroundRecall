@@ -473,7 +473,12 @@ def build_graph_bundle_for_concept(
         "relevant_claims": [claim.model_dump() for claim in selected_claims],
         "supporting_observations": [observation.model_dump() for observation in observations],
         "source_artifacts": source_artifacts,
-        "graph_diagnostics": build_graph_diagnostics(concept_rows, relation_rows),
+        "graph_diagnostics": build_graph_diagnostics(
+            concept_rows,
+            relation_rows,
+            claims=[claim.model_dump() for claim in selected_claims],
+            observations=[observation.model_dump() for observation in observations],
+        ),
         "suggested_next_actions": [
             "Inspect inferred or weakly grounded edges before relying on graph structure.",
             "Increase --depth only when the neighborhood remains small enough to review.",

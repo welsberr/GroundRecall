@@ -158,6 +158,10 @@ def _graph_codes_by_concept(graph_payload: dict[str, Any]) -> dict[str, set[str]
         concept_id = str(bridge.get("concept_id", ""))
         if concept_id:
             codes[concept_id].add("bridge_concept")
+    for concept in graph_payload.get("concept_quality", {}).get("high_fanout_concepts", []):
+        concept_id = str(concept.get("concept_id", ""))
+        if concept_id:
+            codes[concept_id].add("high_fanout_concept")
     return codes
 
 

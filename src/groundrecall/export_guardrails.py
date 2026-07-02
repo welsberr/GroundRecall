@@ -520,6 +520,8 @@ def _prune_graph_payload_references(
     payload["graph_diagnostics"] = build_graph_diagnostics(
         [node["record"] for node in kept_nodes if isinstance(node.get("record"), dict)],
         [edge["record"] for edge in kept_edges if isinstance(edge.get("record"), dict)],
+        claims=[claim for claim in payload.get("relevant_claims", []) if isinstance(claim, dict)],
+        observations=[observation for observation in payload.get("supporting_observations", []) if isinstance(observation, dict)],
     )
 
 
