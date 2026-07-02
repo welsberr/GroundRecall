@@ -213,3 +213,30 @@ def test_export_canonical_bundle_can_include_graph_diagnostics(tmp_path: Path) -
     assert provenance_manifest["graph_diagnostics"].endswith("graph_diagnostics.json")
     assert diagnostics["summary"]["concept_count"] == 2
     assert "quality_summary" in diagnostics
+
+
+def test_export_canonical_bundle_can_include_graph_interchange(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    out_dir = tmp_path / "exports-with-interchange"
+    payload = export_canonical_bundle(
+        store_dir=store.base_dir,
+        out_dir=out_dir,
+        snapshot_id="snap_export_interchange",
+        include_graph_interchange=True,
+    )
+
+    assert (out_dir / "graph_interchange.json").exists()
+    manifest = json.loads((out_dir / "export_manifest.json").read_text(encoding="utf-8"))
+    bundle = json.loads((out_dir / "graph_interchange.json").read_text(encoding="utf-8"))
+    provenance_manifest = json.loads((out_dir / "provenance_manifest.json").read_text(encoding="utf-8"))
+
+    assert "graph_interchange.json" in manifest["files"]
+    assert payload["canonical_outputs"]["graph_interchange_json"].endswith("graph_interchange.json")
+    assert provenance_manifest["graph_interchange"].endswith("graph_interchange.json")
+    assert bundle["bundle_kind"] == "groundrecall_graph_interchange"
+    assert bundle["schema_version"] == "groundrecall.graph_interchange.v1"
+    assert {node["node_id"] for node in bundle["nodes"]} == {"concept::channel-capacity", "concept::shannon-entropy"}
+    assert bundle["edges"][0]["edge_id"] == "rel_001"
+    assert "quality_summary" in bundle["diagnostics"]

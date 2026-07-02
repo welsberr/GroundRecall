@@ -27,12 +27,81 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _graph_interchange_bundle(snapshot, diagnostics: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "bundle_kind": "groundrecall_graph_interchange",
+        "schema_version": "groundrecall.graph_interchange.v1",
+        "snapshot_id": snapshot.snapshot_id,
+        "created_at": snapshot.created_at,
+        "nodes": [
+            {
+                "node_id": concept.concept_id,
+                "node_kind": "concept",
+                "title": concept.title,
+                "aliases": list(concept.aliases),
+                "description": concept.description,
+                "source_artifact_ids": list(concept.source_artifact_ids),
+                "status": concept.current_status,
+            }
+            for concept in snapshot.concepts
+        ],
+        "edges": [
+            {
+                "edge_id": relation.relation_id,
+                "edge_kind": "relation",
+                "source_id": relation.source_id,
+                "target_id": relation.target_id,
+                "relation_type": relation.relation_type,
+                "evidence_ids": list(relation.evidence_ids),
+                "support_kind": relation.provenance.support_kind,
+                "grounding_status": relation.provenance.grounding_status,
+                "status": relation.current_status,
+            }
+            for relation in snapshot.relations
+        ],
+        "claims": [
+            {
+                "claim_id": claim.claim_id,
+                "claim_text": claim.claim_text,
+                "claim_kind": claim.claim_kind,
+                "concept_ids": list(claim.concept_ids),
+                "source_observation_ids": list(claim.source_observation_ids),
+                "support_kind": claim.provenance.support_kind,
+                "grounding_status": claim.provenance.grounding_status,
+                "status": claim.current_status,
+            }
+            for claim in snapshot.claims
+        ],
+        "observations": [
+            {
+                "observation_id": observation.observation_id,
+                "artifact_id": observation.artifact_id,
+                "role": observation.role,
+                "text": observation.text,
+                "support_kind": observation.provenance.support_kind,
+                "grounding_status": observation.provenance.grounding_status,
+                "origin_path": observation.provenance.origin_path,
+                "origin_section": observation.provenance.origin_section,
+                "status": observation.current_status,
+            }
+            for observation in snapshot.observations
+        ],
+        "diagnostics": diagnostics,
+        "consumer_notes": [
+            "This bundle is assistant-neutral and intended for downstream graph-aware workbenches.",
+            "Nodes and edges are filtered by public export guardrails before serialization.",
+            "Inferred edges are candidates unless downstream review confirms them.",
+        ],
+    }
+
+
 def export_canonical_snapshot(
     store_dir: str | Path,
     out_dir: str | Path,
     snapshot_id: str | None = None,
     metadata: dict[str, Any] | None = None,
     include_graph_diagnostics: bool = False,
+    include_graph_interchange: bool = False,
 ) -> dict[str, str]:
     store = GroundRecallStore(store_dir)
     target = Path(out_dir)
@@ -54,15 +123,19 @@ def export_canonical_snapshot(
     _write_jsonl(target / "concepts.jsonl", [item.model_dump() for item in snapshot.concepts])
     _write_jsonl(target / "relations.jsonl", [item.model_dump() for item in snapshot.relations])
     graph_diagnostics_path = target / "graph_diagnostics.json"
+    graph_interchange_path = target / "graph_interchange.json"
+    graph_diagnostics = build_graph_diagnostics(
+        [item.model_dump() for item in snapshot.concepts],
+        [item.model_dump() for item in snapshot.relations],
+        claims=[item.model_dump() for item in snapshot.claims],
+        observations=[item.model_dump() for item in snapshot.observations],
+    )
     if include_graph_diagnostics:
+        _write_json(graph_diagnostics_path, graph_diagnostics)
+    if include_graph_interchange:
         _write_json(
-            graph_diagnostics_path,
-            build_graph_diagnostics(
-                [item.model_dump() for item in snapshot.concepts],
-                [item.model_dump() for item in snapshot.relations],
-                claims=[item.model_dump() for item in snapshot.claims],
-                observations=[item.model_dump() for item in snapshot.observations],
-            ),
+            graph_interchange_path,
+            _graph_interchange_bundle(snapshot, graph_diagnostics),
         )
     provenance_manifest = {
         "snapshot_id": snapshot.snapshot_id,
@@ -72,6 +145,7 @@ def export_canonical_snapshot(
         "observation_count": len(snapshot.observations),
         "export_guardrails": guardrail_report,
         "graph_diagnostics": str(graph_diagnostics_path) if include_graph_diagnostics else "",
+        "graph_interchange": str(graph_interchange_path) if include_graph_interchange else "",
     }
     _write_json(target / "provenance_manifest.json", provenance_manifest)
     manifest = {
@@ -88,6 +162,8 @@ def export_canonical_snapshot(
     }
     if include_graph_diagnostics:
         manifest["files"].append("graph_diagnostics.json")
+    if include_graph_interchange:
+        manifest["files"].append("graph_interchange.json")
     _write_json(target / "export_manifest.json", manifest)
     outputs = {
         "snapshot_json": str(snapshot_path),
@@ -99,6 +175,8 @@ def export_canonical_snapshot(
     }
     if include_graph_diagnostics:
         outputs["graph_diagnostics_json"] = str(graph_diagnostics_path)
+    if include_graph_interchange:
+        outputs["graph_interchange_json"] = str(graph_interchange_path)
     return outputs
 
 
@@ -177,6 +255,7 @@ def export_canonical_bundle(
     graph_concept_refs: list[str] | None = None,
     graph_depth: int = 1,
     include_graph_diagnostics: bool = False,
+    include_graph_interchange: bool = False,
     snapshot_id: str | None = None,
     pack_ready_concept: str | None = None,
 ) -> dict[str, Any]:
@@ -187,6 +266,7 @@ def export_canonical_bundle(
         target,
         snapshot_id=snapshot_id,
         include_graph_diagnostics=include_graph_diagnostics,
+        include_graph_interchange=include_graph_interchange,
     )
     query_bundle_paths: list[str] = []
     for concept_ref in concept_refs or []:
@@ -226,6 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--graph-concept", action="append", default=[])
     parser.add_argument("--graph-depth", type=int, default=1)
     parser.add_argument("--include-graph-diagnostics", action="store_true")
+    parser.add_argument("--include-graph-interchange", action="store_true")
     parser.add_argument("--pack-ready-concept", default=None)
     return parser
 
@@ -239,6 +320,7 @@ def main() -> None:
         graph_concept_refs=list(args.graph_concept or []),
         graph_depth=args.graph_depth,
         include_graph_diagnostics=args.include_graph_diagnostics,
+        include_graph_interchange=args.include_graph_interchange,
         snapshot_id=args.snapshot_id,
         pack_ready_concept=args.pack_ready_concept,
     )

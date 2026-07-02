@@ -120,10 +120,15 @@ implemented.
 
 ### P6: Downstream Interchange
 
+- Status: initial JSON graph interchange export implemented.
 - Add graph JSON export for Didactopus workbenches.
 - Consider JSON-LD/RDF/GraphML only after the internal graph semantics are
   stable.
 - Keep assistant-specific exports separate from canonical graph semantics.
+- Canonical exports can now write `graph_interchange.json` through
+  `groundrecall export --include-graph-interchange`; the bundle contains
+  guardrailed nodes, edges, claims, observations, diagnostics, and consumer
+  notes for downstream graph-aware workbenches.
 
 ## Non-Goals For The First Pass
 

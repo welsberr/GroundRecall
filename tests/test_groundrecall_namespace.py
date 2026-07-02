@@ -139,6 +139,7 @@ def test_groundrecall_cli_export_graph_dispatches(tmp_path: Path, capsys) -> Non
             "--graph-concept",
             "channel-capacity",
             "--include-graph-diagnostics",
+            "--include-graph-interchange",
         ]
         groundrecall_cli_main()
     finally:
@@ -148,3 +149,4 @@ def test_groundrecall_cli_export_graph_dispatches(tmp_path: Path, capsys) -> Non
     assert '"graph_bundles"' in output
     assert (out_dir / "graph_bundle__channel-capacity.json").exists()
     assert (out_dir / "graph_diagnostics.json").exists()
+    assert (out_dir / "graph_interchange.json").exists()
