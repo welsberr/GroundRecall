@@ -120,6 +120,7 @@ Inspect or query the store:
 ```bash
 groundrecall inspect .groundrecall/store
 groundrecall inspect .groundrecall/store --graph
+groundrecall inspect .groundrecall/store --graph-summary
 groundrecall query .groundrecall/store channel-capacity
 groundrecall query .groundrecall/store channel-capacity --kind graph
 groundrecall query .groundrecall/store "reliable communication" --kind graph-search --graph-limit 3
@@ -127,6 +128,8 @@ groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family --apply
+groundrecall relation-review .groundrecall/store --concept-prefix concept::evo-edu-notebook --support-kind inferred --limit 25
+groundrecall relation-review .groundrecall/store --apply relation-decisions.json
 groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
 groundrecall export .groundrecall/store exports/canonical --include-graph-diagnostics
 groundrecall export .groundrecall/store exports/canonical --include-graph-interchange

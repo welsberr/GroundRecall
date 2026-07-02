@@ -95,7 +95,8 @@ implemented.
 
 ### P4: Relation Inference And Review
 
-- Status: initial relation review lane implemented.
+- Status: initial relation review lane and canonical-store batch review
+  implemented.
 - Add relation inference from explicit links, repeated co-occurrence,
   prerequisite cues, support/contradiction cues, and citation metadata.
 - Mark relation provenance as `direct_source`, `derived_from_page`, or
@@ -105,6 +106,11 @@ implemented.
   exposes a relation lane with endpoint labels, provenance class, queue codes,
   evidence previews, and editable status/notes. Promotion respects explicit
   relation review rejection.
+- Canonical-store relation review can now be scripted with
+  `groundrecall relation-review STORE`, which lists reviewable relation
+  candidates and applies JSON decision batches that update relation status,
+  optional relation type, review candidate status/rationale, and promotion
+  audit records.
 
 ### P5: Graph Diagnostics And Quality Controls
 
@@ -120,6 +126,10 @@ implemented.
   diagnostics with the available filtered claims and observations.
 - Canonical exports can now write filtered `graph_diagnostics.json` through
   `groundrecall export --include-graph-diagnostics`.
+- Store inspection supports compact active graph diagnostics through
+  `groundrecall inspect STORE --graph-summary`, keeping top-level store counts
+  while returning summarized components, relation quality, claim quality,
+  high-fanout concepts, and quality-control flags.
 
 ### P6: Downstream Interchange
 

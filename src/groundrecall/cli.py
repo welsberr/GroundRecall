@@ -3,7 +3,20 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import assistant_export, export, graph_augment, ingest, inspect, lint, promotion, protocol, query, review_server, search_index
+from . import (
+    assistant_export,
+    export,
+    graph_augment,
+    ingest,
+    inspect,
+    lint,
+    promotion,
+    protocol,
+    query,
+    relation_review,
+    review_server,
+    search_index,
+)
 
 
 COMMANDS = {
@@ -15,6 +28,7 @@ COMMANDS = {
     "index": search_index.main,
     "export": export.main,
     "graph-augment": graph_augment.main,
+    "relation-review": relation_review.main,
     "assistant-export": assistant_export.main,
     "inspect": inspect.main,
     "review-server": review_server.main,

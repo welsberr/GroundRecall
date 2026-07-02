@@ -97,6 +97,52 @@ def build_graph_diagnostics_from_import(import_dir: str | Path) -> dict[str, Any
     return diagnostics
 
 
+def compact_graph_diagnostics(diagnostics: dict[str, Any]) -> dict[str, Any]:
+    relation_quality = diagnostics.get("relation_quality", {})
+    concept_quality = diagnostics.get("concept_quality", {})
+    quality_controls = diagnostics.get("quality_controls", {})
+    components = diagnostics.get("components", [])
+    return {
+        "summary": diagnostics.get("summary", {}),
+        "quality_summary": diagnostics.get("quality_summary", {}),
+        "relation_quality": {
+            "support_kind_counts": relation_quality.get("support_kind_counts", {}),
+            "grounding_status_counts": relation_quality.get("grounding_status_counts", {}),
+            "inferred_relation_count": relation_quality.get("inferred_relation_count", 0),
+            "inferred_relation_ratio": relation_quality.get("inferred_relation_ratio", 0.0),
+            "weakly_grounded_relation_count": relation_quality.get("weakly_grounded_relation_count", 0),
+        },
+        "claim_quality": {
+            key: diagnostics.get("claim_quality", {}).get(key, 0)
+            for key in [
+                "unsupported_claim_count",
+                "contradiction_link_count",
+                "supersession_link_count",
+                "unresolved_conflict_link_count",
+            ]
+        },
+        "concept_quality": {
+            "high_fanout_degree_threshold": concept_quality.get("high_fanout_degree_threshold", 0),
+            "high_fanout_concept_count": concept_quality.get("high_fanout_concept_count", 0),
+            "top_high_fanout_concepts": concept_quality.get("high_fanout_concepts", [])[:10],
+        },
+        "largest_components": [
+            {
+                "component_id": item.get("component_id", ""),
+                "size": item.get("size", 0),
+                "sample_concept_ids": list(item.get("concept_ids", []))[:10],
+            }
+            for item in components[:10]
+        ],
+        "top_connected_concepts": diagnostics.get("top_connected_concepts", [])[:10],
+        "quality_controls": {
+            "thresholds": quality_controls.get("thresholds", {}),
+            "flag_count": quality_controls.get("flag_count", 0),
+            "flags": quality_controls.get("flags", []),
+        },
+    }
+
+
 def _quality_summary(
     concepts: list[dict[str, Any]],
     relations: list[dict[str, Any]],
