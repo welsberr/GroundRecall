@@ -33,6 +33,8 @@ only at the end, or not at all.
 - Lint and review import output before promotion.
 - Promote reviewed records into a canonical GroundRecall store.
 - Query by concept and export query bundles.
+- Discover graph neighborhoods from full-text search hits with
+  `groundrecall query STORE "topic phrase" --kind graph-search`.
 - Inspect graph shape and concept/relation diagnostics with
   `groundrecall inspect --graph`.
 - Surface graph quality diagnostics for inferred-edge density, weak relation
@@ -120,6 +122,7 @@ groundrecall inspect .groundrecall/store
 groundrecall inspect .groundrecall/store --graph
 groundrecall query .groundrecall/store channel-capacity
 groundrecall query .groundrecall/store channel-capacity --kind graph
+groundrecall query .groundrecall/store "reliable communication" --kind graph-search --graph-limit 3
 groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
 groundrecall export .groundrecall/store exports/canonical --include-graph-diagnostics
 groundrecall export .groundrecall/store exports/canonical --include-graph-interchange

@@ -7,6 +7,7 @@ from .promotion import PromotionGateError, build_parser as build_promotion_parse
 from .query import (
     build_parser as build_query_parser,
     build_graph_bundle_for_concept,
+    build_graph_search_bundle,
     build_query_bundle_for_concept,
     main as query_main,
     query_concept,
@@ -31,6 +32,7 @@ __all__ = [
     "search_claims",
     "build_query_bundle_for_concept",
     "build_graph_bundle_for_concept",
+    "build_graph_search_bundle",
     "export_graph_bundle",
     "export_groundrecall_query_bundle",
     "export_groundrecall_graph_bundle",

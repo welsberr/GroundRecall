@@ -122,6 +122,34 @@ def test_groundrecall_cli_query_graph_dispatches(tmp_path: Path, capsys) -> None
     assert '"edges"' in output
 
 
+def test_groundrecall_cli_query_graph_search_dispatches(tmp_path: Path, capsys) -> None:
+    source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir)
+
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall.cli",
+            "query",
+            str(store_dir),
+            "reliable rate",
+            "--kind",
+            "graph-search",
+            "--graph-limit",
+            "1",
+        ]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    output = capsys.readouterr().out
+    assert '"bundle_kind": "groundrecall_graph_search_bundle"' in output
+    assert '"root_concepts"' in output
+    assert '"graph_bundles"' in output
+
+
 def test_groundrecall_cli_export_graph_dispatches(tmp_path: Path, capsys) -> None:
     source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
     import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")

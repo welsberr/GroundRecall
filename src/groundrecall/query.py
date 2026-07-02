@@ -501,6 +501,7 @@ def build_search_bundle(
         "query": text,
         "index_path": payload["index_path"],
         "active_corpora": payload["active_corpora"],
+        "active_object_kinds": payload["active_kinds"],
         "matches": payload["matches"],
         "associations": payload.get("associations", {}),
         "suggested_next_actions": [
@@ -512,15 +513,174 @@ def build_search_bundle(
     }
 
 
+def build_graph_search_bundle(
+    store_dir: str | Path,
+    text: str,
+    *,
+    corpora: list[str] | None = None,
+    object_kinds: list[str] | None = None,
+    limit: int = 20,
+    graph_limit: int = 5,
+    depth: int = 1,
+) -> dict[str, Any]:
+    search_payload = search_index(
+        store_dir,
+        text,
+        corpora=corpora,
+        kinds=object_kinds,
+        limit=limit,
+        expand=True,
+        association_limit=12,
+    )
+    store = GroundRecallStore(store_dir)
+    claims = {item.claim_id: item for item in store.list_claims()}
+    relations = {item.relation_id: item for item in store.list_relations()}
+    concepts = {item.concept_id: item for item in store.list_concepts()}
+
+    concept_sources: dict[str, list[dict[str, Any]]] = {}
+    for match in search_payload["matches"]:
+        doc_key = str(match.get("doc_key", ""))
+        candidate_ids = _concept_ids_from_match(match, claims=claims, relations=relations)
+        for association in search_payload.get("associations", {}).get(doc_key, []):
+            candidate_ids.extend(_concept_ids_from_association(association, claims=claims, relations=relations))
+
+        for concept_id in candidate_ids:
+            if concept_id not in concepts:
+                continue
+            concept_sources.setdefault(concept_id, []).append(
+                {
+                    "doc_key": doc_key,
+                    "kind": match.get("kind", ""),
+                    "record_id": match.get("record_id", ""),
+                    "title": match.get("title", ""),
+                    "score": match.get("score"),
+                    "snippet": match.get("snippet", ""),
+                }
+            )
+
+    ranked_concept_ids = sorted(
+        concept_sources,
+        key=lambda concept_id: (
+            _minimum_match_score(concept_sources[concept_id]),
+            -len(concept_sources[concept_id]),
+            concepts[concept_id].title.lower(),
+        ),
+    )[: max(0, int(graph_limit))]
+
+    graph_bundles = [
+        bundle
+        for concept_id in ranked_concept_ids
+        if (bundle := build_graph_bundle_for_concept(store_dir, concept_id, depth=depth)) is not None
+    ]
+    return {
+        "bundle_kind": "groundrecall_graph_search_bundle",
+        "query_type": "graph_search",
+        "query": text,
+        "index_path": search_payload["index_path"],
+        "active_corpora": search_payload["active_corpora"],
+        "active_object_kinds": search_payload["active_kinds"],
+        "match_count": len(search_payload["matches"]),
+        "graph_limit": max(0, int(graph_limit)),
+        "depth": max(0, int(depth)),
+        "matches": search_payload["matches"],
+        "associations": search_payload.get("associations", {}),
+        "root_concepts": [
+            {
+                "concept_id": concept_id,
+                "title": concepts[concept_id].title,
+                "status": concepts[concept_id].current_status,
+                "match_sources": concept_sources[concept_id][:8],
+            }
+            for concept_id in ranked_concept_ids
+        ],
+        "graph_bundles": graph_bundles,
+        "unresolved_matches": [
+            {
+                "doc_key": match.get("doc_key", ""),
+                "kind": match.get("kind", ""),
+                "record_id": match.get("record_id", ""),
+                "title": match.get("title", ""),
+            }
+            for match in search_payload["matches"]
+            if not _concept_ids_from_match(match, claims=claims, relations=relations)
+            and not any(
+                _concept_ids_from_association(association, claims=claims, relations=relations)
+                for association in search_payload.get("associations", {}).get(str(match.get("doc_key", "")), [])
+            )
+        ],
+        "suggested_next_actions": [
+            "Inspect root_concepts before treating a full-text hit as graph-relevant.",
+            "Use --object-kind concept or --corpus filters when text search finds too many candidate roots.",
+            "Review graph diagnostics in each bundle before relying on inferred or weakly grounded relations.",
+        ],
+    }
+
+
+def _concept_ids_from_match(
+    match: dict[str, Any],
+    *,
+    claims: dict[str, Any],
+    relations: dict[str, Any],
+) -> list[str]:
+    kind = str(match.get("kind", ""))
+    record_id = str(match.get("record_id", ""))
+    metadata = match.get("metadata", {}) if isinstance(match.get("metadata"), dict) else {}
+    if kind == "concept":
+        return [record_id]
+    if kind == "claim":
+        claim = claims.get(record_id)
+        if claim is not None:
+            return list(claim.concept_ids)
+        return [str(item) for item in metadata.get("concept_ids", []) if str(item).startswith("concept::")]
+    if kind == "relation":
+        relation = relations.get(record_id)
+        if relation is not None:
+            return [relation.source_id, relation.target_id]
+        return [
+            str(metadata.get("source_id", "")),
+            str(metadata.get("target_id", "")),
+        ]
+    return []
+
+
+def _concept_ids_from_association(
+    association: dict[str, Any],
+    *,
+    claims: dict[str, Any],
+    relations: dict[str, Any],
+) -> list[str]:
+    kind = str(association.get("kind", ""))
+    record_id = str(association.get("record_id", ""))
+    if kind == "concept":
+        return [record_id]
+    if kind == "claim" and record_id in claims:
+        return list(claims[record_id].concept_ids)
+    if kind == "relation" and record_id in relations:
+        relation = relations[record_id]
+        return [relation.source_id, relation.target_id]
+    return []
+
+
+def _minimum_match_score(sources: list[dict[str, Any]]) -> float:
+    scores = [float(item["score"]) for item in sources if isinstance(item.get("score"), (int, float))]
+    return min(scores) if scores else 0.0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Query canonical GroundRecall objects.")
     parser.add_argument("store_dir")
     parser.add_argument("query")
-    parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle", "graph", "search"], default="concept")
+    parser.add_argument(
+        "--kind",
+        choices=["concept", "claim", "provenance", "bundle", "graph", "search", "graph-search"],
+        default="concept",
+    )
     parser.add_argument("--source-url", default=None)
     parser.add_argument("--corpus", action="append", default=[])
     parser.add_argument("--object-kind", action="append", default=[])
     parser.add_argument("--depth", type=int, default=1, help="Graph traversal depth for --kind graph")
+    parser.add_argument("--limit", type=int, default=20, help="Search result limit for search and graph-search queries")
+    parser.add_argument("--graph-limit", type=int, default=5, help="Maximum root concepts for --kind graph-search")
     parser.add_argument("--include-rejected", action="store_true", help="Include rejected records when supported by the query kind")
     return parser
 
@@ -539,6 +699,17 @@ def main() -> None:
             args.query,
             corpora=list(args.corpus or []),
             object_kinds=list(args.object_kind or []),
+            limit=args.limit,
+        )
+    elif args.kind == "graph-search":
+        payload = build_graph_search_bundle(
+            args.store_dir,
+            args.query,
+            corpora=list(args.corpus or []),
+            object_kinds=list(args.object_kind or []),
+            limit=args.limit,
+            graph_limit=args.graph_limit,
+            depth=args.depth,
         )
     elif args.kind == "graph":
         payload = build_graph_bundle_for_concept(

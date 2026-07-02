@@ -22,6 +22,9 @@ knowledge graph capability.
 - Search-index expansion with linked claims, concepts, observations, artifacts,
   relations, and review candidates.
 - Store-level graph diagnostics through `groundrecall inspect --graph`.
+- Graph discovery search through `groundrecall query STORE TEXT --kind
+  graph-search`, which maps full-text hits to candidate root concepts and
+  returns bounded graph bundles.
 
 ## Target Capability
 
@@ -129,6 +132,20 @@ implemented.
   `groundrecall export --include-graph-interchange`; the bundle contains
   guardrailed nodes, edges, claims, observations, diagnostics, and consumer
   notes for downstream graph-aware workbenches.
+
+### P7: Graph Discovery Search
+
+- Status: initial graph-search bundle implemented.
+- Add a mode that lets users start from ordinary topic text rather than a known
+  concept id.
+- Use the full-text index plus bounded graph association expansion to map
+  matching concepts, claims, relations, artifacts, observations, and source
+  notes onto candidate root concepts.
+- Return root concept match sources and existing depth-limited graph bundles,
+  preserving graph diagnostics and provenance semantics.
+- Current query syntax is `groundrecall query STORE TEXT --kind graph-search`
+  with `--graph-limit`, `--limit`, `--depth`, `--corpus`, and `--object-kind`
+  controls.
 
 ## Non-Goals For The First Pass
 

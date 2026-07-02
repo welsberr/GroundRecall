@@ -13,6 +13,7 @@ from groundrecall.models import (
 )
 from groundrecall.query import (
     build_graph_bundle_for_concept,
+    build_graph_search_bundle,
     build_query_bundle_for_concept,
     query_concept,
     query_provenance,
@@ -218,6 +219,21 @@ def test_build_graph_bundle_for_concept_returns_bounded_neighborhood(tmp_path: P
     assert any(item["observation_id"] == "obs_001" for item in payload["supporting_observations"])
     assert payload["graph_diagnostics"]["summary"]["concept_count"] == 2
     assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
+
+
+def test_build_graph_search_bundle_discovers_roots_from_text_matches(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    payload = build_graph_search_bundle(store.base_dir, "reliable communication", graph_limit=1, depth=1)
+
+    assert payload["bundle_kind"] == "groundrecall_graph_search_bundle"
+    assert payload["query_type"] == "graph_search"
+    assert payload["root_concepts"][0]["concept_id"] == "concept::channel-capacity"
+    assert payload["root_concepts"][0]["match_sources"]
+    assert payload["graph_bundles"][0]["bundle_kind"] == "groundrecall_graph_bundle"
+    assert payload["graph_bundles"][0]["root_concept"]["concept_id"] == "concept::channel-capacity"
+    assert any(item["edge_id"] == "rel_001" for item in payload["graph_bundles"][0]["edges"])
 
 
 def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) -> None:
