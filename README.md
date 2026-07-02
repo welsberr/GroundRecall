@@ -123,6 +123,9 @@ groundrecall inspect .groundrecall/store --graph
 groundrecall query .groundrecall/store channel-capacity
 groundrecall query .groundrecall/store channel-capacity --kind graph
 groundrecall query .groundrecall/store "reliable communication" --kind graph-search --graph-limit 3
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu --min-evidence 2
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family --apply
 groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
 groundrecall export .groundrecall/store exports/canonical --include-graph-diagnostics
 groundrecall export .groundrecall/store exports/canonical --include-graph-interchange
