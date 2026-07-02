@@ -101,9 +101,13 @@ def export_groundrecall_query_bundle(
     target.mkdir(parents=True, exist_ok=True)
     out_path = target / "groundrecall_query_bundle.json"
     payload = export_query_bundle(store_dir, concept_ref, out_path)
+    graph_path = target / "epistemap_graph.json"
+    if isinstance(payload.get("epistemap_graph"), dict):
+        _write_json(graph_path, payload["epistemap_graph"])
     return {
         "concept_ref": concept_ref,
         "bundle_path": str(out_path),
+        "epistemap_graph_path": str(graph_path) if graph_path.exists() else "",
         "bundle": payload,
     }
 
@@ -131,6 +135,8 @@ def export_canonical_bundle(
     manifest["query_bundles"] = query_bundle_paths
     if pack_ready_bundle is not None:
         manifest["groundrecall_query_bundle"] = pack_ready_bundle["bundle_path"]
+        if pack_ready_bundle.get("epistemap_graph_path"):
+            manifest["epistemap_graph"] = pack_ready_bundle["epistemap_graph_path"]
     _write_json(target / "export_manifest.json", manifest)
     return {
         "canonical_outputs": outputs,
