@@ -112,6 +112,8 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     assert any(item["field"] == "status" for item in review_data["field_specs"])
     assert "review_guidance" in review_data
     assert "concept_reviews" in review_data
+    assert "relation_reviews" in review_data
+    assert "relation_field_specs" in review_data
     assert "citations" in review_data
     assert "citation_reviews" in review_data
     assert "analysis_lanes" in review_data["review_guidance"]

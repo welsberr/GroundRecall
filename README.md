@@ -90,6 +90,9 @@ Review significant imports:
 groundrecall review-server .groundrecall/imports/<import-id>
 ```
 
+The review workbench includes concept, relation, and citation lanes when the
+import contains corresponding candidates.
+
 Promote the import into a canonical store:
 
 ```bash

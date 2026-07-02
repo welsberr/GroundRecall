@@ -92,11 +92,16 @@ implemented.
 
 ### P4: Relation Inference And Review
 
+- Status: initial relation review lane implemented.
 - Add relation inference from explicit links, repeated co-occurrence,
   prerequisite cues, support/contradiction cues, and citation metadata.
 - Mark relation provenance as `direct_source`, `derived_from_page`, or
   `inferred`.
 - Extend review payloads with candidate relation cards and evidence previews.
+- Current review sessions include `relation_reviews`; the review workspace
+  exposes a relation lane with endpoint labels, provenance class, queue codes,
+  evidence previews, and editable status/notes. Promotion respects explicit
+  relation review rejection.
 
 ### P5: Graph Diagnostics And Quality Controls
 

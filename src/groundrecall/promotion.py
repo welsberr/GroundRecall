@@ -140,6 +140,7 @@ def promote_import_to_store(
 
     store = GroundRecallStore(store_dir)
     reviewed_by_concept = {entry.concept_id: entry for entry in review_session.draft_pack.concepts}
+    reviewed_by_relation = {entry.relation_id: entry for entry in review_session.relation_reviews}
     promoted_claim_ids: list[str] = []
     promoted_concept_ids: list[str] = []
     promoted_relation_ids: list[str] = []
@@ -228,7 +229,13 @@ def promote_import_to_store(
     for relation in relations:
         src_ok = relation.get("source_id") in reviewed_concept_ids
         tgt_ok = relation.get("target_id") in reviewed_concept_ids
-        current_status = "promoted" if src_ok and tgt_ok else "triaged"
+        relation_review = reviewed_by_relation.get(relation["relation_id"])
+        if relation_review is not None:
+            current_status = _review_status_map(relation_review.status)
+            if current_status in {"promoted", "reviewed"} and not (src_ok and tgt_ok):
+                current_status = "triaged"
+        else:
+            current_status = "promoted" if src_ok and tgt_ok else "triaged"
         record = store.save_relation(
             RelationRecord(
                 relation_id=relation["relation_id"],

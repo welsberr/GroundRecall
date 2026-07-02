@@ -5,7 +5,12 @@ from pathlib import Path
 from typing import Any
 
 from .groundrecall_review_bridge import export_review_bundle_from_import
-from .review_export import build_citation_review_entries_from_import, export_review_state_json, export_review_ui_data
+from .review_export import (
+    build_citation_review_entries_from_import,
+    build_relation_review_entries_from_import,
+    export_review_state_json,
+    export_review_ui_data,
+)
 from .review_schema import ReviewAction, ReviewLedgerEntry, ReviewSession
 
 
@@ -43,6 +48,9 @@ class GroundRecallReviewWorkspace:
         ):
             session.citation_reviews = build_citation_review_entries_from_import(self.import_dir)
             updated = True
+        if not session.relation_reviews:
+            session.relation_reviews = build_relation_review_entries_from_import(self.import_dir)
+            updated = True
         if updated or not self.review_data_path.exists():
             self.save_session(session)
 
@@ -62,6 +70,7 @@ class GroundRecallReviewWorkspace:
         self,
         *,
         concept_updates: list[dict[str, Any]] | None = None,
+        relation_updates: list[dict[str, Any]] | None = None,
         citation_updates: list[dict[str, Any]] | None = None,
         reviewer: str | None = None,
     ) -> ReviewSession:
@@ -69,6 +78,7 @@ class GroundRecallReviewWorkspace:
         if reviewer:
             session.reviewer = reviewer
         concept_by_id = {concept.concept_id: concept for concept in session.draft_pack.concepts}
+        relation_by_id = {entry.relation_review_id: entry for entry in session.relation_reviews}
         citation_by_id = {entry.citation_review_id: entry for entry in session.citation_reviews}
 
         for payload in concept_updates or []:
@@ -96,6 +106,27 @@ class GroundRecallReviewWorkspace:
                             "notes": concept.notes,
                             "prerequisites": concept.prerequisites,
                         },
+                        rationale=str(payload.get("rationale", "")).strip(),
+                    ),
+                )
+            )
+
+        for payload in relation_updates or []:
+            relation_review_id = str(payload.get("relation_review_id", "")).strip()
+            if not relation_review_id or relation_review_id not in relation_by_id:
+                continue
+            entry = relation_by_id[relation_review_id]
+            if "status" in payload:
+                entry.status = payload["status"]
+            if "notes" in payload:
+                entry.notes = _normalize_lines(payload.get("notes"))
+            session.ledger.append(
+                ReviewLedgerEntry(
+                    reviewer=session.reviewer,
+                    action=ReviewAction(
+                        action_type="edit_relation",
+                        target=relation_review_id,
+                        payload={"status": entry.status, "notes": entry.notes},
                         rationale=str(payload.get("rationale", "")).strip(),
                     ),
                 )

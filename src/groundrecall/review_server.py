@@ -158,6 +158,7 @@ class GroundRecallReviewHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/save":
             self.workspace.apply_updates(
                 concept_updates=payload.get("concept_updates"),
+                relation_updates=payload.get("relation_updates"),
                 citation_updates=payload.get("citation_updates"),
                 reviewer=payload.get("reviewer"),
             )

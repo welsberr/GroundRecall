@@ -34,6 +34,19 @@ class CitationReviewEntry(BaseModel):
     related_concept_ids: list[str] = Field(default_factory=list)
     related_claim_ids: list[str] = Field(default_factory=list)
 
+
+class RelationReviewEntry(BaseModel):
+    relation_review_id: str
+    relation_id: str
+    source_id: str
+    target_id: str
+    relation_type: str = "references"
+    support_kind: str = "unknown"
+    grounding_status: str = "ungrounded"
+    status: TrustStatus = "needs_review"
+    notes: list[str] = Field(default_factory=list)
+
+
 class DraftPackData(BaseModel):
     pack: dict = Field(default_factory=dict)
     concepts: list[ConceptReviewEntry] = Field(default_factory=list)
@@ -54,6 +67,7 @@ class ReviewLedgerEntry(BaseModel):
 class ReviewSession(BaseModel):
     reviewer: str
     draft_pack: DraftPackData
+    relation_reviews: list[RelationReviewEntry] = Field(default_factory=list)
     citation_reviews: list[CitationReviewEntry] = Field(default_factory=list)
     ledger: list[ReviewLedgerEntry] = Field(default_factory=list)
 
