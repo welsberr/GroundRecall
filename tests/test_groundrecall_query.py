@@ -12,6 +12,7 @@ from groundrecall.models import (
     ReviewCandidateRecord,
 )
 from groundrecall.query import (
+    build_graph_bundle_for_concept,
     build_query_bundle_for_concept,
     query_concept,
     query_provenance,
@@ -198,6 +199,25 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)
+
+
+def test_build_graph_bundle_for_concept_returns_bounded_neighborhood(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    payload = build_graph_bundle_for_concept(store.base_dir, "channel-capacity", depth=1)
+
+    assert payload is not None
+    assert payload["bundle_kind"] == "groundrecall_graph_bundle"
+    assert payload["query_type"] == "graph"
+    assert payload["root_concept"]["concept_id"] == "concept::channel-capacity"
+    node_ids = {item["node_id"] for item in payload["nodes"]}
+    assert node_ids == {"concept::channel-capacity", "concept::shannon-entropy"}
+    assert [item["edge_id"] for item in payload["edges"]] == ["rel_001"]
+    assert any(item["claim_id"] == "clm_001" for item in payload["relevant_claims"])
+    assert any(item["observation_id"] == "obs_001" for item in payload["supporting_observations"])
+    assert payload["graph_diagnostics"]["summary"]["concept_count"] == 2
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
 
 
 def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) -> None:

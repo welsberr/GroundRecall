@@ -52,6 +52,21 @@ def test_groundrecall_inspect_summarizes_store(tmp_path: Path) -> None:
     assert payload["snapshot_count"] >= 1
 
 
+def test_groundrecall_inspect_can_include_graph_diagnostics(tmp_path: Path) -> None:
+    source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir)
+
+    payload = inspect_store(store_dir, out_path=tmp_path / "inspect-graph.json", include_graph=True)
+
+    assert (tmp_path / "inspect-graph.json").exists()
+    assert "graph_diagnostics" in payload
+    assert payload["graph_diagnostics"]["summary"]["concept_count"] == payload["concept_count"]
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == payload["relation_count"]
+    assert payload["graph_diagnostics"]["summary"]["connected_component_count"] >= 1
+
+
 def test_groundrecall_cli_inspect_dispatches(tmp_path: Path, capsys) -> None:
     source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
     import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
@@ -68,3 +83,40 @@ def test_groundrecall_cli_inspect_dispatches(tmp_path: Path, capsys) -> None:
     output = capsys.readouterr().out
     assert '"claim_count"' in output
     assert '"concept_count"' in output
+
+
+def test_groundrecall_cli_inspect_graph_dispatches(tmp_path: Path, capsys) -> None:
+    source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir)
+
+    original_argv = sys.argv
+    try:
+        sys.argv = ["groundrecall.cli", "inspect", str(store_dir), "--graph"]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    output = capsys.readouterr().out
+    assert '"graph_diagnostics"' in output
+    assert '"connected_component_count"' in output
+
+
+def test_groundrecall_cli_query_graph_dispatches(tmp_path: Path, capsys) -> None:
+    source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir)
+
+    original_argv = sys.argv
+    try:
+        sys.argv = ["groundrecall.cli", "query", str(store_dir), "channel-capacity", "--kind", "graph"]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    output = capsys.readouterr().out
+    assert '"bundle_kind": "groundrecall_graph_bundle"' in output
+    assert '"nodes"' in output
+    assert '"edges"' in output

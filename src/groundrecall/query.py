@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .graph_diagnostics import build_graph_diagnostics
 from .search_index import search_index
 from .store import GroundRecallStore
 
@@ -17,6 +18,19 @@ def _normalize(text: str) -> str:
 def _matches(query: str, *values: str) -> bool:
     needle = _normalize(query)
     return any(needle in _normalize(value) for value in values if value)
+
+
+def _resolve_concept(concepts: list[Any], concept_ref: str) -> Any | None:
+    return next(
+        (
+            item
+            for item in concepts
+            if concept_ref == item.concept_id
+            or concept_ref == item.concept_id.replace("concept::", "", 1)
+            or _matches(concept_ref, item.title, item.description, *item.aliases)
+        ),
+        None,
+    )
 
 
 _SOURCE_ROLE_ORDER = ["overview", "mechanism", "nuance", "controversy", "argumentation"]
@@ -91,16 +105,7 @@ def _role_from_observation_or_claim(artifact_role: str, observation: Any | None,
 def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | None:
     store = GroundRecallStore(store_dir)
     concepts = store.list_concepts()
-    concept = next(
-        (
-            item
-            for item in concepts
-            if concept_ref == item.concept_id
-            or concept_ref == item.concept_id.replace("concept::", "", 1)
-            or _matches(concept_ref, item.title, item.description, *item.aliases)
-        ),
-        None,
-    )
+    concept = _resolve_concept(concepts, concept_ref)
     if concept is None:
         return None
 
@@ -355,6 +360,113 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     }
 
 
+def build_graph_bundle_for_concept(
+    store_dir: str | Path,
+    concept_ref: str,
+    *,
+    depth: int = 1,
+    include_rejected: bool = False,
+) -> dict[str, Any] | None:
+    store = GroundRecallStore(store_dir)
+    concepts = store.list_concepts()
+    root = _resolve_concept(concepts, concept_ref)
+    if root is None:
+        return None
+
+    max_depth = max(0, int(depth))
+    concept_by_id = {item.concept_id: item for item in concepts if include_rejected or item.current_status != "rejected"}
+    if root.concept_id not in concept_by_id:
+        return None
+
+    relations = [item for item in store.list_relations() if include_rejected or item.current_status != "rejected"]
+    adjacency: dict[str, list[Any]] = {concept_id: [] for concept_id in concept_by_id}
+    for relation in relations:
+        if relation.source_id not in concept_by_id or relation.target_id not in concept_by_id:
+            continue
+        adjacency.setdefault(relation.source_id, []).append(relation)
+        adjacency.setdefault(relation.target_id, []).append(relation)
+
+    selected_ids = {root.concept_id}
+    frontier = {root.concept_id}
+    for _ in range(max_depth):
+        next_frontier: set[str] = set()
+        for concept_id in frontier:
+            for relation in adjacency.get(concept_id, []):
+                neighbor_id = relation.target_id if relation.source_id == concept_id else relation.source_id
+                if neighbor_id not in selected_ids:
+                    selected_ids.add(neighbor_id)
+                    next_frontier.add(neighbor_id)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    selected_concepts = [concept_by_id[concept_id] for concept_id in sorted(selected_ids)]
+    selected_relations = [
+        relation
+        for relation in relations
+        if relation.source_id in selected_ids and relation.target_id in selected_ids
+    ]
+    selected_claims = [
+        claim
+        for claim in store.list_claims()
+        if (include_rejected or claim.current_status != "rejected")
+        and any(concept_id in selected_ids for concept_id in claim.concept_ids)
+    ]
+
+    observation_ids = {
+        observation_id
+        for claim in selected_claims
+        for observation_id in claim.source_observation_ids
+    }
+    observations = [
+        observation
+        for observation in store.list_observations()
+        if observation.observation_id in observation_ids and (include_rejected or observation.current_status != "rejected")
+    ]
+
+    concept_rows = [item.model_dump() for item in selected_concepts]
+    relation_rows = [item.model_dump() for item in selected_relations]
+    return {
+        "bundle_kind": "groundrecall_graph_bundle",
+        "query_type": "graph",
+        "root_concept": root.model_dump(),
+        "depth": max_depth,
+        "include_rejected": include_rejected,
+        "nodes": [
+            {
+                "node_id": concept.concept_id,
+                "node_kind": "concept",
+                "title": concept.title,
+                "status": concept.current_status,
+                "record": concept.model_dump(),
+            }
+            for concept in selected_concepts
+        ],
+        "edges": [
+            {
+                "edge_id": relation.relation_id,
+                "edge_kind": "relation",
+                "source_id": relation.source_id,
+                "target_id": relation.target_id,
+                "relation_type": relation.relation_type,
+                "status": relation.current_status,
+                "evidence_ids": relation.evidence_ids,
+                "provenance": relation.provenance.model_dump(),
+                "record": relation.model_dump(),
+            }
+            for relation in selected_relations
+        ],
+        "relevant_claims": [claim.model_dump() for claim in selected_claims],
+        "supporting_observations": [observation.model_dump() for observation in observations],
+        "graph_diagnostics": build_graph_diagnostics(concept_rows, relation_rows),
+        "suggested_next_actions": [
+            "Inspect inferred or weakly grounded edges before relying on graph structure.",
+            "Increase --depth only when the neighborhood remains small enough to review.",
+            "Review contradiction and supersession links for selected claims before exporting downstream.",
+        ],
+    }
+
+
 def build_search_bundle(
     store_dir: str | Path,
     text: str,
@@ -384,10 +496,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Query canonical GroundRecall objects.")
     parser.add_argument("store_dir")
     parser.add_argument("query")
-    parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle", "search"], default="concept")
+    parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle", "graph", "search"], default="concept")
     parser.add_argument("--source-url", default=None)
     parser.add_argument("--corpus", action="append", default=[])
     parser.add_argument("--object-kind", action="append", default=[])
+    parser.add_argument("--depth", type=int, default=1, help="Graph traversal depth for --kind graph")
+    parser.add_argument("--include-rejected", action="store_true", help="Include rejected records when supported by the query kind")
     return parser
 
 
@@ -405,6 +519,13 @@ def main() -> None:
             args.query,
             corpora=list(args.corpus or []),
             object_kinds=list(args.object_kind or []),
+        )
+    elif args.kind == "graph":
+        payload = build_graph_bundle_for_concept(
+            args.store_dir,
+            args.query,
+            depth=args.depth,
+            include_rejected=args.include_rejected,
         )
     else:
         payload = build_query_bundle_for_concept(args.store_dir, args.query)

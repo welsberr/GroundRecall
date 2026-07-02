@@ -28,9 +28,13 @@ only at the end, or not at all.
   Didactopus packs, transcripts, PolyPaper projects, and specialized corpora.
 - Normalize imports into artifacts, fragments, observations, claims, concepts,
   and relations.
+- Maintain a provenance-first knowledge graph substrate over concepts, claims,
+  relations, observations, artifacts, and source evidence.
 - Lint and review import output before promotion.
 - Promote reviewed records into a canonical GroundRecall store.
 - Query by concept and export query bundles.
+- Inspect graph shape and concept/relation diagnostics with
+  `groundrecall inspect --graph`.
 - Export assistant-neutral canonical snapshots.
 - Export assistant-specific bundles:
   - Codex: `SKILL.md` plus `codex_bundle.json`
@@ -104,7 +108,9 @@ Inspect or query the store:
 
 ```bash
 groundrecall inspect .groundrecall/store
+groundrecall inspect .groundrecall/store --graph
 groundrecall query .groundrecall/store channel-capacity
+groundrecall query .groundrecall/store channel-capacity --kind graph
 ```
 
 Export assistant-neutral data:
@@ -230,5 +236,6 @@ assistants, at different times, or on different hosts:
 - [docs/assistant-protocol.md](docs/assistant-protocol.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/didactopus-bridge.md](docs/didactopus-bridge.md)
+- [docs/knowledge-graph-roadmap.md](docs/knowledge-graph-roadmap.md)
 - [docs/llmwiki-import.md](docs/llmwiki-import.md)
 - [docs/sync-roadmap.md](docs/sync-roadmap.md)

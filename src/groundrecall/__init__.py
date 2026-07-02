@@ -6,6 +6,7 @@ from .models import *  # noqa: F403
 from .promotion import PromotionGateError, build_parser as build_promotion_parser, main as promotion_main, promote_import_to_store
 from .query import (
     build_parser as build_query_parser,
+    build_graph_bundle_for_concept,
     build_query_bundle_for_concept,
     main as query_main,
     query_concept,
@@ -29,6 +30,7 @@ __all__ = [
     "query_provenance",
     "search_claims",
     "build_query_bundle_for_concept",
+    "build_graph_bundle_for_concept",
     "export_groundrecall_query_bundle",
     "build_query_parser",
     "query_main",
