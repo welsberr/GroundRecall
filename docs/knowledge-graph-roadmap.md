@@ -146,6 +146,9 @@ implemented.
 - Current query syntax is `groundrecall query STORE TEXT --kind graph-search`
   with `--graph-limit`, `--limit`, `--depth`, `--corpus`, and `--object-kind`
   controls.
+- Graph search now gives direct concept/title hits a supplemental retrieval pass
+  and ranks candidate roots by direct concept matches, query-token overlap, and
+  direct-vs-associated match evidence before falling back to FTS score.
 
 ## Non-Goals For The First Pass
 

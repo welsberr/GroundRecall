@@ -538,33 +538,52 @@ def build_graph_search_bundle(
     concepts = {item.concept_id: item for item in store.list_concepts()}
 
     concept_sources: dict[str, list[dict[str, Any]]] = {}
+    query_terms = _query_terms(text)
+    supplemental_concept_matches: list[dict[str, Any]] = []
     for match in search_payload["matches"]:
         doc_key = str(match.get("doc_key", ""))
         candidate_ids = _concept_ids_from_match(match, claims=claims, relations=relations)
-        for association in search_payload.get("associations", {}).get(doc_key, []):
-            candidate_ids.extend(_concept_ids_from_association(association, claims=claims, relations=relations))
-
         for concept_id in candidate_ids:
             if concept_id not in concepts:
                 continue
-            concept_sources.setdefault(concept_id, []).append(
-                {
-                    "doc_key": doc_key,
-                    "kind": match.get("kind", ""),
-                    "record_id": match.get("record_id", ""),
-                    "title": match.get("title", ""),
-                    "score": match.get("score"),
-                    "snippet": match.get("snippet", ""),
-                }
-            )
+            _append_concept_source(concept_sources, concept_id, match, root_match_kind="direct")
+
+        for association in search_payload.get("associations", {}).get(doc_key, []):
+            for concept_id in _concept_ids_from_association(association, claims=claims, relations=relations):
+                if concept_id not in concepts:
+                    continue
+                _append_concept_source(
+                    concept_sources,
+                    concept_id,
+                    match,
+                    root_match_kind="association",
+                    association=association,
+                )
+
+    if _should_include_supplemental_concepts(object_kinds):
+        supplemental_payload = search_index(
+            store_dir,
+            text,
+            kinds=["concept"],
+            limit=max(limit, graph_limit * 4, 8),
+            expand=False,
+        )
+        supplemental_concept_matches = supplemental_payload["matches"]
+        for match in supplemental_concept_matches:
+            for concept_id in _concept_ids_from_match(match, claims=claims, relations=relations):
+                if concept_id not in concepts:
+                    continue
+                _append_concept_source(
+                    concept_sources,
+                    concept_id,
+                    match,
+                    root_match_kind="direct",
+                    supplemental=True,
+                )
 
     ranked_concept_ids = sorted(
         concept_sources,
-        key=lambda concept_id: (
-            _minimum_match_score(concept_sources[concept_id]),
-            -len(concept_sources[concept_id]),
-            concepts[concept_id].title.lower(),
-        ),
+        key=lambda concept_id: _graph_search_rank_key(concept_id, concepts[concept_id], concept_sources[concept_id], query_terms),
     )[: max(0, int(graph_limit))]
 
     graph_bundles = [
@@ -584,11 +603,13 @@ def build_graph_search_bundle(
         "depth": max(0, int(depth)),
         "matches": search_payload["matches"],
         "associations": search_payload.get("associations", {}),
+        "supplemental_concept_matches": supplemental_concept_matches,
         "root_concepts": [
             {
                 "concept_id": concept_id,
                 "title": concepts[concept_id].title,
                 "status": concepts[concept_id].current_status,
+                "match_summary": _concept_match_summary(concepts[concept_id], concept_sources[concept_id], query_terms),
                 "match_sources": concept_sources[concept_id][:8],
             }
             for concept_id in ranked_concept_ids
@@ -614,6 +635,35 @@ def build_graph_search_bundle(
             "Review graph diagnostics in each bundle before relying on inferred or weakly grounded relations.",
         ],
     }
+
+
+def _append_concept_source(
+    concept_sources: dict[str, list[dict[str, Any]]],
+    concept_id: str,
+    match: dict[str, Any],
+    *,
+    root_match_kind: str,
+    association: dict[str, Any] | None = None,
+    supplemental: bool = False,
+) -> None:
+    payload = {
+        "root_match_kind": root_match_kind,
+        "supplemental": supplemental,
+        "doc_key": match.get("doc_key", ""),
+        "kind": match.get("kind", ""),
+        "record_id": match.get("record_id", ""),
+        "title": match.get("title", ""),
+        "score": match.get("score"),
+        "snippet": match.get("snippet", ""),
+    }
+    if association is not None:
+        payload["association"] = association
+    concept_sources.setdefault(concept_id, []).append(payload)
+
+
+def _should_include_supplemental_concepts(object_kinds: list[str] | None) -> bool:
+    active_kinds = {item for item in (object_kinds or []) if item}
+    return not active_kinds or "concept" in active_kinds
 
 
 def _concept_ids_from_match(
@@ -659,6 +709,74 @@ def _concept_ids_from_association(
         relation = relations[record_id]
         return [relation.source_id, relation.target_id]
     return []
+
+
+def _graph_search_rank_key(
+    concept_id: str,
+    concept: Any,
+    sources: list[dict[str, Any]],
+    query_terms: set[str],
+) -> tuple[Any, ...]:
+    summary = _concept_match_summary(concept, sources, query_terms)
+    return (
+        -summary["direct_concept_match_count"],
+        -summary["query_token_overlap"],
+        -summary["direct_match_count"],
+        summary["association_match_count"],
+        _minimum_match_score(sources),
+        -len(sources),
+        concept.title.lower(),
+        concept_id,
+    )
+
+
+def _concept_match_summary(concept: Any, sources: list[dict[str, Any]], query_terms: set[str]) -> dict[str, Any]:
+    direct_match_count = sum(1 for item in sources if item.get("root_match_kind") == "direct")
+    association_match_count = sum(1 for item in sources if item.get("root_match_kind") == "association")
+    direct_concept_match_count = sum(
+        1
+        for item in sources
+        if item.get("root_match_kind") == "direct" and item.get("kind") == "concept"
+    )
+    return {
+        "direct_match_count": direct_match_count,
+        "association_match_count": association_match_count,
+        "direct_concept_match_count": direct_concept_match_count,
+        "query_token_overlap": _concept_query_overlap(concept, query_terms),
+    }
+
+
+def _concept_query_overlap(concept: Any, query_terms: set[str]) -> int:
+    if not query_terms:
+        return 0
+    aliases = getattr(concept, "aliases", []) or []
+    parts = [
+        getattr(concept, "concept_id", ""),
+        getattr(concept, "title", ""),
+        getattr(concept, "description", ""),
+        *aliases,
+    ]
+    concept_terms = _query_terms(" ".join(str(part) for part in parts))
+    return len(query_terms & concept_terms)
+
+
+def _query_terms(text: str) -> set[str]:
+    stop_words = {
+        "and",
+        "are",
+        "for",
+        "from",
+        "into",
+        "note",
+        "notebook",
+        "the",
+        "with",
+    }
+    return {
+        token
+        for token in re.findall(r"[a-z0-9][a-z0-9-]*", text.lower())
+        if len(token) > 2 and token not in stop_words
+    }
 
 
 def _minimum_match_score(sources: list[dict[str, Any]]) -> float:

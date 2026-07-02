@@ -236,6 +236,40 @@ def test_build_graph_search_bundle_discovers_roots_from_text_matches(tmp_path: P
     assert any(item["edge_id"] == "rel_001" for item in payload["graph_bundles"][0]["edges"])
 
 
+def test_build_graph_search_bundle_prefers_direct_concept_matches(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::boundary",
+            title="Boundary",
+            current_status="promoted",
+        )
+    )
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::hardy-weinberg-equilibrium",
+            title="Hardy Weinberg Equilibrium",
+            current_status="promoted",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_boundary_condition",
+            claim_text="Hardy Weinberg equilibrium has a boundary condition in the model assumptions.",
+            concept_ids=["concept::boundary"],
+            provenance=ProvenanceRecord(origin_path="notes/hardy-weinberg.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = build_graph_search_bundle(store.base_dir, "Hardy Weinberg equilibrium", limit=1, graph_limit=2, depth=1)
+
+    assert payload["root_concepts"][0]["concept_id"] == "concept::hardy-weinberg-equilibrium"
+    assert payload["root_concepts"][0]["match_summary"]["direct_concept_match_count"] >= 1
+    assert any(match["record_id"] == "concept::hardy-weinberg-equilibrium" for match in payload["supplemental_concept_matches"])
+
+
 def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "groundrecall")
     _seed_store(store)

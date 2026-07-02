@@ -123,3 +123,37 @@ def test_expansion_surfaces_linked_records(tmp_path: Path) -> None:
     assert any(item["record_id"] == "claim_state_validation" for item in associations)
     assert any(item["record_id"] == "artifact_001" for item in associations)
     assert any(item["record_id"] == "rel_001" for item in associations)
+
+
+def test_kind_filter_is_applied_before_fts_page_limit(tmp_path: Path) -> None:
+    base = tmp_path / "groundrecall"
+    store = GroundRecallStore(base)
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::natural-selection",
+            title="Natural Selection",
+            description="Differential survival and reproduction.",
+            current_status="promoted",
+        )
+    )
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::generic-section",
+            title="Generic Section",
+            current_status="promoted",
+        )
+    )
+    for index in range(20):
+        store.save_claim(
+            ClaimRecord(
+                claim_id=f"claim_selection_noise_{index}",
+                claim_text="Natural selection adaptation appears in this operational note.",
+                concept_ids=["concept::generic-section"],
+                provenance=ProvenanceRecord(origin_path=f"notes/noise-{index}.md", grounding_status="grounded"),
+                current_status="reviewed",
+            )
+        )
+
+    payload = search_index(base, "natural selection adaptation", kinds=["concept"], limit=1)
+
+    assert [match["record_id"] for match in payload["matches"]] == ["concept::natural-selection"]

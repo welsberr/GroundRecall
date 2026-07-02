@@ -103,7 +103,15 @@ def search_index(
 
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
-        sql = """
+        where_clauses = ["docs_fts match ?"]
+        params: list[Any] = [fts_query]
+        if active_kinds:
+            placeholders = ", ".join("?" for _ in active_kinds)
+            where_clauses.append(f"docs.kind in ({placeholders})")
+            params.extend(sorted(active_kinds))
+        fetch_limit = max(limit * 8, limit) if active_corpora else limit
+        params.append(fetch_limit)
+        sql = f"""
             select
               docs.doc_key,
               docs.kind,
@@ -116,12 +124,12 @@ def search_index(
               bm25(docs_fts) as rank
             from docs_fts
             join docs on docs.doc_key = docs_fts.doc_key
-            where docs_fts match ?
+            where {" and ".join(where_clauses)}
             order by rank
             limit ?
         """
-        # Fetch extra rows so Python-side kind/corpus filtering still returns a full page.
-        rows = conn.execute(sql, (fts_query, max(limit * 8, limit))).fetchall()
+        # Corpus filters remain Python-side because corpus is stored in metadata JSON.
+        rows = conn.execute(sql, params).fetchall()
 
     for row in rows:
         metadata = json.loads(row["metadata"] or "{}")
