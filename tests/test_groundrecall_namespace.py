@@ -85,6 +85,44 @@ def test_groundrecall_inspect_can_include_graph_diagnostics(tmp_path: Path) -> N
     assert payload["graph_diagnostics"]["summary"]["connected_component_count"] >= 1
 
 
+def test_graph_diagnostics_separate_source_family_from_semantic_edges(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::alpha",
+            title="Alpha",
+            current_status="reviewed",
+        )
+    )
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::beta",
+            title="Beta",
+            current_status="reviewed",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_source_family",
+            source_id="concept::alpha",
+            target_id="concept::beta",
+            relation_type="same_source_family",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+
+    payload = inspect_store(store.base_dir, include_graph=True)
+    summary = payload["graph_diagnostics"]["summary"]
+
+    assert summary["total_relation_count"] == 1
+    assert summary["provenance_relation_count"] == 1
+    assert summary["relation_count"] == 0
+    assert summary["connected_component_count"] == 2
+    assert payload["graph_diagnostics"]["relation_quality"]["inferred_relation_count"] == 0
+    assert payload["graph_diagnostics"]["provenance_relation_quality"]["inferred_relation_count"] == 1
+
+
 def test_groundrecall_cli_inspect_dispatches(tmp_path: Path, capsys) -> None:
     source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
     import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")

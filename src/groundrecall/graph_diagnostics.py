@@ -6,6 +6,9 @@ from pathlib import Path
 from typing import Any
 
 
+PROVENANCE_RELATION_TYPES = {"same_source_family"}
+
+
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
@@ -24,11 +27,14 @@ def build_graph_diagnostics(
     claims = claims or []
     observations = observations or []
     concept_ids = {str(item["concept_id"]) for item in concepts}
+    relation_partitions = _partition_relations(relations)
+    semantic_relations = relation_partitions["semantic_relations"]
+    provenance_relations = relation_partitions["provenance_relations"]
     adjacency: dict[str, set[str]] = {concept_id: set() for concept_id in concept_ids}
     inbound: defaultdict[str, int] = defaultdict(int)
     outbound: defaultdict[str, int] = defaultdict(int)
 
-    for relation in relations:
+    for relation in semantic_relations:
         source_id = str(relation.get("source_id", ""))
         target_id = str(relation.get("target_id", ""))
         if source_id not in concept_ids or target_id not in concept_ids:
@@ -56,7 +62,9 @@ def build_graph_diagnostics(
     return {
         "summary": {
             "concept_count": len(concepts),
-            "relation_count": len(relations),
+            "relation_count": len(semantic_relations),
+            "total_relation_count": len(relations),
+            "provenance_relation_count": len(provenance_relations),
             "connected_component_count": len(components),
             "largest_component_size": max((len(component) for component in components), default=0),
             "isolated_concept_count": sum(1 for component in components if len(component) == 1),
@@ -75,11 +83,12 @@ def build_graph_diagnostics(
         ],
         "bridge_concepts": bridges,
         "top_connected_concepts": degree_ranked[:10],
-        "quality_summary": _quality_summary(concepts, relations, claims, observations, degree_ranked),
-        "relation_quality": _relation_quality(relations),
+        "quality_summary": _quality_summary(concepts, semantic_relations, claims, observations, degree_ranked),
+        "relation_quality": _relation_quality(semantic_relations),
+        "provenance_relation_quality": _relation_quality(provenance_relations),
         "claim_quality": _claim_quality(claims, observations),
         "concept_quality": _concept_quality(degree_ranked, claims),
-        "quality_controls": _quality_controls(concepts, relations, claims, observations, degree_ranked),
+        "quality_controls": _quality_controls(concepts, semantic_relations, claims, observations, degree_ranked),
     }
 
 
@@ -112,6 +121,7 @@ def compact_graph_diagnostics(diagnostics: dict[str, Any]) -> dict[str, Any]:
             "inferred_relation_ratio": relation_quality.get("inferred_relation_ratio", 0.0),
             "weakly_grounded_relation_count": relation_quality.get("weakly_grounded_relation_count", 0),
         },
+        "provenance_relation_quality": diagnostics.get("provenance_relation_quality", {}),
         "claim_quality": {
             key: diagnostics.get("claim_quality", {}).get(key, 0)
             for key in [
@@ -140,6 +150,21 @@ def compact_graph_diagnostics(diagnostics: dict[str, Any]) -> dict[str, Any]:
             "flag_count": quality_controls.get("flag_count", 0),
             "flags": quality_controls.get("flags", []),
         },
+    }
+
+
+def _partition_relations(relations: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    semantic_relations = []
+    provenance_relations = []
+    for relation in relations:
+        relation_type = str(relation.get("relation_type", "") or "").strip()
+        if relation_type in PROVENANCE_RELATION_TYPES:
+            provenance_relations.append(relation)
+        else:
+            semantic_relations.append(relation)
+    return {
+        "semantic_relations": semantic_relations,
+        "provenance_relations": provenance_relations,
     }
 
 
