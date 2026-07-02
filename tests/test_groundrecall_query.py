@@ -195,6 +195,10 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload["key_distinctions"][0]["distinction_type"] == "non_implication"
     assert payload["relevant_claims"][0]["source_roles"] == ["mechanism"]
     assert len(payload["review_candidates"]) == 2
+    assert payload["epistemap_graph"]["bundle_kind"] == "epistemap_graph_bundle"
+    graph_edges = {(edge["source"], edge["target"], edge["type"]) for edge in payload["epistemap_graph"]["edges"]}
+    assert ("clm_001", "concept::channel-capacity", "about_concept") in graph_edges
+    assert ("obs_001", "clm_001", "supports_claim") in graph_edges
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)

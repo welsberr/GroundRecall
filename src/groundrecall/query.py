@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .epistemap_adapter import graph_bundle_from_query_payload
 from .store import GroundRecallStore
 
 
@@ -332,6 +333,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     if claim_role_summary:
         source_role_summary = dict(sorted(claim_role_summary.items()))
     key_distinctions = [item["distinction"] for item in claims if isinstance(item.get("distinction"), dict)]
+    graph_bundle = graph_bundle_from_query_payload(payload)
     return {
         "bundle_kind": "groundrecall_query_bundle",
         "query_type": "concept",
@@ -346,6 +348,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "review_candidates": payload["review_candidates"],
         "contradictions": contradictions,
         "supersessions": supersessions,
+        "epistemap_graph": graph_bundle.model_dump_legacy(),
         "suggested_next_actions": [
             "Review promoted claims with low review confidence.",
             "Inspect supporting observations before exporting assistant context.",
