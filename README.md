@@ -113,6 +113,19 @@ groundrecall assistant-export .groundrecall/store codex .groundrecall/exports/co
 groundrecall assistant-export .groundrecall/store claude_code .groundrecall/exports/claude_code
 ```
 
+Export explicit claim-evaluation results as Epistemap G rows, manifest, and
+summary:
+
+```bash
+groundrecall claim-evaluation-export evaluations.json .groundrecall/exports/g \
+  --claims-json claims.jsonl \
+  --experiment-id temporal-claim-check \
+  --corpus channel-capacity
+```
+
+These rows evaluate an explicit learner/model claim-checking run. They are not
+derived from GroundRecall review confidence or used as source-truth scores.
+
 ## Assistant-Neutral Host Protocol
 
 GroundRecall can initialize a reusable memory pattern for a project or host:

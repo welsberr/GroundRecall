@@ -15,6 +15,7 @@ def test_groundrecall_console_script_help() -> None:
 
     assert result.returncode == 0
     assert "GroundRecall command-line tools" in result.stdout
+    assert "claim-evaluation-export" in result.stdout
     assert "protocol-init" in result.stdout
 
 

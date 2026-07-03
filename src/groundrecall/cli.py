@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import assistant_export, export, ingest, inspect, lint, promotion, protocol, query, review_server
+from . import assistant_export, claim_evaluation_export, export, ingest, inspect, lint, promotion, protocol, query, review_server
 
 
 COMMANDS = {
@@ -14,6 +14,7 @@ COMMANDS = {
     "query": query.main,
     "export": export.main,
     "assistant-export": assistant_export.main,
+    "claim-evaluation-export": claim_evaluation_export.main,
     "inspect": inspect.main,
     "review-server": review_server.main,
 }
