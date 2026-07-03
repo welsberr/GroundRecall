@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from epistemap import Edge, GraphBundle, Node, ProvenanceRef
+from epistemap import Edge, GraphBundle, Node, ProvenanceRef, g_evaluation_row
 
 _SOURCE_SIGNAL_KEYS = (
     "source_quality",
@@ -200,9 +200,82 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
     )
 
 
+def g_evaluation_row_from_claim_evaluation(
+    evaluation: dict[str, Any],
+    *,
+    claim: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build a canonical G row for an explicit GroundRecall claim evaluation.
+
+    The evaluation supplies the observed label and probability. GroundRecall
+    claim data only enriches identifiers, provenance, and temporal context.
+    """
+
+    claim = claim or {}
+    provenance = claim.get("provenance", {})
+    if not isinstance(provenance, dict):
+        provenance = {}
+    claim_metadata = claim.get("metadata", {})
+    if not isinstance(claim_metadata, dict):
+        claim_metadata = {}
+    evaluation_metadata = evaluation.get("metadata", {})
+    if not isinstance(evaluation_metadata, dict):
+        evaluation_metadata = {}
+
+    source_anchor = (
+        str(evaluation.get("source_anchor", "")).strip()
+        or str(provenance.get("origin_path", "")).strip()
+        or str(provenance.get("source_url", "")).strip()
+    )
+    item_id = str(evaluation.get("item_id", "")).strip()
+    if not item_id:
+        item_id = "::".join(str(value) for value in claim.get("concept_ids", []) if str(value).strip())
+
+    metadata = {
+        "evaluation_target": evaluation.get("evaluation_target", "groundrecall_claim_evaluation"),
+        "claim_text": claim.get("claim_text", ""),
+        "claim_status": claim.get("current_status", ""),
+        "grounding_status": claim.get("grounding_status", "") or provenance.get("grounding_status", ""),
+        "support_kind": provenance.get("support_kind", ""),
+        "confidence_hint": claim.get("confidence_hint", ""),
+        "review_confidence": claim.get("review_confidence", ""),
+        **_source_signal_metadata(claim),
+        **_temporal_metadata(claim),
+        **evaluation_metadata,
+    }
+    metadata = {key: value for key, value in metadata.items() if not _blank_metadata_value(value)}
+
+    return g_evaluation_row(
+        y=int(evaluation["y"]),
+        p=float(evaluation["p"]),
+        env=str(evaluation.get("env", "K")),
+        run_id=str(evaluation.get("run_id", "")),
+        subject_id=str(evaluation.get("subject_id", "")),
+        condition=str(evaluation.get("condition", "")),
+        phase=str(evaluation.get("phase", "")),
+        item_id=item_id,
+        claim_id=str(evaluation.get("claim_id", "") or claim.get("claim_id", "")),
+        answer=str(evaluation.get("answer", "")),
+        response=str(evaluation.get("response", "")),
+        source_anchor=source_anchor,
+        recognized_at=evaluation.get("recognized_at", ""),
+        contradiction_available_at=evaluation.get(
+            "contradiction_available_at",
+            claim_metadata.get("challenged_at", ""),
+        ),
+        recognition_lag=evaluation.get("recognition_lag", ""),
+        fair_play_rating=str(evaluation.get("fair_play_rating", "")),
+        metadata=metadata,
+    )
+
+
 def _set_node(nodes: dict[str, Node], node: Node) -> None:
     if node.id:
         nodes[node.id] = node
+
+
+def _blank_metadata_value(value: Any) -> bool:
+    return value is None or value == "" or value == []
 
 
 def _provenance_from_row(row: dict[str, Any]) -> ProvenanceRef:
