@@ -1,8 +1,20 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
-from epistemap import Edge, GraphBundle, Node, ProvenanceRef, g_evaluation_row
+from epistemap import (
+    Edge,
+    GraphBundle,
+    Node,
+    ProvenanceRef,
+    g_evaluation_row,
+    g_experiment_manifest,
+    g_experiment_summary,
+    write_g_experiment_manifest,
+    write_g_rows_csv,
+)
 
 _SOURCE_SIGNAL_KEYS = (
     "source_quality",
@@ -267,6 +279,63 @@ def g_evaluation_row_from_claim_evaluation(
         fair_play_rating=str(evaluation.get("fair_play_rating", "")),
         metadata=metadata,
     )
+
+
+def g_evaluation_rows_from_claim_evaluations(
+    evaluations: list[dict[str, Any]],
+    *,
+    claims_by_id: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Build canonical G rows from explicit claim-evaluation records."""
+
+    claims_by_id = claims_by_id or {}
+    rows = []
+    for evaluation in evaluations:
+        claim_id = str(evaluation.get("claim_id", ""))
+        rows.append(g_evaluation_row_from_claim_evaluation(evaluation, claim=claims_by_id.get(claim_id)))
+    return rows
+
+
+def export_claim_evaluation_g_package(
+    evaluations: list[dict[str, Any]],
+    out_dir: str | Path,
+    *,
+    claims_by_id: dict[str, dict[str, Any]] | None = None,
+    experiment_id: str = "groundrecall-claim-evaluation",
+    evaluation_target: str = "groundrecall_claim_evaluation",
+    corpus: str = "",
+    group_by: str = "condition",
+) -> dict[str, Any]:
+    """Write G rows, manifest, and summary for explicit GroundRecall evaluations."""
+
+    target = Path(out_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    rows = g_evaluation_rows_from_claim_evaluations(evaluations, claims_by_id=claims_by_id)
+    row_file = "groundrecall_g_rows.csv"
+    manifest_file = "groundrecall_g_manifest.json"
+    summary_file = "groundrecall_g_summary.json"
+    manifest = g_experiment_manifest(
+        experiment_id=experiment_id,
+        row_file=row_file,
+        evaluation_target=evaluation_target,
+        corpus=corpus,
+        conditions=sorted({str(row.get("condition", "")) for row in rows if str(row.get("condition", ""))}),
+        phases=sorted({str(row.get("phase", "")) for row in rows if str(row.get("phase", ""))}),
+        row_count=len(rows),
+        metadata={"source": "groundrecall", "group_by": group_by},
+    )
+    summary = g_experiment_summary(rows, manifest=manifest, group_by=group_by)
+
+    write_g_rows_csv(rows, target / row_file)
+    write_g_experiment_manifest(manifest, target / manifest_file)
+    (target / summary_file).write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return {
+        "row_path": str(target / row_file),
+        "manifest_path": str(target / manifest_file),
+        "summary_path": str(target / summary_file),
+        "row_count": len(rows),
+        "summary": summary,
+    }
 
 
 def _set_node(nodes: dict[str, Node], node: Node) -> None:
