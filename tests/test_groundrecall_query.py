@@ -201,6 +201,8 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert ("obs_001", "clm_001", "supports_claim") in graph_edges
     assert payload["epistemic_summary"]["node_id"] == "concept::channel-capacity"
     assert payload["epistemic_summary"]["summary"]["direct_support_count"] >= 1
+    assert payload["epistemic_summary"]["reliability"]["band"] in {"moderate", "strong"}
+    assert payload["epistemic_summary"]["reliability"]["components"]["grounding"] > 0
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)
@@ -247,3 +249,4 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert "clm_004" in contradiction_ids
     assert "clm_005" in supersession_ids
     assert "challenged" in payload["epistemic_summary"]["flags"]
+    assert payload["epistemic_summary"]["reliability"]["components"]["challenge_penalty"] > 0
