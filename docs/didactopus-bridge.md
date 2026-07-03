@@ -27,8 +27,10 @@ groundrecall export /path/to/groundrecall-store /tmp/groundrecall-export \
 That writes:
 
 - `/tmp/groundrecall-export/groundrecall_query_bundle.json`
+- `/tmp/groundrecall-export/epistemap_graph.json`
+- `/tmp/groundrecall-export/bayesian_reliability.md`
 
-It also records the path in `export_manifest.json`.
+It also records the paths in `export_manifest.json`.
 
 ## End-To-End Bridge
 
@@ -58,6 +60,8 @@ On the `GroundRecall` side:
 
 - canonical store remains unchanged
 - export directory contains `groundrecall_query_bundle.json`
+- export directory contains `epistemap_graph.json` and
+  `bayesian_reliability.md` for reviewable graph assessment context
 
 On the `Didactopus` side:
 

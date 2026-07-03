@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from epistemap import write_bayesian_reliability_markdown
+
 from .query import build_query_bundle_for_concept
 from .store import GroundRecallStore
 
@@ -104,10 +106,15 @@ def export_groundrecall_query_bundle(
     graph_path = target / "epistemap_graph.json"
     if isinstance(payload.get("epistemap_graph"), dict):
         _write_json(graph_path, payload["epistemap_graph"])
+    bayesian_path = target / "bayesian_reliability.md"
+    bayesian = payload.get("epistemic_summary", {}).get("bayesian_reliability")
+    if isinstance(bayesian, dict):
+        write_bayesian_reliability_markdown(bayesian, bayesian_path)
     return {
         "concept_ref": concept_ref,
         "bundle_path": str(out_path),
         "epistemap_graph_path": str(graph_path) if graph_path.exists() else "",
+        "bayesian_reliability_markdown_path": str(bayesian_path) if bayesian_path.exists() else "",
         "bundle": payload,
     }
 
@@ -137,6 +144,8 @@ def export_canonical_bundle(
         manifest["groundrecall_query_bundle"] = pack_ready_bundle["bundle_path"]
         if pack_ready_bundle.get("epistemap_graph_path"):
             manifest["epistemap_graph"] = pack_ready_bundle["epistemap_graph_path"]
+        if pack_ready_bundle.get("bayesian_reliability_markdown_path"):
+            manifest["bayesian_reliability_markdown"] = pack_ready_bundle["bayesian_reliability_markdown_path"]
     _write_json(target / "export_manifest.json", manifest)
     return {
         "canonical_outputs": outputs,

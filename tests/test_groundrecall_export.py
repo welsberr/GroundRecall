@@ -116,6 +116,7 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
     assert (out_dir / "query_bundle__channel-capacity.json").exists()
     assert (out_dir / "groundrecall_query_bundle.json").exists()
     assert (out_dir / "epistemap_graph.json").exists()
+    assert (out_dir / "bayesian_reliability.md").exists()
 
     snapshot = json.loads((out_dir / "groundrecall_snapshot.json").read_text(encoding="utf-8"))
     manifest = json.loads((out_dir / "export_manifest.json").read_text(encoding="utf-8"))
@@ -125,6 +126,7 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
     assert len(manifest["query_bundles"]) == 1
     assert manifest["groundrecall_query_bundle"].endswith("groundrecall_query_bundle.json")
     assert manifest["epistemap_graph"].endswith("epistemap_graph.json")
+    assert manifest["bayesian_reliability_markdown"].endswith("bayesian_reliability.md")
     assert claims[0]["claim_id"] == "clm_001"
     assert payload["query_bundles"]
     assert payload["groundrecall_query_bundle"] is not None
@@ -151,6 +153,9 @@ def test_export_groundrecall_query_bundle_uses_pack_ready_filename(tmp_path: Pat
 
     assert (out_dir / "groundrecall_query_bundle.json").exists()
     assert (out_dir / "epistemap_graph.json").exists()
+    assert (out_dir / "bayesian_reliability.md").exists()
     assert payload["bundle_path"].endswith("groundrecall_query_bundle.json")
     assert payload["epistemap_graph_path"].endswith("epistemap_graph.json")
+    assert payload["bayesian_reliability_markdown_path"].endswith("bayesian_reliability.md")
     assert payload["bundle"]["bundle_kind"] == "groundrecall_query_bundle"
+    assert "# Epistemap Bayesian Reliability" in (out_dir / "bayesian_reliability.md").read_text(encoding="utf-8")

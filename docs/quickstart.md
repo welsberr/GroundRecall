@@ -104,6 +104,9 @@ Export a pack-ready `groundrecall_query_bundle.json` for `Didactopus`:
 groundrecall export store/ exports/groundrecall --pack-ready-concept channel-capacity
 ```
 
+That pack-ready export also writes `epistemap_graph.json` and
+`bayesian_reliability.md` when graph assessment context is available.
+
 Export assistant-targeted bundles:
 
 ```bash

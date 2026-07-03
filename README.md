@@ -181,7 +181,7 @@ notes. Those notes can later be imported and promoted.
 ## Didactopus Bridge
 
 GroundRecall can export a pack-ready `groundrecall_query_bundle.json` for a
-reviewed concept:
+reviewed concept, plus Epistemap graph and Bayesian reliability sidecars:
 
 ```bash
 groundrecall export /path/to/groundrecall-store /tmp/groundrecall-export \
