@@ -100,6 +100,11 @@ groundrecall inspect .groundrecall/store
 groundrecall query .groundrecall/store channel-capacity
 ```
 
+Concept query bundles include an Epistemap graph, temporal summary, heuristic
+epistemic reliability summary, and Bayesian reliability block with posterior
+support estimates plus prior-sensitivity checks. These estimates expose evidence
+strength and fragility; they are not source-truth labels.
+
 Export assistant-neutral data:
 
 ```bash
