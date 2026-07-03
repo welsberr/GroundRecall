@@ -11,6 +11,9 @@ from .groundrecall.export import (
     build_parser,
     export_canonical_bundle,
     export_canonical_snapshot,
+    export_graph_bundle,
+    export_groundrecall_graph_bundle,
+    export_groundrecall_query_bundle,
     export_query_bundle,
     main,
 )
@@ -18,7 +21,10 @@ from .groundrecall.export import (
 __all__ = [
     "export_canonical_snapshot",
     "export_query_bundle",
+    "export_graph_bundle",
     "export_canonical_bundle",
+    "export_groundrecall_query_bundle",
+    "export_groundrecall_graph_bundle",
     "build_parser",
     "main",
 ]

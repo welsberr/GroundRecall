@@ -15,15 +15,30 @@ GroundRecall is intended for work where durable context matters:
 - learner-facing workflows through `Didactopus`
 - assistant handoff between Codex, Claude Code, and other file-aware tools
 
+GroundRecall's assistant protocol also defines an update policy for
+long-running operational work. The policy asks assistants to record task
+definition, plan/implementation details, and results as durable source notes.
+The rationale is practical: project goals, task boundaries, planning tradeoffs,
+and intermediate service states are often lost because memory updates happen
+only at the end, or not at all.
+
 ## Current Features
 
 - Import from llmwiki-style trees, plain notes, normalized `doclift` bundles,
   Didactopus packs, transcripts, PolyPaper projects, and specialized corpora.
 - Normalize imports into artifacts, fragments, observations, claims, concepts,
   and relations.
+- Maintain a provenance-first knowledge graph substrate over concepts, claims,
+  relations, observations, artifacts, and source evidence.
 - Lint and review import output before promotion.
 - Promote reviewed records into a canonical GroundRecall store.
 - Query by concept and export query bundles.
+- Discover graph neighborhoods from full-text search hits with
+  `groundrecall query STORE "topic phrase" --kind graph-search`.
+- Inspect graph shape and concept/relation diagnostics with
+  `groundrecall inspect --graph`.
+- Surface graph quality diagnostics for inferred-edge density, weak relation
+  grounding, unsupported claims, high-fanout concepts, and conflict links.
 - Export assistant-neutral canonical snapshots.
 - Export assistant-specific bundles:
   - Codex: `SKILL.md` plus `codex_bundle.json`
@@ -61,7 +76,11 @@ Import a source:
 
 ```bash
 groundrecall import /path/to/source --out-root .groundrecall/imports --mode quick
+groundrecall import /path/to/source --out-root .groundrecall/imports --mode quick --extract-graph heuristic
 ```
+
+Imports also write review sidecars such as `concept_standardization.json` and
+`graph_extraction_candidates.json` when applicable.
 
 Lint the import:
 
@@ -74,6 +93,9 @@ Review significant imports:
 ```bash
 groundrecall review-server .groundrecall/imports/<import-id>
 ```
+
+The review workbench includes concept, relation, and citation lanes when the
+import contains corresponding candidates.
 
 Promote the import into a canonical store:
 
@@ -97,7 +119,20 @@ Inspect or query the store:
 
 ```bash
 groundrecall inspect .groundrecall/store
+groundrecall inspect .groundrecall/store --graph
+groundrecall inspect .groundrecall/store --graph-summary
 groundrecall query .groundrecall/store channel-capacity
+groundrecall query .groundrecall/store channel-capacity --kind graph
+groundrecall query .groundrecall/store "reliable communication" --kind graph-search --graph-limit 3
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu --min-evidence 2
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family
+groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family --apply
+groundrecall relation-review .groundrecall/store --concept-prefix concept::evo-edu-notebook --support-kind inferred --limit 25
+groundrecall relation-review .groundrecall/store --apply relation-decisions.json
+groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
+groundrecall export .groundrecall/store exports/canonical --include-graph-diagnostics
+groundrecall export .groundrecall/store exports/canonical --include-graph-interchange
 ```
 
 Concept query bundles include an Epistemap graph, temporal summary, heuristic
@@ -157,6 +192,15 @@ Use `--force` only when you intend to overwrite existing bootstrap files.
 For a two-host local/remote setup, each host should maintain its own
 GroundRecall store and exchange source notes or exports. Do not make both hosts
 write directly into the same mutable store.
+
+For substantial work, update GroundRecall at three points:
+
+- Task definition: objective, scope, paths, targets, verification criteria, and
+  constraints.
+- Plan or implementation specification: chosen approach, touched files/services,
+  checks, rollback notes, risks, and relevant rejected alternatives.
+- Results: outcomes, evidence, commands/tests, artifact/log paths, unresolved
+  risks, and next safe action.
 
 See [docs/assistant-protocol.md](docs/assistant-protocol.md).
 
@@ -232,5 +276,6 @@ assistants, at different times, or on different hosts:
 - [docs/assistant-protocol.md](docs/assistant-protocol.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/didactopus-bridge.md](docs/didactopus-bridge.md)
+- [docs/knowledge-graph-roadmap.md](docs/knowledge-graph-roadmap.md)
 - [docs/llmwiki-import.md](docs/llmwiki-import.md)
 - [docs/sync-roadmap.md](docs/sync-roadmap.md)

@@ -1,8 +1,10 @@
 const state = {
   reviewData: null,
   selectedConceptId: null,
+  selectedRelationId: null,
   selectedCitationId: null,
   conceptSearch: "",
+  relationFilter: "all",
   citationFilter: "all",
   message: "",
   verificationResult: null,
@@ -37,8 +39,16 @@ function citationRows() {
   return state.reviewData?.citation_reviews || [];
 }
 
+function relationRows() {
+  return state.reviewData?.relation_reviews || [];
+}
+
 function selectedConcept() {
   return conceptRows().find((item) => item.concept_id === state.selectedConceptId) || conceptRows()[0] || null;
+}
+
+function selectedRelation() {
+  return relationRows().find((item) => item.relation_review_id === state.selectedRelationId) || relationRows()[0] || null;
 }
 
 function selectedCitation() {
@@ -51,6 +61,9 @@ async function loadReviewData() {
   state.reviewData = payload.review_data;
   if (!state.selectedConceptId && conceptRows()[0]) {
     state.selectedConceptId = conceptRows()[0].concept_id;
+  }
+  if (!state.selectedRelationId && relationRows()[0]) {
+    state.selectedRelationId = relationRows()[0].relation_review_id;
   }
   if (!state.selectedCitationId && citationRows()[0]) {
     state.selectedCitationId = citationRows()[0].citation_review_id;
@@ -99,6 +112,27 @@ async function saveCitation(form) {
   const result = await response.json();
   state.reviewData = result.review_data;
   state.message = `Saved citation review ${payload.citation_updates[0].citation_review_id}.`;
+  render();
+}
+
+async function saveRelation(form) {
+  const payload = {
+    relation_updates: [
+      {
+        relation_review_id: form.get("relation_review_id"),
+        status: form.get("status"),
+        notes: splitLines(form.get("notes")),
+      },
+    ],
+  };
+  const response = await fetch("/api/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const result = await response.json();
+  state.reviewData = result.review_data;
+  state.message = `Saved relation review ${payload.relation_updates[0].relation_review_id}.`;
   render();
 }
 
@@ -214,6 +248,60 @@ function renderConceptPanel(concept) {
   `;
 }
 
+function renderRelationPanel(relation) {
+  const statusSpec = (state.reviewData.relation_field_specs || []).find((item) => item.field === "status");
+  if (!relation) {
+    return `<section class="panel"><h2>No relation selected</h2></section>`;
+  }
+  const evidence = (relation.evidence_previews || []).map((obs) => `
+    <div class="support-block">
+      <div class="tiny">${escapeHtml(obs.origin_path || obs.artifact_path || "")}${obs.line_start ? `:${obs.line_start}` : ""} · ${escapeHtml(obs.source_role || "source")}</div>
+      <div>${escapeHtml(obs.text || "")}</div>
+    </div>
+  `).join("");
+  const guidance = (state.reviewData.review_guidance?.relation_guidance || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
+  return `
+    <section class="panel detail">
+      <div class="panel-head">
+        <div>
+          <h2>Relation lane</h2>
+          <div class="muted">${escapeHtml(relation.source_title || relation.source_id)} → ${escapeHtml(relation.target_title || relation.target_id)}</div>
+        </div>
+        <div class="pill ${relation.provenance_class === "inferred" ? "pill-warn" : "pill-good"}">${escapeHtml(relation.provenance_class || "unknown")}</div>
+      </div>
+      <p class="help">${escapeHtml(relation.review_help || "")}</p>
+      <div class="meta-row">
+        <span class="chip">${escapeHtml(relation.relation_type || "references")}</span>
+        <span class="chip">${escapeHtml(relation.grounding_status || "unknown")}</span>
+        <span class="chip">${escapeHtml(relation.triage_lane || "knowledge_capture")}</span>
+        ${(relation.finding_codes || []).map((code) => `<span class="chip chip-warn">${escapeHtml(code)}</span>`).join("")}
+      </div>
+      <form id="relation-form">
+        <input type="hidden" name="relation_review_id" value="${escapeHtml(relation.relation_review_id)}" />
+        <label>
+          <span>Status</span>
+          <select name="status">${statusOptions(statusSpec, relation.status)}</select>
+        </label>
+        <label>
+          <span>Reviewer notes</span>
+          <textarea name="notes" rows="5">${escapeHtml((relation.notes || []).join("\n"))}</textarea>
+        </label>
+        <div class="actions">
+          <button type="submit" class="primary">Save Relation Review</button>
+        </div>
+      </form>
+      <section class="subpanel">
+        <h3>Evidence preview</h3>
+        <div class="stack">${evidence || "<div class=\"muted\">No observation evidence linked.</div>"}</div>
+      </section>
+      <section class="subpanel">
+        <h3>Relation guidance</h3>
+        <ul>${guidance}</ul>
+      </section>
+    </section>
+  `;
+}
+
 function renderCitationPanel(citation) {
   const statusSpec = (state.reviewData.citation_field_specs || []).find((item) => item.field === "status");
   const nextActions = (state.reviewData.citations?.next_actions || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("");
@@ -293,7 +381,12 @@ function render() {
     if (state.citationFilter === "all") return true;
     return item.status === state.citationFilter;
   });
+  const relationList = relationRows().filter((item) => {
+    if (state.relationFilter === "all") return true;
+    return item.status === state.relationFilter;
+  });
   const concept = selectedConcept();
+  const relation = selectedRelation();
   const citation = selectedCitation();
 
   app.innerHTML = `
@@ -334,6 +427,27 @@ function render() {
 
       <section class="workspace-grid">
         <aside class="panel list-panel">
+          <div class="panel-head"><h2>Relation lane</h2></div>
+          <label class="search">
+            <span>Filter</span>
+            <select id="relation-filter">
+              ${["all", "needs_review", "provisional", "trusted", "rejected"].map((value) => `<option value="${value}"${value === state.relationFilter ? " selected" : ""}>${value}</option>`).join("")}
+            </select>
+          </label>
+          <div class="stack">
+            ${relationList.map((item) => `
+              <button class="list-item ${item.relation_review_id === relation?.relation_review_id ? "active" : ""}" data-relation-id="${escapeHtml(item.relation_review_id)}">
+                <strong>${escapeHtml(item.source_title || item.source_id)} → ${escapeHtml(item.target_title || item.target_id)}</strong>
+                <span>${escapeHtml(item.status)} · ${escapeHtml(item.relation_type)}</span>
+              </button>
+            `).join("") || "<div class=\"muted\">No relation candidates.</div>"}
+          </div>
+        </aside>
+        ${renderRelationPanel(relation)}
+      </section>
+
+      <section class="workspace-grid">
+        <aside class="panel list-panel">
           <div class="panel-head"><h2>Citation lane</h2></div>
           <label class="search">
             <span>Filter</span>
@@ -367,12 +481,22 @@ function render() {
       render();
     });
   });
+  document.querySelectorAll("[data-relation-id]").forEach((node) => {
+    node.addEventListener("click", () => {
+      state.selectedRelationId = node.getAttribute("data-relation-id");
+      render();
+    });
+  });
   document.getElementById("concept-search")?.addEventListener("input", (event) => {
     state.conceptSearch = event.target.value;
     render();
   });
   document.getElementById("citation-filter")?.addEventListener("change", (event) => {
     state.citationFilter = event.target.value;
+    render();
+  });
+  document.getElementById("relation-filter")?.addEventListener("change", (event) => {
+    state.relationFilter = event.target.value;
     render();
   });
   document.getElementById("concept-form")?.addEventListener("submit", async (event) => {
@@ -382,6 +506,10 @@ function render() {
   document.getElementById("citation-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     await saveCitation(new FormData(event.target));
+  });
+  document.getElementById("relation-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await saveRelation(new FormData(event.target));
   });
   document.getElementById("verify-citation")?.addEventListener("click", async () => {
     if (state.selectedCitationId) {

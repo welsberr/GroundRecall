@@ -214,7 +214,96 @@ def standardize_concept_rows(
     return standardized_rows, claim_rows, relation_rows
 
 
+def build_concept_standardization_report(
+    input_concept_rows: list[dict[str, Any]],
+    standardized_concept_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    input_groups: dict[str, list[dict[str, Any]]] = {}
+    for row in input_concept_rows:
+        normalized = _normalize_concept_title(str(row.get("title", "")))
+        if not normalized:
+            continue
+        input_groups.setdefault(normalized, []).append(row)
+
+    canonical_by_normalized = {
+        _normalize_concept_title(str(row.get("title", ""))): row
+        for row in standardized_concept_rows
+        if _normalize_concept_title(str(row.get("title", "")))
+    }
+    deterministic_merge_groups = []
+    for normalized, members in sorted(input_groups.items()):
+        if len(members) < 2:
+            continue
+        canonical = canonical_by_normalized.get(normalized, members[0])
+        deterministic_merge_groups.append(
+            {
+                "normalized_title": normalized,
+                "canonical_concept_id": canonical.get("concept_id", ""),
+                "member_concept_ids": sorted(str(item.get("concept_id", "")) for item in members if item.get("concept_id")),
+                "member_titles": sorted(str(item.get("title", "")) for item in members if item.get("title")),
+                "source_artifact_ids": sorted(
+                    {
+                        str(artifact_id)
+                        for item in members
+                        for artifact_id in item.get("source_artifact_ids", [])
+                        if str(artifact_id)
+                    }
+                ),
+            }
+        )
+
+    ambiguous_alias_candidates = _ambiguous_alias_candidates(standardized_concept_rows)
+    return {
+        "input_concept_count": len(input_concept_rows),
+        "standardized_concept_count": len(standardized_concept_rows),
+        "deterministic_merge_group_count": len(deterministic_merge_groups),
+        "ambiguous_alias_candidate_count": len(ambiguous_alias_candidates),
+        "deterministic_merge_groups": deterministic_merge_groups,
+        "ambiguous_alias_candidates": ambiguous_alias_candidates,
+    }
+
+
 def _normalize_concept_title(value: str) -> str:
     normalized = "".join(ch.lower() if ch.isalnum() else " " for ch in value)
     tokens = [token for token in normalized.split() if token not in {"a", "an", "the"}]
     return " ".join(tokens)
+
+
+def _ambiguous_alias_candidates(concept_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    candidates = []
+    for index, left in enumerate(concept_rows):
+        left_tokens = _concept_tokens(str(left.get("title", "")))
+        if len(left_tokens) < 2:
+            continue
+        for right in concept_rows[index + 1 :]:
+            right_tokens = _concept_tokens(str(right.get("title", "")))
+            if len(right_tokens) < 2:
+                continue
+            overlap = left_tokens & right_tokens
+            if len(overlap) < 2:
+                continue
+            score = len(overlap) / len(left_tokens | right_tokens)
+            if score < 0.66:
+                continue
+            candidates.append(
+                {
+                    "candidate_id": _alias_candidate_id(str(left.get("concept_id", "")), str(right.get("concept_id", ""))),
+                    "left_concept_id": left.get("concept_id", ""),
+                    "left_title": left.get("title", ""),
+                    "right_concept_id": right.get("concept_id", ""),
+                    "right_title": right.get("title", ""),
+                    "shared_tokens": sorted(overlap),
+                    "score": round(score, 3),
+                    "rationale": "High token overlap suggests a possible alias or near-duplicate concept, but it was not auto-merged.",
+                }
+            )
+    return sorted(candidates, key=lambda item: (-item["score"], item["left_concept_id"], item["right_concept_id"]))
+
+
+def _concept_tokens(value: str) -> set[str]:
+    return set(_normalize_concept_title(value).split())
+
+
+def _alias_candidate_id(left_concept_id: str, right_concept_id: str) -> str:
+    left, right = sorted([left_concept_id, right_concept_id])
+    return f"alias::{left.replace('concept::', '')}::{right.replace('concept::', '')}"

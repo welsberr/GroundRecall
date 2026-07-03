@@ -6,7 +6,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from .review_export import build_citation_review_entries_from_import, export_review_state_json, export_review_ui_data
+from .review_export import (
+    build_citation_review_entries_from_import,
+    build_relation_review_entries_from_import,
+    export_review_state_json,
+    export_review_ui_data,
+)
 from .review_schema import ConceptReviewEntry, DraftPackData, ReviewSession
 
 
@@ -106,6 +111,7 @@ def build_review_session_from_import(import_dir: str | Path, reviewer: str = "Gr
             review_flags=review_flags,
             attribution=attribution,
         ),
+        relation_reviews=build_relation_review_entries_from_import(base),
         citation_reviews=build_citation_review_entries_from_import(base),
     )
 

@@ -11,6 +11,8 @@ class LLMWikiSourceAdapter:
 
     def detect(self, root: str | Path) -> bool:
         base = Path(root)
+        if not base.is_dir():
+            return False
         return (base / "wiki").exists() or (base / "raw").exists() or any(path.name.startswith("schema.") for path in base.iterdir() if path.exists())
 
     def discover(self, root: str | Path) -> list[DiscoveredImportSource]:

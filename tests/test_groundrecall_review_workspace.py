@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 from groundrecall.ingest import run_groundrecall_import
+from groundrecall.promotion import promote_import_to_store
 from groundrecall.review_workspace import GroundRecallReviewWorkspace
+from groundrecall.store import GroundRecallStore
 
 
 def _build_citation_fixture(root: Path) -> Path:
@@ -13,6 +15,17 @@ def _build_citation_fixture(root: Path) -> Path:
         "# Learning Theory\n\n"
         "Matching-law style regularities can be compared with machine learning optimization.\n\n"
         "See \\\\cite{herrnstein1961matching} for the classic framing.\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def _build_relation_fixture(root: Path) -> Path:
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "relations.md").write_text(
+        "# Channel Capacity\n\n"
+        "## Shannon Entropy\n\n"
+        "- Channel capacity and Shannon entropy are co-mentioned in coding theorem discussions.\n",
         encoding="utf-8",
     )
     return root
@@ -64,6 +77,56 @@ def test_review_workspace_populates_and_persists_citation_reviews(tmp_path: Path
     assert "triage_lane" in concept_review
     assert "finding_codes" in concept_review
     assert "graph_codes" in concept_review
+
+
+def test_review_workspace_populates_persists_and_promotes_relation_reviews(tmp_path: Path) -> None:
+    source_root = _build_relation_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(
+        source_root,
+        out_root=tmp_path / "imports",
+        mode="quick",
+        import_id="relation-review-fixture",
+        extract_graph="heuristic",
+    )
+
+    workspace = GroundRecallReviewWorkspace(import_result.out_dir)
+    payload = workspace.load_review_data()
+    assert payload["relation_reviews"]
+    relation_review = payload["relation_reviews"][0]
+
+    assert relation_review["provenance_class"] == "inferred"
+    assert relation_review["evidence_previews"]
+    assert "relation_field_specs" in payload
+    assert "relation_guidance" in payload["review_guidance"]
+
+    workspace.apply_updates(
+        concept_updates=[
+            {"concept_id": "channel-capacity", "status": "trusted"},
+            {"concept_id": "shannon-entropy", "status": "trusted"},
+        ],
+        relation_updates=[
+            {
+                "relation_review_id": relation_review["relation_review_id"],
+                "status": "rejected",
+                "notes": ["Co-mention alone is not enough for this graph edge."],
+            }
+        ],
+        reviewer="Unit Test Reviewer",
+    )
+
+    session = json.loads((import_result.out_dir / "review_session.json").read_text(encoding="utf-8"))
+    relation_session = next(
+        item for item in session["relation_reviews"] if item["relation_review_id"] == relation_review["relation_review_id"]
+    )
+    assert relation_session["status"] == "rejected"
+    assert session["ledger"][-1]["action"]["action_type"] == "edit_relation"
+
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir, reviewer="Unit Test Reviewer")
+    store = GroundRecallStore(store_dir)
+    relation = store.get_relation(relation_session["relation_id"])
+    assert relation is not None
+    assert relation.current_status == "rejected"
 
 
 def test_review_workspace_resolves_citation_metadata_from_bibtex(tmp_path: Path) -> None:

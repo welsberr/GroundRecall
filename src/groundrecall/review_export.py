@@ -12,7 +12,7 @@ from .citation_support import (
     load_bibliography_index,
     serialize_bib_entry,
 )
-from .review_schema import CitationReviewEntry, ReviewSession
+from .review_schema import CitationReviewEntry, RelationReviewEntry, ReviewSession
 
 def export_review_state_json(session: ReviewSession, path: str | Path) -> None:
     Path(path).write_text(session.model_dump_json(indent=2), encoding="utf-8")
@@ -481,6 +481,125 @@ def build_citation_review_entries_from_import(import_dir: str | Path) -> list[Ci
     return entries
 
 
+def build_relation_review_entries_from_import(import_dir: str | Path) -> list[RelationReviewEntry]:
+    base = Path(import_dir)
+    relations = _read_jsonl(base / "relations.jsonl")
+    queue_payload = _read_json(base / "review_queue.json") if (base / "review_queue.json").exists() else {"items": []}
+    queue_by_candidate_id = {
+        str(item.get("candidate_id", "")): item
+        for item in queue_payload.get("items", [])
+        if item.get("candidate_type") == "relation"
+    }
+
+    entries: list[RelationReviewEntry] = []
+    for relation in relations:
+        relation_id = str(relation.get("relation_id", ""))
+        if not relation_id:
+            continue
+        queue_entry = queue_by_candidate_id.get(relation_id, {})
+        support_kind = str(relation.get("support_kind", "unknown") or "unknown")
+        status = "needs_review" if support_kind == "inferred" else "provisional"
+        notes = []
+        if queue_entry.get("finding_codes"):
+            notes.append(f"Queue findings: {', '.join(str(code) for code in queue_entry.get('finding_codes', []))}")
+        if relation.get("extraction_method"):
+            notes.append(f"Extraction method: {relation.get('extraction_method')}")
+        entries.append(
+            RelationReviewEntry(
+                relation_review_id=f"relrev-{hashlib.sha1(relation_id.encode('utf-8')).hexdigest()[:12]}",
+                relation_id=relation_id,
+                source_id=str(relation.get("source_id", "")),
+                target_id=str(relation.get("target_id", "")),
+                relation_type=str(relation.get("relation_type", "references") or "references"),
+                support_kind=support_kind,
+                grounding_status=str(relation.get("grounding_status", "ungrounded") or "ungrounded"),
+                status=status,
+                notes=notes,
+            )
+        )
+    return entries
+
+
+def _relation_provenance_class(relation: dict[str, Any]) -> str:
+    support_kind = str(relation.get("support_kind", "") or "unknown")
+    if support_kind in {"direct_source", "derived_from_page", "inferred"}:
+        return support_kind
+    if relation.get("extraction_method"):
+        return "inferred"
+    return "unknown"
+
+
+def _relation_review_payloads(
+    session: ReviewSession,
+    *,
+    relations: list[dict[str, Any]],
+    concepts: list[dict[str, Any]],
+    observations_by_id: dict[str, dict[str, Any]],
+    artifact_by_id: dict[str, dict[str, Any]],
+    artifact_role_by_id: dict[str, str],
+    queue_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+    relation_by_id = {str(item.get("relation_id", "")): item for item in relations}
+    concept_by_id = {str(item.get("concept_id", "")): item for item in concepts}
+    queue_by_candidate_id = {
+        str(item.get("candidate_id", "")): item
+        for item in queue_payload.get("items", [])
+        if item.get("candidate_type") == "relation"
+    }
+    payloads = []
+    for entry in session.relation_reviews:
+        relation = relation_by_id.get(entry.relation_id, {})
+        queue_entry = queue_by_candidate_id.get(entry.relation_id, {})
+        source_id = relation.get("source_id", entry.source_id)
+        target_id = relation.get("target_id", entry.target_id)
+        evidence_previews = []
+        for observation_id in relation.get("evidence_ids", [])[:6]:
+            observation = observations_by_id.get(observation_id)
+            if observation is None:
+                continue
+            artifact = artifact_by_id.get(observation.get("artifact_id", ""), {})
+            evidence_previews.append(
+                {
+                    "observation_id": observation_id,
+                    "artifact_id": observation.get("artifact_id", ""),
+                    "artifact_path": artifact.get("path", ""),
+                    "artifact_title": artifact.get("title", ""),
+                    "source_role": artifact_role_by_id.get(observation.get("artifact_id", ""), ""),
+                    "origin_path": observation.get("origin_path", ""),
+                    "origin_section": observation.get("origin_section", ""),
+                    "line_start": observation.get("line_start", 0),
+                    "line_end": observation.get("line_end", 0),
+                    "role": observation.get("role", ""),
+                    "text": observation.get("text", ""),
+                }
+            )
+        provenance_class = _relation_provenance_class(relation)
+        payloads.append(
+            {
+                **entry.model_dump(),
+                "source_title": concept_by_id.get(source_id, {}).get("title", source_id),
+                "target_title": concept_by_id.get(target_id, {}).get("title", target_id),
+                "current_status": relation.get("current_status", ""),
+                "provenance_class": provenance_class,
+                "extraction_method": relation.get("extraction_method", ""),
+                "origin_artifact_id": relation.get("origin_artifact_id", ""),
+                "origin_path": relation.get("origin_path", ""),
+                "origin_section": relation.get("origin_section", ""),
+                "evidence_count": len(relation.get("evidence_ids", [])),
+                "evidence_previews": evidence_previews,
+                "review_priority": int(queue_entry.get("priority", 50)),
+                "triage_lane": str(queue_entry.get("triage_lane", "knowledge_capture")),
+                "finding_codes": list(queue_entry.get("finding_codes", [])),
+                "review_help": (
+                    "Treat inferred relations as candidates until the evidence preview supports the endpoint and relation type."
+                    if provenance_class == "inferred"
+                    else "Check that the source evidence supports the relation type and direction before promotion."
+                ),
+            }
+        )
+    return sorted(payloads, key=lambda item: (item["review_priority"], item["relation_id"]))
+
+
 def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> dict[str, Any]:
     manifest = _read_json(import_dir / "manifest.json")
     resolved_source_root = _resolve_source_root(import_dir, manifest.get("source_root", ""))
@@ -492,6 +611,8 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
     artifacts = _read_jsonl(import_dir / "artifacts.jsonl")
     observations = _read_jsonl(import_dir / "observations.jsonl")
     claims = _read_jsonl(import_dir / "claims.jsonl")
+    concepts = _read_jsonl(import_dir / "concepts.jsonl")
+    relations = _read_jsonl(import_dir / "relations.jsonl")
 
     observations_by_id = {item["observation_id"]: item for item in observations}
     claims_by_concept: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -509,6 +630,15 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
     )
     artifact_by_id = {item["artifact_id"]: item for item in artifacts}
     artifact_role_by_id = {item["artifact_id"]: _artifact_source_role(item) for item in artifacts if item.get("artifact_id")}
+    relation_reviews = _relation_review_payloads(
+        session,
+        relations=relations,
+        concepts=concepts,
+        observations_by_id=observations_by_id,
+        artifact_by_id=artifact_by_id,
+        artifact_role_by_id=artifact_role_by_id,
+        queue_payload=queue_payload,
+    )
     queue_by_candidate_id = {
         str(item.get("candidate_id", "")): item
         for item in queue_payload.get("items", [])
@@ -681,6 +811,11 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
                 "Use the citation track to prioritize claims that can move into a separate citation-ingestion workflow.",
                 "Treat abstract-based support suggestions as triage help, not as a substitute for direct source inspection.",
             ],
+            "relation_guidance": [
+                "Inferred relations are review candidates, not promoted graph facts.",
+                "Check the evidence preview for both endpoint concepts and the proposed relation type.",
+                "Reject relations whose endpoints are merely co-mentioned without useful conceptual connection.",
+            ],
             "public_output_policy": [
                 "Direct quotations should remain visibly marked and source-attributed.",
                 "Public Notebook exposition should paraphrase source material unless a quote is intentionally displayed.",
@@ -697,7 +832,12 @@ def _build_import_review_payload(session: ReviewSession, import_dir: Path) -> di
             _citation_status_field_spec(),
             _text_field_spec("notes", "Citation notes", "Record whether the cited work exists, fits the claim, or should move into a dedicated citation-ingestion lane.", multiline=True),
         ],
+        "relation_field_specs": [
+            _status_field_spec(),
+            _text_field_spec("notes", "Relation notes", "Record why this relation should be trusted, provisional, rejected, or revisited.", multiline=True),
+        ],
         "concept_reviews": concept_reviews,
+        "relation_reviews": relation_reviews,
         "citation_reviews": [entry.model_dump() for entry in session.citation_reviews],
         "bibliography": bibliography_summary_payload(resolved_bibliography_root),
         "graph_diagnostics": graph_payload,
@@ -724,6 +864,7 @@ def export_review_ui_data(session: ReviewSession, outdir: str | Path, import_dir
     payload = {
         "reviewer": session.reviewer,
         "draft_pack": session.draft_pack.model_dump(),
+        "relation_reviews": [entry.model_dump() for entry in session.relation_reviews],
         "citation_reviews": [entry.model_dump() for entry in session.citation_reviews],
         "ledger": [entry.model_dump() for entry in session.ledger],
     }

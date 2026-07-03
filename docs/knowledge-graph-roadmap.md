@@ -1,0 +1,169 @@
+# Knowledge Graph Roadmap
+
+GroundRecall has a live provenance-first graph substrate, but not yet a full
+AI knowledge graph extraction and reasoning layer. The current system stores
+typed `Concept`, `Claim`, `Relation`, `Observation`, `Artifact`, and provenance
+records; can query concept neighborhoods; can expand search results with
+bounded graph associations; and emits import-time graph diagnostics for review.
+
+This document defines the implementation path from that substrate to full
+knowledge graph capability.
+
+## Current Live Capability
+
+- Canonical typed store for concepts, claims, relations, observations,
+  artifacts, sources, review candidates, promotions, and snapshots.
+- Concept-neighborhood query through `groundrecall query`.
+- Claim contradiction and supersession links.
+- Provenance and grounding status for claims and observations.
+- Import-time `graph_diagnostics.json`.
+- Review queue graph triage signals such as `bridge_concept`,
+  `isolated_concept`, and `small_component`.
+- Search-index expansion with linked claims, concepts, observations, artifacts,
+  relations, and review candidates.
+- Store-level graph diagnostics through `groundrecall inspect --graph`.
+- Graph discovery search through `groundrecall query STORE TEXT --kind
+  graph-search`, which maps full-text hits to candidate root concepts and
+  returns bounded graph bundles.
+
+## Target Capability
+
+Full GroundRecall knowledge graph capability means:
+
+1. Source-grounded graph extraction that preserves chunk/artifact provenance.
+2. Reviewable candidate entities, concepts, claims, and relations.
+3. Deterministic concept/entity standardization before any optional LLM pass.
+4. Explicit distinction between grounded, derived, and inferred edges.
+5. Store-level graph inspection, traversal, and export.
+6. Review workflows that make graph quality problems visible.
+7. Interchange formats that downstream tools such as Didactopus can consume.
+
+The design rule remains: extracted triples are candidates, not canonical truth,
+until reviewed or promoted.
+
+## Priority Path
+
+### P0: Expose The Existing Graph Substrate
+
+Status: implemented in this pass.
+
+- Document the live graph substrate in `README.md`.
+- Add store-level graph diagnostics to `groundrecall inspect --graph`.
+- Keep output machine-readable JSON.
+
+This step makes the current graph behavior visible without changing import or
+promotion semantics.
+
+### P1: Canonical Graph Query And Export
+
+Status: bounded graph query bundle and guardrailed graph bundle export
+implemented.
+
+- Add a first-class graph query mode for bounded concept traversal:
+  `groundrecall query STORE CONCEPT --kind graph`.
+- Return nodes and edges with record kind, status, provenance, grounding, and
+  evidence ids.
+- Include relevant claims, supporting observations, and graph diagnostics.
+- Add regression tests for traversal depth, status filtering, and provenance.
+- Export public graph bundles through `groundrecall export --graph-concept`,
+  with node/edge wrappers pruned by public export guardrails and diagnostics
+  recomputed after filtering.
+
+### P2: Candidate Graph Extraction
+
+- Status: initial heuristic relation extraction implemented.
+- Add an opt-in `groundrecall import --extract-graph` flag.
+- Add deterministic chunk-backed extraction before any optional LLM extractor.
+- Emit candidate concepts, claims, and relations with chunk provenance.
+- Support extractor modes: `none`, `heuristic`, and later `llm`.
+- Keep inferred candidates in draft/triage state.
+- Current heuristic mode emits draft `co_occurs_with` relation candidates from
+  existing concept co-mentions in imported observations, with observation
+  evidence ids and `support_kind=inferred`.
+
+### P3: Entity And Concept Standardization
+
+- Status: initial auditable concept standardization reporting implemented.
+- Add deterministic alias normalization for obvious duplicates.
+- Emit review candidates for ambiguous alias clusters.
+- Preserve original surface forms and source locations.
+- Avoid silent merges when evidence is weak.
+- Current import output writes `concept_standardization.json`, records
+  deterministic merge groups, reports ambiguous alias candidates without
+  merging them, and surfaces `concept_deterministic_merge` /
+  `concept_alias_candidate` codes in the review queue.
+
+### P4: Relation Inference And Review
+
+- Status: initial relation review lane and canonical-store batch review
+  implemented.
+- Add relation inference from explicit links, repeated co-occurrence,
+  prerequisite cues, support/contradiction cues, and citation metadata.
+- Mark relation provenance as `direct_source`, `derived_from_page`, or
+  `inferred`.
+- Extend review payloads with candidate relation cards and evidence previews.
+- Current review sessions include `relation_reviews`; the review workspace
+  exposes a relation lane with endpoint labels, provenance class, queue codes,
+  evidence previews, and editable status/notes. Promotion respects explicit
+  relation review rejection.
+- Canonical-store relation review can now be scripted with
+  `groundrecall relation-review STORE`, which lists reviewable relation
+  candidates and applies JSON decision batches that update relation status,
+  optional relation type, review candidate status/rationale, and promotion
+  audit records.
+
+### P5: Graph Diagnostics And Quality Controls
+
+- Status: initial graph quality diagnostics implemented.
+- Expand diagnostics beyond connected components and bridges:
+  weak grounding, inferred-edge density, high-fanout noisy concepts,
+  unsupported claims, contradiction clusters, and stale/superseded neighborhoods.
+- Add `groundrecall export --include-graph-diagnostics`.
+- Add quality thresholds usable by review and CI.
+- Current graph diagnostics include `quality_summary`, `relation_quality`,
+  `claim_quality`, `concept_quality`, and `quality_controls` sections.
+  Import, inspect, query, review, and public graph export paths recompute these
+  diagnostics with the available filtered claims and observations.
+- Canonical exports can now write filtered `graph_diagnostics.json` through
+  `groundrecall export --include-graph-diagnostics`.
+- Store inspection supports compact active graph diagnostics through
+  `groundrecall inspect STORE --graph-summary`, keeping top-level store counts
+  while returning summarized components, relation quality, claim quality,
+  high-fanout concepts, and quality-control flags.
+
+### P6: Downstream Interchange
+
+- Status: initial JSON graph interchange export implemented.
+- Add graph JSON export for Didactopus workbenches.
+- Consider JSON-LD/RDF/GraphML only after the internal graph semantics are
+  stable.
+- Keep assistant-specific exports separate from canonical graph semantics.
+- Canonical exports can now write `graph_interchange.json` through
+  `groundrecall export --include-graph-interchange`; the bundle contains
+  guardrailed nodes, edges, claims, observations, diagnostics, and consumer
+  notes for downstream graph-aware workbenches.
+
+### P7: Graph Discovery Search
+
+- Status: initial graph-search bundle implemented.
+- Add a mode that lets users start from ordinary topic text rather than a known
+  concept id.
+- Use the full-text index plus bounded graph association expansion to map
+  matching concepts, claims, relations, artifacts, observations, and source
+  notes onto candidate root concepts.
+- Return root concept match sources and existing depth-limited graph bundles,
+  preserving graph diagnostics and provenance semantics.
+- Current query syntax is `groundrecall query STORE TEXT --kind graph-search`
+  with `--graph-limit`, `--limit`, `--depth`, `--corpus`, and `--object-kind`
+  controls.
+- Graph search now gives direct concept/title hits a supplemental retrieval pass
+  and ranks candidate roots by direct concept matches, query-token overlap, and
+  direct-vs-associated match evidence before falling back to FTS score.
+
+## Non-Goals For The First Pass
+
+- Do not introduce a graph database before file-backed canonical objects and
+  JSON exports prove insufficient.
+- Do not auto-promote LLM-extracted triples.
+- Do not make Didactopus depend on graph extraction for ordinary pack import.
+- Do not weaken provenance requirements to maximize edge count.

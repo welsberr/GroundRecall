@@ -27,15 +27,31 @@ def test_protocol_init_writes_host_profile_and_bootstraps(tmp_path: Path) -> Non
     assert (tmp_path / ".groundrecall" / "remote-inbox").is_dir()
 
     host_profile = (tmp_path / ".groundrecall" / "source-notes" / "host-profile-local-dev.md").read_text()
+    workspace_readme = (tmp_path / ".groundrecall" / "README.md").read_text()
+    assistant_project = (tmp_path / "ASSISTANT_PROJECT.md").read_text()
     assert "host_id: local-dev" in host_profile
     assert "host_role: development" in host_profile
     assert "hostname: localbox" in host_profile
     assert "No-secrets rule" in host_profile
+    assert "task definition" in workspace_readme
+    assert "plan/implementation details" in workspace_readme
+    assert "results" in workspace_readme
+    assert "filesystem searches" in workspace_readme
+    assert "source-notes/" in workspace_readme
+    assert "exports/canonical/" in workspace_readme
+    assert "task definition" in assistant_project
+    assert "rebuild the FTS5 index" in assistant_project
+    assert "source notes and canonical exports" in assistant_project
 
     codex = (tmp_path / "CODEX_PROJECT.md").read_text()
     claude = (tmp_path / "CLAUDE.md").read_text()
     assert "GroundRecall workspace" in codex
+    assert "task definition" in codex
+    assert "broad filesystem" in codex
+    assert "Codex export is empty" in codex
+    assert "plan/implementation details" in codex
     assert "Claude Code export" in claude
+    assert "task definition" in claude
 
 
 def test_protocol_init_does_not_overwrite_without_force(tmp_path: Path) -> None:

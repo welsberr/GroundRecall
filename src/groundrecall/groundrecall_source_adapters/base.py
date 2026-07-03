@@ -71,7 +71,17 @@ def list_source_adapters() -> list[str]:
 
 
 def detect_source_adapter(root: str | Path) -> GroundRecallSourceAdapter:
+    source_path = Path(root)
+    if not source_path.exists():
+        raise ValueError(f"GroundRecall import source does not exist: {root}")
     for adapter in _REGISTRY.values():
-        if adapter.detect(root):
-            return adapter
+        try:
+            if adapter.detect(source_path):
+                return adapter
+        except NotADirectoryError:
+            continue
+        except OSError:
+            if source_path.is_file():
+                continue
+            raise
     raise ValueError(f"No GroundRecall source adapter detected for {root}")

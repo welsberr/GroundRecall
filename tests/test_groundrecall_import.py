@@ -7,6 +7,8 @@ from groundrecall.groundrecall_normalizer import standardize_concept_rows
 from groundrecall.ingest import run_groundrecall_import
 from groundrecall.graph_diagnostics import build_graph_diagnostics
 from groundrecall.lint import lint_import_directory
+from groundrecall.models import ConceptRecord
+from groundrecall.store import GroundRecallStore
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -14,6 +16,29 @@ def _read_jsonl(path: Path) -> list[dict]:
     if not text:
         return []
     return [json.loads(line) for line in text.splitlines()]
+
+
+def _build_graph_extraction_fixture(root: Path) -> Path:
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "concepts.md").write_text(
+        "# Channel Capacity\n\n"
+        "## Shannon Entropy\n\n"
+        "- Channel capacity and Shannon entropy are compared in coding theorem examples.\n",
+        encoding="utf-8",
+    )
+    return root
+
+
+def _build_standardization_fixture(root: Path) -> Path:
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "standardization.md").write_text(
+        "# Signal Processing\n\n"
+        "## The Signal Processing\n\n"
+        "## Signal Processing Model\n\n"
+        "- Signal processing and the signal processing model should be distinguished during review.\n",
+        encoding="utf-8",
+    )
+    return root
 
 
 def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
@@ -68,6 +93,9 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     graph_diagnostics = json.loads((result.out_dir / "graph_diagnostics.json").read_text(encoding="utf-8"))
     assert graph_diagnostics["summary"]["connected_component_count"] >= 1
     assert graph_diagnostics["summary"]["concept_count"] == len(concepts)
+    assert "quality_summary" in graph_diagnostics
+    assert "relation_quality" in graph_diagnostics
+    assert "claim_quality" in graph_diagnostics
 
     lint_payload = json.loads((result.out_dir / "lint_findings.json").read_text(encoding="utf-8"))
     assert "summary" in lint_payload
@@ -87,9 +115,59 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     assert any(item["field"] == "status" for item in review_data["field_specs"])
     assert "review_guidance" in review_data
     assert "concept_reviews" in review_data
+    assert "relation_reviews" in review_data
+    assert "relation_field_specs" in review_data
     assert "citations" in review_data
     assert "citation_reviews" in review_data
     assert "analysis_lanes" in review_data["review_guidance"]
+
+
+def test_graph_extraction_is_disabled_by_default(tmp_path: Path) -> None:
+    root = _build_graph_extraction_fixture(tmp_path / "llmwiki")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="graph-default")
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    relations = _read_jsonl(result.out_dir / "relations.jsonl")
+    candidates = json.loads((result.out_dir / "graph_extraction_candidates.json").read_text(encoding="utf-8"))
+
+    assert manifest["graph_extraction"]["mode"] == "none"
+    assert candidates["candidate_relation_count"] == 0
+    assert not any(item["relation_type"] == "co_occurs_with" for item in relations)
+
+
+def test_heuristic_graph_extraction_emits_reviewable_relation_candidates(tmp_path: Path) -> None:
+    root = _build_graph_extraction_fixture(tmp_path / "llmwiki")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="graph-heuristic", extract_graph="heuristic")
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    relations = _read_jsonl(result.out_dir / "relations.jsonl")
+    candidates = json.loads((result.out_dir / "graph_extraction_candidates.json").read_text(encoding="utf-8"))
+    review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
+    graph_diagnostics = json.loads((result.out_dir / "graph_diagnostics.json").read_text(encoding="utf-8"))
+
+    extracted = [item for item in relations if item["relation_type"] == "co_occurs_with"]
+    assert manifest["graph_extraction"]["mode"] == "heuristic"
+    assert manifest["graph_extraction"]["candidate_relation_count"] == 1
+    assert candidates["candidate_relation_count"] == 1
+    assert len(extracted) == 1
+    assert extracted[0]["source_id"] == "concept::channel-capacity"
+    assert extracted[0]["target_id"] == "concept::shannon-entropy"
+    assert extracted[0]["support_kind"] == "inferred"
+    assert extracted[0]["grounding_status"] == "partially_grounded"
+    assert extracted[0]["current_status"] == "draft"
+    assert extracted[0]["evidence_ids"]
+    assert graph_diagnostics["quality_summary"]["inferred_relation_count"] >= 1
+    assert graph_diagnostics["relation_quality"]["inferred_relation_count"] >= 1
+    assert "high_inferred_relation_density" in {
+        item["code"] for item in graph_diagnostics["quality_controls"]["flags"]
+    }
+
+    relation_items = [item for item in review_queue["items"] if item["candidate_type"] == "relation"]
+    assert len(relation_items) == 1
+    assert relation_items[0]["candidate_id"] == extracted[0]["relation_id"]
+    assert "relation_inferred" in relation_items[0]["finding_codes"]
 
 
 def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:
@@ -135,6 +213,69 @@ def test_concept_standardization_merges_duplicate_titles_into_aliases() -> None:
     assert relations[0]["source_id"] == "concept::signal-processing"
 
 
+def test_import_writes_concept_standardization_report_and_review_codes(tmp_path: Path) -> None:
+    root = _build_standardization_fixture(tmp_path / "llmwiki")
+
+    result = run_groundrecall_import(root, mode="quick", import_id="standardization-test")
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    report = json.loads((result.out_dir / "concept_standardization.json").read_text(encoding="utf-8"))
+    review_queue = json.loads((result.out_dir / "review_queue.json").read_text(encoding="utf-8"))
+    concept_items = {item["candidate_id"]: item for item in review_queue["items"] if item["candidate_type"] == "concept"}
+
+    assert manifest["concept_standardization"]["deterministic_merge_group_count"] == 1
+    assert manifest["concept_standardization"]["ambiguous_alias_candidate_count"] == 1
+    assert report["deterministic_merge_groups"][0]["canonical_concept_id"] == "concept::signal-processing"
+    assert report["ambiguous_alias_candidates"][0]["left_concept_id"] == "concept::signal-processing"
+    assert report["ambiguous_alias_candidates"][0]["right_concept_id"] == "concept::signal-processing-model"
+    assert "concept_deterministic_merge" in concept_items["concept::signal-processing"]["finding_codes"]
+    assert "concept_alias_candidate" in concept_items["concept::signal-processing"]["finding_codes"]
+    assert "concept_alias_candidate" in concept_items["concept::signal-processing-model"]["finding_codes"]
+
+
+def test_import_can_align_claims_to_existing_seed_concepts(tmp_path: Path) -> None:
+    seed_store = GroundRecallStore(tmp_path / "seed-store")
+    seed_store.save_concept(
+        ConceptRecord(
+            concept_id="concept::evo-edu-notebook-allele-frequency-scaffold-pilot",
+            title="Evo Edu Notebook Allele Frequency Scaffold Pilot",
+            description="Reviewed Notebook scaffold pilot.",
+            current_status="reviewed",
+        )
+    )
+
+    root = tmp_path / "notes"
+    root.mkdir()
+    (root / "incoming.md").write_text(
+        "# Incoming Note\n\n"
+        "- The Notebook allele frequency scaffold pilot should guide future source-slot work.\n",
+        encoding="utf-8",
+    )
+
+    result = run_groundrecall_import(
+        root,
+        mode="quick",
+        import_id="alignment-test",
+        concept_seed_store=seed_store.base_dir,
+    )
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    claims = _read_jsonl(result.out_dir / "claims.jsonl")
+    aligned_claim = next(item for item in claims if "source-slot work" in item["claim_text"])
+
+    assert manifest["concept_alignment"]["aligned_claim_count"] == 1
+    assert manifest["external_concept_ids"] == ["concept::evo-edu-notebook-allele-frequency-scaffold-pilot"]
+    assert "concept::evo-edu-notebook-allele-frequency-scaffold-pilot" in aligned_claim["concept_ids"]
+    assert aligned_claim["metadata"]["concept_seed_alignments"][0]["concept_id"] == (
+        "concept::evo-edu-notebook-allele-frequency-scaffold-pilot"
+    )
+
+    lint_payload = json.loads((result.out_dir / "lint_findings.json").read_text(encoding="utf-8"))
+    missing_concept_errors = [
+        item for item in lint_payload["findings"] if item["code"] in {"claim_concept_missing", "relation_missing_target"}
+    ]
+    assert missing_concept_errors == []
+
+
 def test_graph_diagnostics_detect_bridge_concepts() -> None:
     diagnostics = build_graph_diagnostics(
         concepts=[
@@ -153,6 +294,70 @@ def test_graph_diagnostics_detect_bridge_concepts() -> None:
     assert diagnostics["summary"]["connected_component_count"] == 1
     assert diagnostics["summary"]["bridge_concept_count"] == 2
     assert [item["concept_id"] for item in diagnostics["bridge_concepts"]] == ["concept::b", "concept::c"]
+
+
+def test_graph_diagnostics_reports_quality_controls() -> None:
+    diagnostics = build_graph_diagnostics(
+        concepts=[
+            {"concept_id": "concept::hub"},
+            {"concept_id": "concept::a"},
+            {"concept_id": "concept::b"},
+            {"concept_id": "concept::c"},
+            {"concept_id": "concept::d"},
+            {"concept_id": "concept::e"},
+            {"concept_id": "concept::f"},
+            {"concept_id": "concept::g"},
+            {"concept_id": "concept::h"},
+        ],
+        relations=[
+            {
+                "relation_id": f"rel_{index}",
+                "source_id": "concept::hub",
+                "target_id": f"concept::{target}",
+                "relation_type": "co_occurs_with",
+                "support_kind": "inferred",
+                "grounding_status": "partially_grounded",
+            }
+            for index, target in enumerate(["a", "b", "c", "d", "e", "f", "g", "h"], start=1)
+        ],
+        observations=[
+            {
+                "observation_id": "obs_grounded",
+                "grounding_status": "grounded",
+            }
+        ],
+        claims=[
+            {
+                "claim_id": "clm_missing_support",
+                "claim_text": "Unsupported claim.",
+                "concept_ids": ["concept::hub"],
+                "source_observation_ids": [],
+                "grounding_status": "ungrounded",
+                "contradicts_claim_ids": ["clm_absent"],
+            },
+            {
+                "claim_id": "clm_revision",
+                "claim_text": "Revision claim.",
+                "concept_ids": ["concept::hub"],
+                "source_observation_ids": ["obs_grounded"],
+                "grounding_status": "grounded",
+                "supersedes_claim_ids": ["clm_missing_support"],
+            },
+        ],
+    )
+
+    assert diagnostics["quality_summary"]["inferred_relation_count"] == 8
+    assert diagnostics["quality_summary"]["unsupported_claim_count"] == 1
+    assert diagnostics["quality_summary"]["high_fanout_concept_count"] == 1
+    assert diagnostics["concept_quality"]["high_fanout_concepts"][0]["concept_id"] == "concept::hub"
+    assert diagnostics["claim_quality"]["contradiction_links"][0]["target_exists"] is False
+    assert diagnostics["claim_quality"]["superseded_neighborhoods"][0]["concept_id"] == "concept::hub"
+    flag_codes = {item["code"] for item in diagnostics["quality_controls"]["flags"]}
+    assert "high_inferred_relation_density" in flag_codes
+    assert "weak_relation_grounding" in flag_codes
+    assert "unsupported_claims" in flag_codes
+    assert "high_fanout_concepts" in flag_codes
+    assert "unresolved_claim_conflict_links" in flag_codes
 
 
 def test_review_queue_uses_graph_diagnostics_for_concept_triage(tmp_path: Path) -> None:

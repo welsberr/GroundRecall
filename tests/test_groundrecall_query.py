@@ -12,6 +12,8 @@ from groundrecall.models import (
     ReviewCandidateRecord,
 )
 from groundrecall.query import (
+    build_graph_bundle_for_concept,
+    build_graph_search_bundle,
     build_query_bundle_for_concept,
     query_concept,
     query_provenance,
@@ -215,6 +217,121 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)
+
+
+def test_build_graph_bundle_for_concept_returns_bounded_neighborhood(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    payload = build_graph_bundle_for_concept(store.base_dir, "channel-capacity", depth=1)
+
+    assert payload is not None
+    assert payload["bundle_kind"] == "groundrecall_graph_bundle"
+    assert payload["query_type"] == "graph"
+    assert payload["root_concept"]["concept_id"] == "concept::channel-capacity"
+    node_ids = {item["node_id"] for item in payload["nodes"]}
+    assert node_ids == {"concept::channel-capacity", "concept::shannon-entropy"}
+    assert [item["edge_id"] for item in payload["edges"]] == ["rel_001"]
+    assert any(item["claim_id"] == "clm_001" for item in payload["relevant_claims"])
+    assert any(item["observation_id"] == "obs_001" for item in payload["supporting_observations"])
+    assert payload["graph_diagnostics"]["summary"]["concept_count"] == 2
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
+
+
+def test_graph_bundle_keeps_source_family_out_of_semantic_traversal(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_concept(ConceptRecord(concept_id="concept::alpha", title="Alpha", current_status="reviewed"))
+    store.save_concept(ConceptRecord(concept_id="concept::beta", title="Beta", current_status="reviewed"))
+    store.save_concept(ConceptRecord(concept_id="concept::gamma", title="Gamma", current_status="reviewed"))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_semantic",
+            source_id="concept::alpha",
+            target_id="concept::beta",
+            relation_type="related_topic",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_source_family_selected",
+            source_id="concept::alpha",
+            target_id="concept::beta",
+            relation_type="same_source_family",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_source_family_unselected",
+            source_id="concept::alpha",
+            target_id="concept::gamma",
+            relation_type="same_source_family",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+
+    payload = build_graph_bundle_for_concept(store.base_dir, "alpha", depth=1)
+
+    assert payload is not None
+    node_ids = {item["node_id"] for item in payload["nodes"]}
+    assert node_ids == {"concept::alpha", "concept::beta"}
+    assert [item["edge_id"] for item in payload["edges"]] == ["rel_semantic"]
+    assert [item["edge_id"] for item in payload["provenance_edges"]] == ["rel_source_family_selected"]
+    assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
+    assert payload["graph_diagnostics"]["summary"]["provenance_relation_count"] == 1
+
+
+def test_build_graph_search_bundle_discovers_roots_from_text_matches(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+
+    payload = build_graph_search_bundle(store.base_dir, "reliable communication", graph_limit=1, depth=1)
+
+    assert payload["bundle_kind"] == "groundrecall_graph_search_bundle"
+    assert payload["query_type"] == "graph_search"
+    assert payload["root_concepts"][0]["concept_id"] == "concept::channel-capacity"
+    assert payload["root_concepts"][0]["match_sources"]
+    assert payload["graph_bundles"][0]["bundle_kind"] == "groundrecall_graph_bundle"
+    assert payload["graph_bundles"][0]["root_concept"]["concept_id"] == "concept::channel-capacity"
+    assert any(item["edge_id"] == "rel_001" for item in payload["graph_bundles"][0]["edges"])
+
+
+def test_build_graph_search_bundle_prefers_direct_concept_matches(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_store(store)
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::boundary",
+            title="Boundary",
+            current_status="promoted",
+        )
+    )
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::hardy-weinberg-equilibrium",
+            title="Hardy Weinberg Equilibrium",
+            current_status="promoted",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_boundary_condition",
+            claim_text="Hardy Weinberg equilibrium has a boundary condition in the model assumptions.",
+            concept_ids=["concept::boundary"],
+            provenance=ProvenanceRecord(origin_path="notes/hardy-weinberg.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = build_graph_search_bundle(store.base_dir, "Hardy Weinberg equilibrium", limit=1, graph_limit=2, depth=1)
+
+    assert payload["root_concepts"][0]["concept_id"] == "concept::hardy-weinberg-equilibrium"
+    assert payload["root_concepts"][0]["match_summary"]["direct_concept_match_count"] >= 1
+    assert any(match["record_id"] == "concept::hardy-weinberg-equilibrium" for match in payload["supplemental_concept_matches"])
 
 
 def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) -> None:

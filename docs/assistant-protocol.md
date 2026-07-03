@@ -11,6 +11,13 @@ assistants, hosts, and operational modes. Plain chat history is not enough for
 that. GroundRecall provides a local, reviewable memory store with provenance,
 exports, and assistant-specific bundles.
 
+Operational loss often happens before a final result exists: the task boundary
+is clarified in chat but not written down, a plan is chosen but the tradeoffs
+are not preserved, or an intermediate service/configuration state is useful for
+recovery but disappears when the session ends. The update policy below exists
+to reduce loss of project, task, goal-planning, and intermediate operational
+knowledge due to updates that did not happen.
+
 ## Principles
 
 - Each host has its own GroundRecall workspace and canonical store.
@@ -21,6 +28,34 @@ exports, and assistant-specific bundles.
 - Assistants should read memory before planning and update memory as durable
   work progresses.
 - Secrets are never stored in GroundRecall.
+
+## Update Policy
+
+Use the host's GroundRecall store as durable operational memory. Before
+substantial work, read the host profile and query the FTS5 index or canonical
+exports for relevant prior context. Consult GroundRecall before broad filesystem
+searches, repo scans, service restarts, deployment actions, or planning changes.
+
+If an assistant-specific export is empty or lacks an actionable project
+summary, fall back to source notes and canonical exports. Then write or update a
+concise project/service orientation source note so the next assistant startup
+has enough context.
+
+Update GroundRecall at three points:
+
+- Task definition: record objective, scope, local paths, data/result locations,
+  remote targets, verification criteria, and known constraints.
+- Plan or implementation specification: record chosen approach, files/services
+  touched, checks planned, rollback notes, risks, and rejected alternatives that
+  matter.
+- Results: record outcomes, evidence, commands/tests run, artifact/log paths,
+  unresolved risks, and the next safe action.
+
+Write durable notes under `.groundrecall/source-notes/`, then import, promote,
+export canonical and assistant bundles, and rebuild the FTS5 index. Preserve
+provenance, distinguish facts from inferences, record paths to secrets but never
+secret values, and prioritize reliability over convenience. When better
+verification becomes available, suggest it and record how to reproduce it.
 
 ## Initialize A Host Or Project
 
@@ -94,9 +129,13 @@ At session start, assistants should:
 2. Read `.groundrecall/README.md`.
 3. Read `.groundrecall/source-notes/host-profile-*.md`.
 4. Inspect canonical or assistant-specific exports.
-5. Query relevant project/service memory before planning changes.
-6. Check version-control status before edits.
-7. Record durable findings as source notes.
+5. If the assistant-specific export is empty or insufficient, fall back to
+   `.groundrecall/source-notes/` and `.groundrecall/exports/canonical/`.
+6. Query relevant project/service memory before broad filesystem searches,
+   repo scans, service restarts, deployment actions, or planning changes.
+7. Check version-control status before edits.
+8. Record task definition, plan/implementation details, and results as source
+   notes when work becomes substantial.
 
 Codex should prefer `.groundrecall/exports/codex/` when present. Claude Code
 should prefer `.groundrecall/exports/claude_code/` when present. Other
@@ -110,9 +149,10 @@ Write durable findings to:
 .groundrecall/source-notes/<project-or-topic>-YYYYMMDD.md
 ```
 
-A good source note includes host and role, project/service, changed files,
-commands/tests run, deployment or restart actions, backup/recovery status if
-data was touched, remaining risks, and next safe action.
+A good source note includes host and role, project/service, objective and
+scope, changed files/services, commands/tests run, deployment or restart
+actions, backup/recovery status if data was touched, plan decisions, rejected
+alternatives that matter, remaining risks, and next safe action.
 
 Then import, promote, and export:
 
@@ -127,6 +167,7 @@ groundrecall promote .groundrecall/imports/<import-id> .groundrecall/store \
 groundrecall export .groundrecall/store .groundrecall/exports/canonical
 groundrecall assistant-export .groundrecall/store codex .groundrecall/exports/codex
 groundrecall assistant-export .groundrecall/store claude_code .groundrecall/exports/claude_code
+groundrecall index .groundrecall/store --rebuild
 ```
 
 ## Local/Remote Sharing

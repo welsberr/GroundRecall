@@ -63,6 +63,11 @@ onto richer GroundRecall review:
 7. `research program`
    What empirical work would actually reduce the leverage of the objection.
 
+8. `claim alignment audit`
+   Whether a docket claim has been mapped to the correct external claim record,
+   such as a TalkOrigins Index to Creationist Claims entry, and which nearby
+   entries were considered and rejected.
+
 ## Implications for GroundRecall
 
 GroundRecall should stay centered on grounded records, but claim analysis can be
@@ -117,6 +122,26 @@ step could be review-export grouping by:
 - concept
 - citation cluster
 
+### 4. Treat Index-entry matching as reviewed alignment
+
+The evidence-docket tooling should not collapse a source span to a single Index
+to Creationist Claims entry merely because the text is topically similar. Wrong
+Index alignment is worse than a missing link because it pollutes later evidence
+cards, search facets, and lineage analysis.
+
+Alignment review should preserve:
+
+- the source span being mapped;
+- the candidate Index entries;
+- positive evidence for each candidate;
+- negative evidence and neighboring confusions;
+- relation type, such as exact, narrower, broader, analogous, cites, borrows,
+  responds-to, or background;
+- reviewer disposition.
+
+If the best answer is uncertain, the docket should say so and carry candidate
+links rather than presenting a single canonical claim link.
+
 ## Bibliography and abstracts
 
 The bibliography expansion work showed that abstracts are often the fastest way
@@ -150,13 +175,17 @@ Important boundary:
 2. Add analytical claim metadata.
    Start with optional metadata fields in claim rows and review exports.
 
-3. Add review lanes mirroring the evidence-docket workflow.
+3. Add claim-alignment review records.
+   Store ranked Index-entry candidates, evidence for and against each mapping,
+   and the reviewer disposition.
+
+4. Add review lanes mirroring the evidence-docket workflow.
    Separate empirical support review from rhetorical and burden-check review.
 
-4. Add evidence-card grouping in review UI/export.
+5. Add evidence-card grouping in review UI/export.
    Let reviewers inspect a bounded packet instead of isolated claim rows.
 
-5. Add a bibliography-assisted claim-support pass.
+6. Add a bibliography-assisted claim-support pass.
    Reuse CiteGeist support/verification capabilities so GroundRecall can move
    from “citation exists” toward “citation probably supports this claim because…”
 

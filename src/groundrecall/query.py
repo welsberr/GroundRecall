@@ -6,9 +6,18 @@ from pathlib import Path
 import re
 from typing import Any
 
-from epistemap import fair_play_diagnostic, first_contradiction_time, stale_claims_after, timeline_events, tenability_window, epistemic_summary
+from epistemap import (
+    epistemic_summary,
+    fair_play_diagnostic,
+    first_contradiction_time,
+    stale_claims_after,
+    tenability_window,
+    timeline_events,
+)
 
 from .epistemap_adapter import graph_bundle_from_query_payload
+from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
+from .search_index import search_index
 from .store import GroundRecallStore
 
 
@@ -19,6 +28,19 @@ def _normalize(text: str) -> str:
 def _matches(query: str, *values: str) -> bool:
     needle = _normalize(query)
     return any(needle in _normalize(value) for value in values if value)
+
+
+def _resolve_concept(concepts: list[Any], concept_ref: str) -> Any | None:
+    return next(
+        (
+            item
+            for item in concepts
+            if concept_ref == item.concept_id
+            or concept_ref == item.concept_id.replace("concept::", "", 1)
+            or _matches(concept_ref, item.title, item.description, *item.aliases)
+        ),
+        None,
+    )
 
 
 _SOURCE_ROLE_ORDER = ["overview", "mechanism", "nuance", "controversy", "argumentation"]
@@ -123,16 +145,7 @@ def _role_from_observation_or_claim(artifact_role: str, observation: Any | None,
 def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | None:
     store = GroundRecallStore(store_dir)
     concepts = store.list_concepts()
-    concept = next(
-        (
-            item
-            for item in concepts
-            if concept_ref == item.concept_id
-            or concept_ref == item.concept_id.replace("concept::", "", 1)
-            or _matches(concept_ref, item.title, item.description, *item.aliases)
-        ),
-        None,
-    )
+    concept = _resolve_concept(concepts, concept_ref)
     if concept is None:
         return None
 
@@ -429,34 +442,467 @@ def _temporal_summary(graph_bundle, claims: list[dict[str, Any]]) -> dict[str, A
     }
 
 
+def build_graph_bundle_for_concept(
+    store_dir: str | Path,
+    concept_ref: str,
+    *,
+    depth: int = 1,
+    include_rejected: bool = False,
+) -> dict[str, Any] | None:
+    store = GroundRecallStore(store_dir)
+    concepts = store.list_concepts()
+    root = _resolve_concept(concepts, concept_ref)
+    if root is None:
+        return None
+
+    max_depth = max(0, int(depth))
+    concept_by_id = {item.concept_id: item for item in concepts if include_rejected or item.current_status != "rejected"}
+    if root.concept_id not in concept_by_id:
+        return None
+
+    relations = [item for item in store.list_relations() if include_rejected or item.current_status != "rejected"]
+    semantic_relations = [item for item in relations if item.relation_type not in PROVENANCE_RELATION_TYPES]
+    provenance_relations = [item for item in relations if item.relation_type in PROVENANCE_RELATION_TYPES]
+    adjacency: dict[str, list[Any]] = {concept_id: [] for concept_id in concept_by_id}
+    for relation in semantic_relations:
+        if relation.source_id not in concept_by_id or relation.target_id not in concept_by_id:
+            continue
+        adjacency.setdefault(relation.source_id, []).append(relation)
+        adjacency.setdefault(relation.target_id, []).append(relation)
+
+    selected_ids = {root.concept_id}
+    frontier = {root.concept_id}
+    for _ in range(max_depth):
+        next_frontier: set[str] = set()
+        for concept_id in frontier:
+            for relation in adjacency.get(concept_id, []):
+                neighbor_id = relation.target_id if relation.source_id == concept_id else relation.source_id
+                if neighbor_id not in selected_ids:
+                    selected_ids.add(neighbor_id)
+                    next_frontier.add(neighbor_id)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    selected_concepts = [concept_by_id[concept_id] for concept_id in sorted(selected_ids)]
+    selected_relations = [
+        relation
+        for relation in semantic_relations
+        if relation.source_id in selected_ids and relation.target_id in selected_ids
+    ]
+    selected_provenance_relations = [
+        relation
+        for relation in provenance_relations
+        if relation.source_id in selected_ids and relation.target_id in selected_ids
+    ]
+    selected_claims = [
+        claim
+        for claim in store.list_claims()
+        if (include_rejected or claim.current_status != "rejected")
+        and any(concept_id in selected_ids for concept_id in claim.concept_ids)
+    ]
+
+    observation_ids = {
+        observation_id
+        for claim in selected_claims
+        for observation_id in claim.source_observation_ids
+    }
+    observations = [
+        observation
+        for observation in store.list_observations()
+        if observation.observation_id in observation_ids and (include_rejected or observation.current_status != "rejected")
+    ]
+    artifacts = {item.artifact_id: item for item in store.list_artifacts()}
+    source_artifact_ids = sorted(
+        {
+            artifact_id
+            for concept in selected_concepts
+            for artifact_id in concept.source_artifact_ids
+        }
+        | {observation.artifact_id for observation in observations if observation.artifact_id}
+    )
+    source_artifacts = [
+        artifacts[artifact_id].model_dump()
+        for artifact_id in source_artifact_ids
+        if artifact_id in artifacts and (include_rejected or artifacts[artifact_id].current_status != "rejected")
+    ]
+
+    concept_rows = [item.model_dump() for item in selected_concepts]
+    relation_rows = [item.model_dump() for item in [*selected_relations, *selected_provenance_relations]]
+    return {
+        "bundle_kind": "groundrecall_graph_bundle",
+        "query_type": "graph",
+        "root_concept": root.model_dump(),
+        "depth": max_depth,
+        "include_rejected": include_rejected,
+        "nodes": [
+            {
+                "node_id": concept.concept_id,
+                "node_kind": "concept",
+                "title": concept.title,
+                "status": concept.current_status,
+                "record": concept.model_dump(),
+            }
+            for concept in selected_concepts
+        ],
+        "edges": [
+            {
+                "edge_id": relation.relation_id,
+                "edge_kind": "relation",
+                "source_id": relation.source_id,
+                "target_id": relation.target_id,
+                "relation_type": relation.relation_type,
+                "status": relation.current_status,
+                "evidence_ids": relation.evidence_ids,
+                "provenance": relation.provenance.model_dump(),
+                "record": relation.model_dump(),
+            }
+            for relation in selected_relations
+        ],
+        "provenance_edges": [
+            {
+                "edge_id": relation.relation_id,
+                "edge_kind": "relation",
+                "source_id": relation.source_id,
+                "target_id": relation.target_id,
+                "relation_type": relation.relation_type,
+                "status": relation.current_status,
+                "evidence_ids": relation.evidence_ids,
+                "provenance": relation.provenance.model_dump(),
+                "record": relation.model_dump(),
+            }
+            for relation in selected_provenance_relations
+        ],
+        "relevant_claims": [claim.model_dump() for claim in selected_claims],
+        "supporting_observations": [observation.model_dump() for observation in observations],
+        "source_artifacts": source_artifacts,
+        "graph_diagnostics": build_graph_diagnostics(
+            concept_rows,
+            relation_rows,
+            claims=[claim.model_dump() for claim in selected_claims],
+            observations=[observation.model_dump() for observation in observations],
+        ),
+        "suggested_next_actions": [
+            "Inspect inferred or weakly grounded edges before relying on graph structure.",
+            "Increase --depth only when the neighborhood remains small enough to review.",
+            "Review contradiction and supersession links for selected claims before exporting downstream.",
+        ],
+    }
+
+
 def build_search_bundle(
     store_dir: str | Path,
     text: str,
     corpora: list[str] | None = None,
+    object_kinds: list[str] | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
-    payload = search_documents(store_dir, text=text, corpora=corpora, limit=limit)
+    payload = search_index(store_dir, text, corpora=corpora, kinds=object_kinds, limit=limit, expand=True)
     return {
         "bundle_kind": "groundrecall_search_bundle",
-        "query_type": "document_search",
+        "query_type": payload["query_type"],
         "query": text,
+        "index_path": payload["index_path"],
         "active_corpora": payload["active_corpora"],
+        "active_object_kinds": payload["active_kinds"],
         "matches": payload["matches"],
+        "associations": payload.get("associations", {}),
         "suggested_next_actions": [
-            "Open the matching documents and review the artifact metadata.",
-            "Tighten the corpus filter when the result set is too broad.",
-            "Use corpus defaults for a site-specific search preset and add others only when needed.",
+            "Open the highest-ranked source note or canonical object before relying on it.",
+            "Use --corpus or --object-kind filters when the result set is too broad.",
+            "Inspect associations for linked claims, concepts, observations, artifacts, and review candidates.",
+            "Rebuild the index after bulk imports or source-note edits.",
         ],
     }
+
+
+def build_graph_search_bundle(
+    store_dir: str | Path,
+    text: str,
+    *,
+    corpora: list[str] | None = None,
+    object_kinds: list[str] | None = None,
+    limit: int = 20,
+    graph_limit: int = 5,
+    depth: int = 1,
+) -> dict[str, Any]:
+    search_payload = search_index(
+        store_dir,
+        text,
+        corpora=corpora,
+        kinds=object_kinds,
+        limit=limit,
+        expand=True,
+        association_limit=12,
+    )
+    store = GroundRecallStore(store_dir)
+    claims = {item.claim_id: item for item in store.list_claims()}
+    relations = {item.relation_id: item for item in store.list_relations()}
+    concepts = {item.concept_id: item for item in store.list_concepts()}
+
+    concept_sources: dict[str, list[dict[str, Any]]] = {}
+    query_terms = _query_terms(text)
+    supplemental_concept_matches: list[dict[str, Any]] = []
+    for match in search_payload["matches"]:
+        doc_key = str(match.get("doc_key", ""))
+        candidate_ids = _concept_ids_from_match(match, claims=claims, relations=relations)
+        for concept_id in candidate_ids:
+            if concept_id not in concepts:
+                continue
+            _append_concept_source(concept_sources, concept_id, match, root_match_kind="direct")
+
+        for association in search_payload.get("associations", {}).get(doc_key, []):
+            for concept_id in _concept_ids_from_association(association, claims=claims, relations=relations):
+                if concept_id not in concepts:
+                    continue
+                _append_concept_source(
+                    concept_sources,
+                    concept_id,
+                    match,
+                    root_match_kind="association",
+                    association=association,
+                )
+
+    if _should_include_supplemental_concepts(object_kinds):
+        supplemental_payload = search_index(
+            store_dir,
+            text,
+            kinds=["concept"],
+            limit=max(limit, graph_limit * 4, 8),
+            expand=False,
+        )
+        supplemental_concept_matches = supplemental_payload["matches"]
+        for match in supplemental_concept_matches:
+            for concept_id in _concept_ids_from_match(match, claims=claims, relations=relations):
+                if concept_id not in concepts:
+                    continue
+                _append_concept_source(
+                    concept_sources,
+                    concept_id,
+                    match,
+                    root_match_kind="direct",
+                    supplemental=True,
+                )
+
+    ranked_concept_ids = sorted(
+        concept_sources,
+        key=lambda concept_id: _graph_search_rank_key(concept_id, concepts[concept_id], concept_sources[concept_id], query_terms),
+    )[: max(0, int(graph_limit))]
+
+    graph_bundles = [
+        bundle
+        for concept_id in ranked_concept_ids
+        if (bundle := build_graph_bundle_for_concept(store_dir, concept_id, depth=depth)) is not None
+    ]
+    return {
+        "bundle_kind": "groundrecall_graph_search_bundle",
+        "query_type": "graph_search",
+        "query": text,
+        "index_path": search_payload["index_path"],
+        "active_corpora": search_payload["active_corpora"],
+        "active_object_kinds": search_payload["active_kinds"],
+        "match_count": len(search_payload["matches"]),
+        "graph_limit": max(0, int(graph_limit)),
+        "depth": max(0, int(depth)),
+        "matches": search_payload["matches"],
+        "associations": search_payload.get("associations", {}),
+        "supplemental_concept_matches": supplemental_concept_matches,
+        "root_concepts": [
+            {
+                "concept_id": concept_id,
+                "title": concepts[concept_id].title,
+                "status": concepts[concept_id].current_status,
+                "match_summary": _concept_match_summary(concepts[concept_id], concept_sources[concept_id], query_terms),
+                "match_sources": concept_sources[concept_id][:8],
+            }
+            for concept_id in ranked_concept_ids
+        ],
+        "graph_bundles": graph_bundles,
+        "unresolved_matches": [
+            {
+                "doc_key": match.get("doc_key", ""),
+                "kind": match.get("kind", ""),
+                "record_id": match.get("record_id", ""),
+                "title": match.get("title", ""),
+            }
+            for match in search_payload["matches"]
+            if not _concept_ids_from_match(match, claims=claims, relations=relations)
+            and not any(
+                _concept_ids_from_association(association, claims=claims, relations=relations)
+                for association in search_payload.get("associations", {}).get(str(match.get("doc_key", "")), [])
+            )
+        ],
+        "suggested_next_actions": [
+            "Inspect root_concepts before treating a full-text hit as graph-relevant.",
+            "Use --object-kind concept or --corpus filters when text search finds too many candidate roots.",
+            "Review graph diagnostics in each bundle before relying on inferred or weakly grounded relations.",
+        ],
+    }
+
+
+def _append_concept_source(
+    concept_sources: dict[str, list[dict[str, Any]]],
+    concept_id: str,
+    match: dict[str, Any],
+    *,
+    root_match_kind: str,
+    association: dict[str, Any] | None = None,
+    supplemental: bool = False,
+) -> None:
+    payload = {
+        "root_match_kind": root_match_kind,
+        "supplemental": supplemental,
+        "doc_key": match.get("doc_key", ""),
+        "kind": match.get("kind", ""),
+        "record_id": match.get("record_id", ""),
+        "title": match.get("title", ""),
+        "score": match.get("score"),
+        "snippet": match.get("snippet", ""),
+    }
+    if association is not None:
+        payload["association"] = association
+    concept_sources.setdefault(concept_id, []).append(payload)
+
+
+def _should_include_supplemental_concepts(object_kinds: list[str] | None) -> bool:
+    active_kinds = {item for item in (object_kinds or []) if item}
+    return not active_kinds or "concept" in active_kinds
+
+
+def _concept_ids_from_match(
+    match: dict[str, Any],
+    *,
+    claims: dict[str, Any],
+    relations: dict[str, Any],
+) -> list[str]:
+    kind = str(match.get("kind", ""))
+    record_id = str(match.get("record_id", ""))
+    metadata = match.get("metadata", {}) if isinstance(match.get("metadata"), dict) else {}
+    if kind == "concept":
+        return [record_id]
+    if kind == "claim":
+        claim = claims.get(record_id)
+        if claim is not None:
+            return list(claim.concept_ids)
+        return [str(item) for item in metadata.get("concept_ids", []) if str(item).startswith("concept::")]
+    if kind == "relation":
+        relation = relations.get(record_id)
+        if relation is not None:
+            return [relation.source_id, relation.target_id]
+        return [
+            str(metadata.get("source_id", "")),
+            str(metadata.get("target_id", "")),
+        ]
+    return []
+
+
+def _concept_ids_from_association(
+    association: dict[str, Any],
+    *,
+    claims: dict[str, Any],
+    relations: dict[str, Any],
+) -> list[str]:
+    kind = str(association.get("kind", ""))
+    record_id = str(association.get("record_id", ""))
+    if kind == "concept":
+        return [record_id]
+    if kind == "claim" and record_id in claims:
+        return list(claims[record_id].concept_ids)
+    if kind == "relation" and record_id in relations:
+        relation = relations[record_id]
+        return [relation.source_id, relation.target_id]
+    return []
+
+
+def _graph_search_rank_key(
+    concept_id: str,
+    concept: Any,
+    sources: list[dict[str, Any]],
+    query_terms: set[str],
+) -> tuple[Any, ...]:
+    summary = _concept_match_summary(concept, sources, query_terms)
+    return (
+        -summary["direct_concept_match_count"],
+        -summary["query_token_overlap"],
+        -summary["direct_match_count"],
+        summary["association_match_count"],
+        _minimum_match_score(sources),
+        -len(sources),
+        concept.title.lower(),
+        concept_id,
+    )
+
+
+def _concept_match_summary(concept: Any, sources: list[dict[str, Any]], query_terms: set[str]) -> dict[str, Any]:
+    direct_match_count = sum(1 for item in sources if item.get("root_match_kind") == "direct")
+    association_match_count = sum(1 for item in sources if item.get("root_match_kind") == "association")
+    direct_concept_match_count = sum(
+        1
+        for item in sources
+        if item.get("root_match_kind") == "direct" and item.get("kind") == "concept"
+    )
+    return {
+        "direct_match_count": direct_match_count,
+        "association_match_count": association_match_count,
+        "direct_concept_match_count": direct_concept_match_count,
+        "query_token_overlap": _concept_query_overlap(concept, query_terms),
+    }
+
+
+def _concept_query_overlap(concept: Any, query_terms: set[str]) -> int:
+    if not query_terms:
+        return 0
+    aliases = getattr(concept, "aliases", []) or []
+    parts = [
+        getattr(concept, "concept_id", ""),
+        getattr(concept, "title", ""),
+        getattr(concept, "description", ""),
+        *aliases,
+    ]
+    concept_terms = _query_terms(" ".join(str(part) for part in parts))
+    return len(query_terms & concept_terms)
+
+
+def _query_terms(text: str) -> set[str]:
+    stop_words = {
+        "and",
+        "are",
+        "for",
+        "from",
+        "into",
+        "note",
+        "notebook",
+        "the",
+        "with",
+    }
+    return {
+        token
+        for token in re.findall(r"[a-z0-9][a-z0-9-]*", text.lower())
+        if len(token) > 2 and token not in stop_words
+    }
+
+
+def _minimum_match_score(sources: list[dict[str, Any]]) -> float:
+    scores = [float(item["score"]) for item in sources if isinstance(item.get("score"), (int, float))]
+    return min(scores) if scores else 0.0
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Query canonical GroundRecall objects.")
     parser.add_argument("store_dir")
     parser.add_argument("query")
-    parser.add_argument("--kind", choices=["concept", "claim", "provenance", "bundle", "search"], default="concept")
+    parser.add_argument(
+        "--kind",
+        choices=["concept", "claim", "provenance", "bundle", "graph", "search", "graph-search"],
+        default="concept",
+    )
     parser.add_argument("--source-url", default=None)
     parser.add_argument("--corpus", action="append", default=[])
+    parser.add_argument("--object-kind", action="append", default=[])
+    parser.add_argument("--depth", type=int, default=1, help="Graph traversal depth for --kind graph")
+    parser.add_argument("--limit", type=int, default=20, help="Search result limit for search and graph-search queries")
+    parser.add_argument("--graph-limit", type=int, default=5, help="Maximum root concepts for --kind graph-search")
+    parser.add_argument("--include-rejected", action="store_true", help="Include rejected records when supported by the query kind")
     return parser
 
 
@@ -469,7 +915,34 @@ def main() -> None:
     elif args.kind == "provenance":
         payload = query_provenance(args.store_dir, origin_path=args.query, source_url=args.source_url)
     elif args.kind == "search":
-        payload = build_search_bundle(args.store_dir, args.query, corpora=list(args.corpus or []))
+        payload = build_search_bundle(
+            args.store_dir,
+            args.query,
+            corpora=list(args.corpus or []),
+            object_kinds=list(args.object_kind or []),
+            limit=args.limit,
+        )
+    elif args.kind == "graph-search":
+        payload = build_graph_search_bundle(
+            args.store_dir,
+            args.query,
+            corpora=list(args.corpus or []),
+            object_kinds=list(args.object_kind or []),
+            limit=args.limit,
+            graph_limit=args.graph_limit,
+            depth=args.depth,
+        )
+    elif args.kind == "graph":
+        payload = build_graph_bundle_for_concept(
+            args.store_dir,
+            args.query,
+            depth=args.depth,
+            include_rejected=args.include_rejected,
+        )
     else:
         payload = build_query_bundle_for_concept(args.store_dir, args.query)
     print(json.dumps(payload, indent=2))
+
+
+if __name__ == "__main__":
+    main()
