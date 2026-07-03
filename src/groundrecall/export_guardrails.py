@@ -6,6 +6,7 @@ import re
 from typing import Any, Iterable
 
 from pydantic import BaseModel
+from epistemap import GraphBundle, epistemic_summary
 
 from .graph_diagnostics import build_graph_diagnostics
 from .models import (
@@ -445,11 +446,152 @@ def _prune_query_payload_references(payload: dict[str, Any], findings: list[Guar
             item for item in payload["source_artifacts"] if isinstance(item, dict) and item.get("artifact_id") in allowed_artifact_ids
         ]
     concept = payload.get("concept")
+    allowed_concept_ids: set[str] = set()
     if isinstance(concept, dict) and isinstance(concept.get("source_artifact_ids"), list):
         concept["source_artifact_ids"] = [
             value for value in concept["source_artifact_ids"] if isinstance(value, str) and value in allowed_artifact_ids
         ]
+        if isinstance(concept.get("concept_id"), str):
+            allowed_concept_ids.add(concept["concept_id"])
+    if isinstance(payload.get("related_concepts"), list):
+        allowed_related = []
+        for related in payload["related_concepts"]:
+            if not isinstance(related, dict):
+                continue
+            concept_id = related.get("concept_id")
+            if isinstance(concept_id, str):
+                allowed_concept_ids.add(concept_id)
+                allowed_related.append(related)
+        payload["related_concepts"] = allowed_related
+    _prune_epistemap_graph_payload(
+        payload,
+        allowed_concept_ids=allowed_concept_ids,
+        allowed_claim_ids=allowed_claim_ids,
+        allowed_observation_ids=allowed_observation_ids,
+        findings=findings,
+    )
+    _prune_temporal_summary_payload(payload, allowed_claim_ids)
     _prune_graph_payload_references(payload, allowed_artifact_ids, allowed_observation_ids, findings)
+    _refresh_query_assessment_surfaces(payload, findings)
+
+
+def _prune_temporal_summary_payload(payload: dict[str, Any], allowed_claim_ids: set[str]) -> None:
+    temporal = payload.get("temporal_summary")
+    if not isinstance(temporal, dict):
+        return
+    for field_name in ("claim_windows", "first_contradictions"):
+        field = temporal.get(field_name)
+        if isinstance(field, dict):
+            temporal[field_name] = {
+                claim_id: value
+                for claim_id, value in field.items()
+                if isinstance(claim_id, str) and claim_id in allowed_claim_ids
+            }
+    if isinstance(temporal.get("stale_claims"), list):
+        temporal["stale_claims"] = [
+            item
+            for item in temporal["stale_claims"]
+            if isinstance(item, dict) and item.get("claim_id") in allowed_claim_ids
+        ]
+    fair_play = temporal.get("fair_play_diagnostic")
+    if isinstance(fair_play, dict) and isinstance(fair_play.get("claims"), list):
+        fair_play["claims"] = [
+            item
+            for item in fair_play["claims"]
+            if isinstance(item, dict) and item.get("claim_id") in allowed_claim_ids
+        ]
+
+
+def _prune_epistemap_graph_payload(
+    payload: dict[str, Any],
+    *,
+    allowed_concept_ids: set[str],
+    allowed_claim_ids: set[str],
+    allowed_observation_ids: set[str],
+    findings: list[GuardrailFinding],
+) -> None:
+    graph = payload.get("epistemap_graph")
+    if not isinstance(graph, dict):
+        return
+    allowed_node_ids = set(allowed_concept_ids) | set(allowed_claim_ids) | set(allowed_observation_ids)
+    kept_nodes = []
+    for node in graph.get("nodes", []) if isinstance(graph.get("nodes"), list) else []:
+        if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("id", ""))
+        node_type = str(node.get("type", "") or "node")
+        secret_path = _secret_field_path(node)
+        if secret_path is not None:
+            findings.append(GuardrailFinding(node_type, node_id or "unknown", "secret_like_content", f"epistemap_graph.nodes.{secret_path}"))
+            continue
+        if node_id not in allowed_node_ids:
+            findings.append(GuardrailFinding(node_type, node_id or "unknown", "non_exportable_epistemap_node"))
+            continue
+        kept_nodes.append(node)
+    graph["nodes"] = kept_nodes
+    allowed_node_ids = {str(node.get("id", "")) for node in kept_nodes if isinstance(node, dict)}
+
+    kept_edges = []
+    for edge in graph.get("edges", []) if isinstance(graph.get("edges"), list) else []:
+        if not isinstance(edge, dict):
+            continue
+        source = str(edge.get("source", ""))
+        target = str(edge.get("target", ""))
+        edge_id = str(edge.get("id", "") or f"{source}->{target}")
+        secret_path = _secret_field_path(edge)
+        if secret_path is not None:
+            findings.append(GuardrailFinding("edge", edge_id, "secret_like_content", f"epistemap_graph.edges.{secret_path}"))
+            continue
+        if source not in allowed_node_ids or target not in allowed_node_ids:
+            findings.append(GuardrailFinding("edge", edge_id, "non_exportable_epistemap_endpoint"))
+            continue
+        edge["evidence_ids"] = [
+            value for value in edge.get("evidence_ids", []) if isinstance(value, str) and value in allowed_observation_ids
+        ]
+        kept_edges.append(edge)
+    graph["edges"] = kept_edges
+    graph["summary"] = {
+        **(graph.get("summary", {}) if isinstance(graph.get("summary"), dict) else {}),
+        "node_count": len(kept_nodes),
+        "edge_count": len(kept_edges),
+    }
+
+
+def _refresh_query_assessment_surfaces(payload: dict[str, Any], findings: list[GuardrailFinding]) -> None:
+    graph = payload.get("epistemap_graph")
+    concept = payload.get("concept")
+    if not isinstance(graph, dict) or not isinstance(concept, dict):
+        return
+    concept_id = concept.get("concept_id")
+    if not isinstance(concept_id, str) or not concept_id:
+        return
+    try:
+        bundle = GraphBundle.model_validate(graph)
+        summary = epistemic_summary(bundle, concept_id)
+    except Exception as exc:  # pragma: no cover - defensive guardrail fallback
+        findings.append(GuardrailFinding("epistemap_graph", concept_id, "epistemic_summary_refresh_failed", type(exc).__name__))
+        payload.pop("epistemic_summary", None)
+        payload.pop("assessment_summary", None)
+        return
+    payload["epistemic_summary"] = summary
+    payload["assessment_summary"] = _query_assessment_summary(summary, payload.get("temporal_summary", {}))
+
+
+def _query_assessment_summary(epistemic: dict[str, Any], temporal_summary: Any) -> dict[str, Any]:
+    bayesian = epistemic.get("bayesian_reliability", {}) if isinstance(epistemic, dict) else {}
+    classification = bayesian.get("classification", {}) if isinstance(bayesian, dict) else {}
+    posterior = bayesian.get("posterior", {}) if isinstance(bayesian, dict) else {}
+    sensitivity = bayesian.get("prior_sensitivity", {}) if isinstance(bayesian, dict) else {}
+    reliability = epistemic.get("reliability", {}) if isinstance(epistemic, dict) else {}
+    fair_play = temporal_summary.get("fair_play_diagnostic", {}) if isinstance(temporal_summary, dict) else {}
+    return {
+        "reliability_band": reliability.get("band", ""),
+        "bayesian_label": classification.get("label", ""),
+        "bayesian_flags": list(classification.get("flags", []) or []),
+        "bayesian_posterior_mean": posterior.get("mean"),
+        "prior_sensitivity_range": sensitivity.get("mean_range"),
+        "temporal_rating": fair_play.get("rating", ""),
+    }
 
 
 def _prune_graph_payload_references(

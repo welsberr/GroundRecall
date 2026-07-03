@@ -386,6 +386,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     key_distinctions = [item["distinction"] for item in claims if isinstance(item.get("distinction"), dict)]
     graph_bundle = graph_bundle_from_query_payload(payload)
     concept_id = str(payload["concept"].get("concept_id", ""))
+    epistemic = epistemic_summary(graph_bundle, concept_id) if concept_id else {}
     temporal_summary = _temporal_summary(graph_bundle, claims)
     return {
         "bundle_kind": "groundrecall_query_bundle",
@@ -402,13 +403,31 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "contradictions": contradictions,
         "supersessions": supersessions,
         "epistemap_graph": graph_bundle.model_dump_legacy(),
-        "epistemic_summary": epistemic_summary(graph_bundle, concept_id) if concept_id else {},
+        "epistemic_summary": epistemic,
+        "assessment_summary": _assessment_summary(epistemic, temporal_summary),
         "temporal_summary": temporal_summary,
         "suggested_next_actions": [
             "Review promoted claims with low review confidence.",
             "Inspect supporting observations before exporting assistant context.",
             "Check related concepts for hidden prerequisite or contradiction edges.",
         ],
+    }
+
+
+def _assessment_summary(epistemic: dict[str, Any], temporal_summary: dict[str, Any]) -> dict[str, Any]:
+    bayesian = epistemic.get("bayesian_reliability", {}) if isinstance(epistemic, dict) else {}
+    classification = bayesian.get("classification", {}) if isinstance(bayesian, dict) else {}
+    posterior = bayesian.get("posterior", {}) if isinstance(bayesian, dict) else {}
+    sensitivity = bayesian.get("prior_sensitivity", {}) if isinstance(bayesian, dict) else {}
+    reliability = epistemic.get("reliability", {}) if isinstance(epistemic, dict) else {}
+    fair_play = temporal_summary.get("fair_play_diagnostic", {}) if isinstance(temporal_summary, dict) else {}
+    return {
+        "reliability_band": reliability.get("band", ""),
+        "bayesian_label": classification.get("label", ""),
+        "bayesian_flags": list(classification.get("flags", []) or []),
+        "bayesian_posterior_mean": posterior.get("mean"),
+        "prior_sensitivity_range": sensitivity.get("mean_range"),
+        "temporal_rating": fair_play.get("rating", ""),
     }
 
 

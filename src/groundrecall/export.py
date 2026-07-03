@@ -238,6 +238,7 @@ def export_groundrecall_query_bundle(
         "bundle_path": str(out_path),
         "epistemap_graph_path": str(graph_path) if graph_path.exists() else "",
         "bayesian_reliability_markdown_path": str(bayesian_path) if bayesian_path.exists() else "",
+        "bayesian_reliability_label": payload.get("assessment_summary", {}).get("bayesian_label", ""),
         "bundle": payload,
     }
 

@@ -211,6 +211,16 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload["epistemic_summary"]["bayesian_reliability"]["model"] == "beta_binomial_weighted_evidence"
     assert payload["epistemic_summary"]["bayesian_reliability"]["posterior"]["mean"] > 0.5
     assert payload["epistemic_summary"]["bayesian_reliability"]["prior_sensitivity"]["mean_range"] > 0
+    assert payload["epistemic_summary"]["bayesian_reliability"]["classification"]["label"] in {
+        "contested",
+        "fragile_support",
+        "prior_sensitive",
+        "stable_support",
+        "thin_evidence",
+    }
+    assert payload["assessment_summary"]["bayesian_label"] == payload["epistemic_summary"]["bayesian_reliability"]["classification"]["label"]
+    assert isinstance(payload["assessment_summary"]["bayesian_flags"], list)
+    assert payload["assessment_summary"]["bayesian_posterior_mean"] > 0.5
     assert payload["temporal_summary"]["summary"]["timeline_event_count"] >= 1
     assert payload["temporal_summary"]["claim_windows"]["clm_001"]["introduced_at"] == "2026-04-18"
     assert payload["temporal_summary"]["fair_play_diagnostic"]["summary"]["claim_count"] >= 1
@@ -422,6 +432,8 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert bayesian["evidence"]["challenge_edge_count"] >= 1
     assert bayesian["evidence"]["challenge_weights"][0] < bayesian["evidence"]["support_weights"][0]
     assert bayesian["stability"] in {"fragile", "moderate", "stable"}
+    assert payload["assessment_summary"]["bayesian_label"] == bayesian["classification"]["label"]
+    assert "mixed_support_challenge" in payload["assessment_summary"]["bayesian_flags"]
     assert payload["temporal_summary"]["first_contradictions"]["clm_001"]["time"] == "2026-05-01"
     assert any(item["claim_id"] == "clm_001" for item in payload["temporal_summary"]["stale_claims"])
     assert payload["temporal_summary"]["fair_play_diagnostic"]["rating"] == "unfair"
