@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from epistemap import epistemic_summary
+from epistemap import first_contradiction_time, stale_claims_after, timeline_events, tenability_window, epistemic_summary
 
 from .epistemap_adapter import graph_bundle_from_query_payload
 from .store import GroundRecallStore
@@ -31,6 +31,18 @@ _SOURCE_SIGNAL_KEYS = (
     "adversarial_intent",
     "adversarial",
     "denialist",
+)
+_TEMPORAL_SIGNAL_KEYS = (
+    "available_at",
+    "validated_at",
+    "published_at",
+    "observed_at",
+    "introduced_at",
+    "created_at",
+    "challenged_at",
+    "superseded_at",
+    "rejected_at",
+    "timestep",
 )
 
 
@@ -61,6 +73,10 @@ def _infer_source_role(artifact) -> str:
 
 def _source_signal_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
     return {key: metadata[key] for key in _SOURCE_SIGNAL_KEYS if key in metadata}
+
+
+def _temporal_signal_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {key: metadata[key] for key in _TEMPORAL_SIGNAL_KEYS if key in metadata}
 
 
 def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
@@ -144,13 +160,17 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
                         "text": observation.text,
                         "role": observation.role,
                         "origin_path": observation.provenance.origin_path,
+                        "source_url": observation.provenance.source_url,
+                        "retrieval_date": observation.provenance.retrieval_date,
                         "grounding_status": observation.provenance.grounding_status,
                         "source_role": _role_from_observation_or_claim(
                             _infer_source_role(artifact) if artifact is not None else "",
                             observation,
                             claim,
                         ),
+                        "created_at": getattr(artifact, "created_at", "") if artifact is not None else "",
                         **_source_signal_metadata(artifact_metadata),
+                        **_temporal_signal_metadata(artifact_metadata),
                     }
                 )
 
@@ -353,6 +373,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     key_distinctions = [item["distinction"] for item in claims if isinstance(item.get("distinction"), dict)]
     graph_bundle = graph_bundle_from_query_payload(payload)
     concept_id = str(payload["concept"].get("concept_id", ""))
+    temporal_summary = _temporal_summary(graph_bundle, claims)
     return {
         "bundle_kind": "groundrecall_query_bundle",
         "query_type": "concept",
@@ -369,11 +390,36 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "supersessions": supersessions,
         "epistemap_graph": graph_bundle.model_dump_legacy(),
         "epistemic_summary": epistemic_summary(graph_bundle, concept_id) if concept_id else {},
+        "temporal_summary": temporal_summary,
         "suggested_next_actions": [
             "Review promoted claims with low review confidence.",
             "Inspect supporting observations before exporting assistant context.",
             "Check related concepts for hidden prerequisite or contradiction edges.",
         ],
+    }
+
+
+def _temporal_summary(graph_bundle, claims: list[dict[str, Any]]) -> dict[str, Any]:
+    claim_ids = [str(claim.get("claim_id", "")) for claim in claims if claim.get("claim_id")]
+    windows = {claim_id: tenability_window(graph_bundle, claim_id) for claim_id in claim_ids}
+    first_contradictions = {
+        claim_id: contradiction
+        for claim_id in claim_ids
+        for contradiction in [first_contradiction_time(graph_bundle, claim_id)]
+        if contradiction is not None
+    }
+    events = timeline_events(graph_bundle)
+    return {
+        "summary": {
+            "claim_count": len(claim_ids),
+            "timeline_event_count": len(events),
+            "bounded_claim_count": sum(1 for window in windows.values() if window["status"] == "bounded"),
+            "first_contradiction_count": len(first_contradictions),
+        },
+        "claim_windows": windows,
+        "first_contradictions": first_contradictions,
+        "stale_claims": stale_claims_after(graph_bundle, events[-1]["time"]) if events else [],
+        "events": events[:24],
     }
 
 

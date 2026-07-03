@@ -27,7 +27,8 @@ def _seed_store(store: GroundRecallStore) -> None:
             artifact_kind="compiled_page",
             title="Channel Capacity",
             path="wiki/channel-capacity.md",
-            metadata={"source_role": "mechanism"},
+            created_at="2026-04-17T12:00:00Z",
+            metadata={"source_role": "mechanism", "published_at": "2026-04-17"},
             current_status="reviewed",
         )
     )
@@ -40,6 +41,7 @@ def _seed_store(store: GroundRecallStore) -> None:
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_001",
                 origin_path="wiki/channel-capacity.md",
+                retrieval_date="2026-04-18",
                 support_kind="derived_from_page",
                 grounding_status="grounded",
             ),
@@ -74,6 +76,7 @@ def _seed_store(store: GroundRecallStore) -> None:
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_001",
                 origin_path="wiki/channel-capacity.md",
+                retrieval_date="2026-04-18",
                 support_kind="derived_from_page",
                 grounding_status="grounded",
             ),
@@ -203,6 +206,8 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload["epistemic_summary"]["summary"]["direct_support_count"] >= 1
     assert payload["epistemic_summary"]["reliability"]["band"] in {"moderate", "strong"}
     assert payload["epistemic_summary"]["reliability"]["components"]["grounding"] > 0
+    assert payload["temporal_summary"]["summary"]["timeline_event_count"] >= 1
+    assert payload["temporal_summary"]["claim_windows"]["clm_001"]["introduced_at"] == "2026-04-18"
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)
@@ -221,6 +226,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_001",
                 origin_path="wiki/channel-capacity.md",
+                retrieval_date="2026-05-01",
                 support_kind="derived_from_page",
                 grounding_status="partially_grounded",
             ),
@@ -250,6 +256,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_004",
                 origin_path="wiki/channel-capacity-doubt.md",
+                retrieval_date="2026-05-01",
                 support_kind="derived_from_page",
                 grounding_status="ungrounded",
             ),
@@ -265,6 +272,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_001",
                 origin_path="wiki/channel-capacity.md",
+                retrieval_date="2026-06-01",
                 support_kind="derived_from_page",
                 grounding_status="grounded",
             ),
@@ -288,3 +296,5 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert adversarial_observations[0]["source_stance"] == "manufactured_doubt"
     assert payload["epistemic_summary"]["reliability"]["components"]["challenge_penalty"] > 0
     assert payload["epistemic_summary"]["reliability"]["components"]["adversarial_penalty"] > 0
+    assert payload["temporal_summary"]["first_contradictions"]["clm_001"]["time"] == "2026-05-01"
+    assert any(item["claim_id"] == "clm_001" for item in payload["temporal_summary"]["stale_claims"])

@@ -14,6 +14,18 @@ _SOURCE_SIGNAL_KEYS = (
     "adversarial",
     "denialist",
 )
+_TEMPORAL_SIGNAL_KEYS = (
+    "available_at",
+    "validated_at",
+    "published_at",
+    "observed_at",
+    "introduced_at",
+    "created_at",
+    "challenged_at",
+    "superseded_at",
+    "rejected_at",
+    "timestep",
+)
 
 
 def graph_bundle_from_rows(
@@ -34,6 +46,7 @@ def graph_bundle_from_rows(
             status=str(concept.get("current_status", "")),
             metadata={
                 "source_artifact_ids": list(concept.get("source_artifact_ids", [])),
+                **_temporal_metadata(concept),
             },
         )
         for concept in concepts
@@ -53,6 +66,7 @@ def graph_bundle_from_rows(
                 evidence_ids=[str(value) for value in relation.get("evidence_ids", [])],
                 status=str(relation.get("current_status", "")),
                 provenance=[_provenance_from_row(relation)],
+                metadata=_temporal_metadata(relation),
             )
         )
     return GraphBundle(
@@ -77,6 +91,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 title=str(concept.get("title", "")),
                 description=str(concept.get("description", "")),
                 status=str(concept.get("current_status", "")),
+                metadata=_temporal_metadata(concept),
             ),
         )
     for related in payload.get("related_concepts", []):
@@ -88,6 +103,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 title=str(related.get("title", "")),
                 description=str(related.get("description", "")),
                 status=str(related.get("current_status", "")),
+                metadata=_temporal_metadata(related),
             ),
         )
     for claim in payload.get("claims", []):
@@ -106,6 +122,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                     "claim_kind": claim.get("claim_kind", "statement"),
                     "source_roles": list(claim.get("source_roles", [])),
                     **_source_signal_metadata(claim),
+                    **_temporal_metadata(claim),
                 },
             ),
         )
@@ -118,12 +135,13 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                         type="about_concept",
                         evidence_ids=list(claim.get("source_observation_ids", [])),
                         provenance=[_provenance_from_row(claim)],
+                        metadata=_temporal_metadata(claim),
                     )
                 )
         for target_id in claim.get("contradicts_claim_ids", []):
-            edges.append(Edge(source=claim_id, target=str(target_id), type="contradicts"))
+            edges.append(Edge(source=claim_id, target=str(target_id), type="contradicts", metadata=_temporal_metadata(claim)))
         for target_id in claim.get("supersedes_claim_ids", []):
-            edges.append(Edge(source=claim_id, target=str(target_id), type="supersedes"))
+            edges.append(Edge(source=claim_id, target=str(target_id), type="supersedes", metadata=_temporal_metadata(claim)))
     for observation in payload.get("supporting_observations", []):
         observation_id = str(observation.get("observation_id", ""))
         _set_node(
@@ -138,6 +156,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 metadata={
                     "source_role": observation.get("source_role", ""),
                     **_source_signal_metadata(observation),
+                    **_temporal_metadata(observation),
                 },
             ),
         )
@@ -151,6 +170,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                         target=str(claim.get("claim_id", "")),
                         type="supports_claim",
                         provenance=[_provenance_from_row(claim)],
+                        metadata=_temporal_metadata(claim),
                     )
                 )
     for relation in payload.get("relations", []):
@@ -165,6 +185,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                     type=str(relation.get("relation_type", "references")),
                     evidence_ids=list(relation.get("evidence_ids", [])),
                     provenance=[_provenance_from_row(relation)],
+                    metadata=_temporal_metadata(relation),
                 )
             )
     return GraphBundle(
@@ -183,12 +204,20 @@ def _set_node(nodes: dict[str, Node], node: Node) -> None:
 
 
 def _provenance_from_row(row: dict[str, Any]) -> ProvenanceRef:
+    provenance = row.get("provenance", {})
+    if not isinstance(provenance, dict):
+        provenance = {}
+    metadata = {
+        **_temporal_metadata(row),
+        **_temporal_metadata(provenance),
+    }
     return ProvenanceRef(
-        artifact_id=str(row.get("origin_artifact_id", "")),
-        origin_path=str(row.get("origin_path", "")),
-        source_url=str(row.get("source_url", "")),
-        support_kind=str(row.get("support_kind", "")),
-        grounding_status=str(row.get("grounding_status", "")),
+        artifact_id=str(row.get("origin_artifact_id", "") or provenance.get("origin_artifact_id", "")),
+        origin_path=str(row.get("origin_path", "") or provenance.get("origin_path", "")),
+        source_url=str(row.get("source_url", "") or provenance.get("source_url", "")),
+        support_kind=str(row.get("support_kind", "") or provenance.get("support_kind", "")),
+        grounding_status=str(row.get("grounding_status", "") or provenance.get("grounding_status", "")),
+        metadata=metadata,
     )
 
 
@@ -198,4 +227,19 @@ def _source_signal_metadata(row: dict[str, Any]) -> dict[str, Any]:
     if isinstance(metadata, dict):
         values.update({key: metadata[key] for key in _SOURCE_SIGNAL_KEYS if key in metadata})
     values.update({key: row[key] for key in _SOURCE_SIGNAL_KEYS if key in row})
+    return values
+
+
+def _temporal_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    metadata = row.get("metadata", {})
+    provenance = row.get("provenance", {})
+    values: dict[str, Any] = {}
+    if isinstance(metadata, dict):
+        values.update({key: metadata[key] for key in _TEMPORAL_SIGNAL_KEYS if key in metadata and metadata[key] not in {"", None}})
+    if isinstance(provenance, dict):
+        values.update({key: provenance[key] for key in _TEMPORAL_SIGNAL_KEYS if key in provenance and provenance[key] not in {"", None}})
+    values.update({key: row[key] for key in _TEMPORAL_SIGNAL_KEYS if key in row and row[key] not in {"", None}})
+    retrieval_date = row.get("retrieval_date") or (provenance.get("retrieval_date") if isinstance(provenance, dict) else "")
+    if retrieval_date:
+        values.setdefault("available_at", retrieval_date)
     return values
