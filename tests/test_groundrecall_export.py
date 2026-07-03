@@ -124,6 +124,9 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
     assert (out_dir / "graph_bundle__channel-capacity.json").exists()
     assert (out_dir / "groundrecall_query_bundle.json").exists()
     assert (out_dir / "epistemap_graph.json").exists()
+    assert (out_dir / "assessment_manifest.json").exists()
+    assert (out_dir / "assessment_validation.json").exists()
+    assert (out_dir / "assessment_validation.md").exists()
     assert (out_dir / "bayesian_reliability.md").exists()
 
     snapshot = json.loads((out_dir / "groundrecall_snapshot.json").read_text(encoding="utf-8"))
@@ -135,6 +138,9 @@ def test_export_canonical_bundle_writes_expected_files(tmp_path: Path) -> None:
     assert len(manifest["graph_bundles"]) == 1
     assert manifest["groundrecall_query_bundle"].endswith("groundrecall_query_bundle.json")
     assert manifest["epistemap_graph"].endswith("epistemap_graph.json")
+    assert manifest["assessment_manifest"].endswith("assessment_manifest.json")
+    assert manifest["assessment_validation"].endswith("assessment_validation.json")
+    assert manifest["assessment_validation_markdown"].endswith("assessment_validation.md")
     assert manifest["bayesian_reliability_markdown"].endswith("bayesian_reliability.md")
     assert claims[0]["claim_id"] == "clm_001"
     assert payload["query_bundles"]
@@ -163,19 +169,31 @@ def test_export_groundrecall_query_bundle_uses_pack_ready_filename(tmp_path: Pat
 
     assert (out_dir / "groundrecall_query_bundle.json").exists()
     assert (out_dir / "epistemap_graph.json").exists()
+    assert (out_dir / "assessment_manifest.json").exists()
+    assert (out_dir / "assessment_validation.json").exists()
+    assert (out_dir / "assessment_validation.md").exists()
     assert (out_dir / "bayesian_assessment.json").exists()
     assert (out_dir / "bayesian_assessment.md").exists()
     assert (out_dir / "bayesian_reliability.md").exists()
     assert payload["bundle_path"].endswith("groundrecall_query_bundle.json")
     assert payload["epistemap_graph_path"].endswith("epistemap_graph.json")
+    assert payload["assessment_manifest_json_path"].endswith("assessment_manifest.json")
+    assert payload["assessment_validation_json_path"].endswith("assessment_validation.json")
+    assert payload["assessment_validation_markdown_path"].endswith("assessment_validation.md")
     assert payload["bayesian_assessment_json_path"].endswith("bayesian_assessment.json")
     assert payload["bayesian_assessment_markdown_path"].endswith("bayesian_assessment.md")
     assert payload["bayesian_reliability_markdown_path"].endswith("bayesian_reliability.md")
     assert payload["bayesian_reliability_label"]
     assert payload["bundle"]["assessment_summary"]["bayesian_label"] == payload["bayesian_reliability_label"]
     assert payload["bundle"]["bundle_kind"] == "groundrecall_query_bundle"
+    assessment_manifest = json.loads((out_dir / "assessment_manifest.json").read_text(encoding="utf-8"))
+    validation = json.loads((out_dir / "assessment_validation.json").read_text(encoding="utf-8"))
+    assert assessment_manifest["manifest_kind"] == "epistemap_assessment"
+    assert assessment_manifest["graph_file"] == "epistemap_graph.json"
+    assert validation["report_kind"] == "epistemap_assessment_validation_report"
     assert "# Epistemap Bayesian Assessment" in (out_dir / "bayesian_assessment.md").read_text(encoding="utf-8")
     assert "# Epistemap Bayesian Reliability" in (out_dir / "bayesian_reliability.md").read_text(encoding="utf-8")
+    assert "# Epistemap Assessment Validation" in (out_dir / "assessment_validation.md").read_text(encoding="utf-8")
 
 
 def test_export_graph_bundle_is_assistant_neutral(tmp_path: Path) -> None:

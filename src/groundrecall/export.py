@@ -6,7 +6,16 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from epistemap import GraphBundle, bayesian_assessment_report, write_bayesian_assessment_markdown, write_bayesian_reliability_markdown
+from epistemap import (
+    GraphBundle,
+    assessment_manifest,
+    assessment_validation_markdown,
+    bayesian_assessment_report,
+    validate_assessment_readiness,
+    write_assessment_manifest,
+    write_bayesian_assessment_markdown,
+    write_bayesian_reliability_markdown,
+)
 
 from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
@@ -231,10 +240,31 @@ def export_groundrecall_query_bundle(
         _write_json(graph_path, payload["epistemap_graph"])
     assessment_json_path = target / "bayesian_assessment.json"
     assessment_markdown_path = target / "bayesian_assessment.md"
+    assessment_manifest_path = target / "assessment_manifest.json"
+    assessment_validation_json_path = target / "assessment_validation.json"
+    assessment_validation_markdown_path = target / "assessment_validation.md"
     if isinstance(payload.get("epistemap_graph"), dict):
-        assessment = bayesian_assessment_report(GraphBundle.model_validate(payload["epistemap_graph"]))
+        graph = GraphBundle.model_validate(payload["epistemap_graph"])
+        assessment = bayesian_assessment_report(graph)
         _write_json(assessment_json_path, assessment)
         write_bayesian_assessment_markdown(assessment, assessment_markdown_path)
+        validation = validate_assessment_readiness(graph)
+        _write_json(assessment_validation_json_path, validation)
+        assessment_validation_markdown_path.write_text(assessment_validation_markdown(validation), encoding="utf-8")
+        manifest = assessment_manifest(
+            assessment_id=f"groundrecall-query-{concept_ref}",
+            graph_file=graph_path.name,
+            assessment_file=assessment_json_path.name,
+            validation_file=assessment_validation_json_path.name,
+            bayesian_prior_profile="neutral",
+            graph_extraction_policy={"name": "groundrecall_query_concept_graph", "concept_ref": concept_ref},
+            evidence_weighting_policy="confidence_weighted_edges",
+            temporal_policy="metadata_available_at_or_timestep",
+            reliability_treatment="assessment_metadata_only",
+            validation_policy="assessment_readiness_default",
+            created_by="groundrecall.export_groundrecall_query_bundle",
+        )
+        write_assessment_manifest(manifest, assessment_manifest_path)
     bayesian_path = target / "bayesian_reliability.md"
     bayesian = payload.get("epistemic_summary", {}).get("bayesian_reliability")
     if isinstance(bayesian, dict):
@@ -243,6 +273,9 @@ def export_groundrecall_query_bundle(
         "concept_ref": concept_ref,
         "bundle_path": str(out_path),
         "epistemap_graph_path": str(graph_path) if graph_path.exists() else "",
+        "assessment_manifest_json_path": str(assessment_manifest_path) if assessment_manifest_path.exists() else "",
+        "assessment_validation_json_path": str(assessment_validation_json_path) if assessment_validation_json_path.exists() else "",
+        "assessment_validation_markdown_path": str(assessment_validation_markdown_path) if assessment_validation_markdown_path.exists() else "",
         "bayesian_assessment_json_path": str(assessment_json_path) if assessment_json_path.exists() else "",
         "bayesian_assessment_markdown_path": str(assessment_markdown_path) if assessment_markdown_path.exists() else "",
         "bayesian_reliability_markdown_path": str(bayesian_path) if bayesian_path.exists() else "",
@@ -311,6 +344,12 @@ def export_canonical_bundle(
         manifest["groundrecall_query_bundle"] = pack_ready_bundle["bundle_path"]
         if pack_ready_bundle.get("epistemap_graph_path"):
             manifest["epistemap_graph"] = pack_ready_bundle["epistemap_graph_path"]
+        if pack_ready_bundle.get("assessment_manifest_json_path"):
+            manifest["assessment_manifest"] = pack_ready_bundle["assessment_manifest_json_path"]
+        if pack_ready_bundle.get("assessment_validation_json_path"):
+            manifest["assessment_validation"] = pack_ready_bundle["assessment_validation_json_path"]
+        if pack_ready_bundle.get("assessment_validation_markdown_path"):
+            manifest["assessment_validation_markdown"] = pack_ready_bundle["assessment_validation_markdown_path"]
         if pack_ready_bundle.get("bayesian_reliability_markdown_path"):
             manifest["bayesian_reliability_markdown"] = pack_ready_bundle["bayesian_reliability_markdown_path"]
     _write_json(target / "export_manifest.json", manifest)
