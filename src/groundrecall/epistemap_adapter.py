@@ -13,6 +13,7 @@ from epistemap import (
     g_experiment_manifest,
     g_experiment_summary,
     write_g_experiment_manifest,
+    write_g_experiment_summary_markdown,
     write_g_rows_csv,
 )
 
@@ -314,6 +315,7 @@ def export_claim_evaluation_g_package(
     row_file = "groundrecall_g_rows.csv"
     manifest_file = "groundrecall_g_manifest.json"
     summary_file = "groundrecall_g_summary.json"
+    summary_markdown_file = "groundrecall_g_summary.md"
     manifest = g_experiment_manifest(
         experiment_id=experiment_id,
         row_file=row_file,
@@ -329,10 +331,12 @@ def export_claim_evaluation_g_package(
     write_g_rows_csv(rows, target / row_file)
     write_g_experiment_manifest(manifest, target / manifest_file)
     (target / summary_file).write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    write_g_experiment_summary_markdown(summary, target / summary_markdown_file)
     return {
         "row_path": str(target / row_file),
         "manifest_path": str(target / manifest_file),
         "summary_path": str(target / summary_file),
+        "summary_markdown_path": str(target / summary_markdown_file),
         "row_count": len(rows),
         "summary": summary,
     }

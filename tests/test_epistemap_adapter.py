@@ -95,8 +95,10 @@ def test_export_claim_evaluation_g_package_writes_rows_manifest_and_summary(tmp_
     assert (tmp_path / "groundrecall_g_rows.csv").exists()
     assert (tmp_path / "groundrecall_g_manifest.json").exists()
     assert (tmp_path / "groundrecall_g_summary.json").exists()
+    assert (tmp_path / "groundrecall_g_summary.md").exists()
     manifest = json.loads((tmp_path / "groundrecall_g_manifest.json").read_text(encoding="utf-8"))
     summary = json.loads((tmp_path / "groundrecall_g_summary.json").read_text(encoding="utf-8"))
     assert manifest["experiment_id"] == "groundrecall-temporal-check"
     assert manifest["corpus"] == "channel-capacity"
     assert summary["summary_kind"] == "epistemap_g_experiment_summary"
+    assert "# Epistemap G Summary" in (tmp_path / "groundrecall_g_summary.md").read_text(encoding="utf-8")

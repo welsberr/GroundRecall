@@ -59,6 +59,7 @@ def test_export_claim_evaluation_file_writes_g_package(tmp_path: Path) -> None:
     assert (out_dir / "groundrecall_g_rows.csv").exists()
     assert (out_dir / "groundrecall_g_manifest.json").exists()
     assert (out_dir / "groundrecall_g_summary.json").exists()
+    assert (out_dir / "groundrecall_g_summary.md").exists()
     manifest = json.loads((out_dir / "groundrecall_g_manifest.json").read_text(encoding="utf-8"))
     assert manifest["experiment_id"] == "groundrecall-temporal-check"
     assert manifest["corpus"] == "channel-capacity"

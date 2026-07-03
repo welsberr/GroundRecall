@@ -114,7 +114,7 @@ groundrecall assistant-export .groundrecall/store claude_code .groundrecall/expo
 ```
 
 Export explicit claim-evaluation results as Epistemap G rows, manifest, and
-summary:
+summary JSON/Markdown:
 
 ```bash
 groundrecall claim-evaluation-export evaluations.json .groundrecall/exports/g \
