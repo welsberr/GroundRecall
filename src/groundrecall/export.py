@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from epistemap import write_bayesian_reliability_markdown
+from epistemap import GraphBundle, bayesian_assessment_report, write_bayesian_assessment_markdown, write_bayesian_reliability_markdown
 
 from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
@@ -229,6 +229,12 @@ def export_groundrecall_query_bundle(
     graph_path = target / "epistemap_graph.json"
     if isinstance(payload.get("epistemap_graph"), dict):
         _write_json(graph_path, payload["epistemap_graph"])
+    assessment_json_path = target / "bayesian_assessment.json"
+    assessment_markdown_path = target / "bayesian_assessment.md"
+    if isinstance(payload.get("epistemap_graph"), dict):
+        assessment = bayesian_assessment_report(GraphBundle.model_validate(payload["epistemap_graph"]))
+        _write_json(assessment_json_path, assessment)
+        write_bayesian_assessment_markdown(assessment, assessment_markdown_path)
     bayesian_path = target / "bayesian_reliability.md"
     bayesian = payload.get("epistemic_summary", {}).get("bayesian_reliability")
     if isinstance(bayesian, dict):
@@ -237,6 +243,8 @@ def export_groundrecall_query_bundle(
         "concept_ref": concept_ref,
         "bundle_path": str(out_path),
         "epistemap_graph_path": str(graph_path) if graph_path.exists() else "",
+        "bayesian_assessment_json_path": str(assessment_json_path) if assessment_json_path.exists() else "",
+        "bayesian_assessment_markdown_path": str(assessment_markdown_path) if assessment_markdown_path.exists() else "",
         "bayesian_reliability_markdown_path": str(bayesian_path) if bayesian_path.exists() else "",
         "bayesian_reliability_label": payload.get("assessment_summary", {}).get("bayesian_label", ""),
         "bundle": payload,

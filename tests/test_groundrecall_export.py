@@ -163,13 +163,18 @@ def test_export_groundrecall_query_bundle_uses_pack_ready_filename(tmp_path: Pat
 
     assert (out_dir / "groundrecall_query_bundle.json").exists()
     assert (out_dir / "epistemap_graph.json").exists()
+    assert (out_dir / "bayesian_assessment.json").exists()
+    assert (out_dir / "bayesian_assessment.md").exists()
     assert (out_dir / "bayesian_reliability.md").exists()
     assert payload["bundle_path"].endswith("groundrecall_query_bundle.json")
     assert payload["epistemap_graph_path"].endswith("epistemap_graph.json")
+    assert payload["bayesian_assessment_json_path"].endswith("bayesian_assessment.json")
+    assert payload["bayesian_assessment_markdown_path"].endswith("bayesian_assessment.md")
     assert payload["bayesian_reliability_markdown_path"].endswith("bayesian_reliability.md")
     assert payload["bayesian_reliability_label"]
     assert payload["bundle"]["assessment_summary"]["bayesian_label"] == payload["bayesian_reliability_label"]
     assert payload["bundle"]["bundle_kind"] == "groundrecall_query_bundle"
+    assert "# Epistemap Bayesian Assessment" in (out_dir / "bayesian_assessment.md").read_text(encoding="utf-8")
     assert "# Epistemap Bayesian Reliability" in (out_dir / "bayesian_reliability.md").read_text(encoding="utf-8")
 
 
