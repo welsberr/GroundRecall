@@ -22,6 +22,16 @@ def _matches(query: str, *values: str) -> bool:
 
 
 _SOURCE_ROLE_ORDER = ["overview", "mechanism", "nuance", "controversy", "argumentation"]
+_SOURCE_SIGNAL_KEYS = (
+    "source_quality",
+    "source_reliability",
+    "trust_status",
+    "source_stance",
+    "stance",
+    "adversarial_intent",
+    "adversarial",
+    "denialist",
+)
 
 
 def _infer_source_role(artifact) -> str:
@@ -47,6 +57,10 @@ def _infer_source_role(artifact) -> str:
     if any(token in joined for token in ("nuance", "qualification", "constraint", "plasticity", "epigenetic", "drift")):
         return "nuance"
     return "overview"
+
+
+def _source_signal_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    return {key: metadata[key] for key in _SOURCE_SIGNAL_KEYS if key in metadata}
 
 
 def _claim_distinction_payload(claim: dict[str, Any]) -> dict[str, Any] | None:
@@ -122,6 +136,7 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
             observation = observations.get(observation_id)
             if observation is not None:
                 artifact = artifacts.get(observation.artifact_id)
+                artifact_metadata = artifact.metadata if artifact is not None and isinstance(artifact.metadata, dict) else {}
                 supporting_observations.append(
                     {
                         "observation_id": observation.observation_id,
@@ -135,6 +150,7 @@ def query_concept(store_dir: str | Path, concept_ref: str) -> dict[str, Any] | N
                             observation,
                             claim,
                         ),
+                        **_source_signal_metadata(artifact_metadata),
                     }
                 )
 

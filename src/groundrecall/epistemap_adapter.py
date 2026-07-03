@@ -4,6 +4,17 @@ from typing import Any
 
 from epistemap import Edge, GraphBundle, Node, ProvenanceRef
 
+_SOURCE_SIGNAL_KEYS = (
+    "source_quality",
+    "source_reliability",
+    "trust_status",
+    "source_stance",
+    "stance",
+    "adversarial_intent",
+    "adversarial",
+    "denialist",
+)
+
 
 def graph_bundle_from_rows(
     concepts: list[dict[str, Any]],
@@ -94,6 +105,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 metadata={
                     "claim_kind": claim.get("claim_kind", "statement"),
                     "source_roles": list(claim.get("source_roles", [])),
+                    **_source_signal_metadata(claim),
                 },
             ),
         )
@@ -123,7 +135,10 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 description=str(observation.get("text", "")),
                 status=str(observation.get("grounding_status", "")),
                 provenance=[_provenance_from_row(observation)],
-                metadata={"source_role": observation.get("source_role", "")},
+                metadata={
+                    "source_role": observation.get("source_role", ""),
+                    **_source_signal_metadata(observation),
+                },
             ),
         )
     observation_ids = set(nodes)
@@ -175,3 +190,12 @@ def _provenance_from_row(row: dict[str, Any]) -> ProvenanceRef:
         support_kind=str(row.get("support_kind", "")),
         grounding_status=str(row.get("grounding_status", "")),
     )
+
+
+def _source_signal_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    metadata = row.get("metadata", {})
+    values: dict[str, Any] = {}
+    if isinstance(metadata, dict):
+        values.update({key: metadata[key] for key in _SOURCE_SIGNAL_KEYS if key in metadata})
+    values.update({key: row[key] for key in _SOURCE_SIGNAL_KEYS if key in row})
+    return values

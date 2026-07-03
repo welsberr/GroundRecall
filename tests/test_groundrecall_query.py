@@ -216,12 +216,42 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
             claim_id="clm_004",
             claim_text="Channel capacity is undefined in practice.",
             concept_ids=["concept::channel-capacity"],
+            source_observation_ids=["obs_004"],
             contradicts_claim_ids=["clm_001"],
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_001",
                 origin_path="wiki/channel-capacity.md",
                 support_kind="derived_from_page",
                 grounding_status="partially_grounded",
+            ),
+            current_status="reviewed",
+        )
+    )
+    store.save_artifact(
+        ArtifactRecord(
+            artifact_id="ia_004",
+            artifact_kind="compiled_page",
+            title="Manufactured doubt example",
+            path="wiki/channel-capacity-doubt.md",
+            metadata={
+                "source_role": "argumentation",
+                "source_quality": "low",
+                "source_stance": "manufactured_doubt",
+            },
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_004",
+            artifact_id="ia_004",
+            role="claim",
+            text="Channel capacity is undefined in practice.",
+            provenance=ProvenanceRecord(
+                origin_artifact_id="ia_004",
+                origin_path="wiki/channel-capacity-doubt.md",
+                support_kind="derived_from_page",
+                grounding_status="ungrounded",
             ),
             current_status="reviewed",
         )
@@ -249,4 +279,12 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert "clm_004" in contradiction_ids
     assert "clm_005" in supersession_ids
     assert "challenged" in payload["epistemic_summary"]["flags"]
+    assert "low_trust_source_signal" in payload["epistemic_summary"]["flags"]
+    assert "adversarial_source_signal" in payload["epistemic_summary"]["flags"]
+    adversarial_observations = [
+        item for item in payload["supporting_observations"] if item["observation_id"] == "obs_004"
+    ]
+    assert adversarial_observations[0]["source_quality"] == "low"
+    assert adversarial_observations[0]["source_stance"] == "manufactured_doubt"
     assert payload["epistemic_summary"]["reliability"]["components"]["challenge_penalty"] > 0
+    assert payload["epistemic_summary"]["reliability"]["components"]["adversarial_penalty"] > 0
