@@ -26,6 +26,10 @@ The main thing to avoid is treating raw extracted SPO triples as canonical truth
 3. Keep LLM extraction optional and reviewable.
 4. Keep `doclift` deterministic by default.
 5. Put graph extraction in `GroundRecall` first, then expose downstream affordances in `Didactopus`.
+6. Treat Bayesian reliability estimates as assessment metadata, not promotion
+   authority.
+7. Record `G` outcomes only from explicit learner/model evaluations, not from
+   review confidence or source quality alone.
 
 ## Repo Roles
 
@@ -219,6 +223,63 @@ Acceptance criteria:
 
 - review bundle includes graph-candidate triage data
 - no assistant-specific assumptions leak into canonical records
+
+### Ticket GR-6: Add Bayesian assessment triage for query and review bundles
+
+Outcome:
+
+- reviewers can see which concept or claim neighborhoods are evidentially
+  strong, thin, contested, or prior-sensitive
+
+Suggested implementation:
+
+- reuse Epistemap `bayesian_reliability` from concept query bundles
+- add a small GroundRecall summary layer that extracts:
+  - posterior mean
+  - credible interval width
+  - effective sample size
+  - prior-sensitivity range
+  - adversarial or low-trust source flags
+- include the summary in query exports and review payloads
+
+Acceptance criteria:
+
+- no claim is auto-promoted or auto-rejected from Bayesian score alone
+- review bundles can sort candidates by fragile evidence and contested evidence
+- query output clearly distinguishes heuristic reliability, Bayesian posterior
+  support, and explicit `G` evaluation results
+
+### Ticket GR-7: Add assessment experiment exports
+
+Outcome:
+
+- GroundRecall can support repeatable experiments that connect graph assessment
+  features to learner/model outcomes
+
+Suggested implementation:
+
+- extend claim-evaluation export metadata with optional fields for:
+  - Bayesian prior profile
+  - posterior support mean
+  - credible interval width
+  - effective sample size
+  - prior-sensitivity range
+  - temporal tenability window
+- keep the canonical `G` row fields stable and store these as extra columns
+
+Experiment candidates:
+
+- source-quality ablation: trusted metadata visible versus flattened
+- adversarial-source stress test: genuine challenge versus manufactured doubt
+- temporal tenability: before/after decisive evidence dates
+- query-bundle intervention: plain query bundle versus query bundle with
+  Bayesian reliability summary
+
+Acceptance criteria:
+
+- exported rows remain valid Epistemap G rows
+- summaries can compare `G` by assessment condition
+- experiment manifests describe the reliability treatment and prior profile
 
 ## Phase 2: Didactopus Graph Review And Workbench Improvements
 
