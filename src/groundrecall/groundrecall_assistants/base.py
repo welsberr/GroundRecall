@@ -8,13 +8,19 @@ Prefer imports under ``didactopus.groundrecall.assistants.base`` for new code.
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 
 class AssistantAdapter(Protocol):
     name: str
 
-    def export_bundle(self, snapshot: dict, query_bundles: list[dict], out_dir: str | Path) -> list[Path]:
+    def export_bundle(
+        self,
+        snapshot: dict,
+        query_bundles: list[dict],
+        out_dir: str | Path,
+        startup_context: dict[str, Any] | None = None,
+    ) -> list[Path]:
         ...
 
     def build_context(self, query_result: dict) -> dict:

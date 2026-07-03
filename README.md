@@ -153,6 +153,38 @@ groundrecall assistant-export .groundrecall/store codex .groundrecall/exports/co
 groundrecall assistant-export .groundrecall/store claude_code .groundrecall/exports/claude_code
 ```
 
+For host startup memory, provide a curated startup profile. The profile adds
+selected concept query bundles, repository pointers, standing premises, recent
+source-note links, and startup reminders to `STARTUP.md` plus the assistant JSON
+bundle:
+
+```bash
+groundrecall assistant-export .groundrecall/store codex .groundrecall/exports/codex \
+  --startup-profile .groundrecall/startup-profile.yaml
+```
+
+Example profile:
+
+```yaml
+host:
+  host_id: local-dev
+canonical_export_dir: .groundrecall/exports/canonical
+curated_concepts:
+  - GroundRecall
+  - Epistemap
+  - knowledge graph grounding research premise
+active_repos:
+  - name: GroundRecall
+    path: /home/netuser/bin/GroundRecall
+    url: https://github.com/welsberr/GroundRecall
+    branch: main
+standing_premises:
+  - Query GroundRecall before broad repo scans or planning changes.
+startup_reminders:
+  - Treat Bayesian reliability as assessment metadata, not promotion authority.
+recent_note_count: 8
+```
+
 Export explicit claim-evaluation results as Epistemap G rows, manifest, and
 summary JSON/Markdown:
 

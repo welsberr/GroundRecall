@@ -100,6 +100,7 @@ def test_codex_adapter_exports_skill_and_json_bundle(tmp_path: Path) -> None:
     manifest = export_assistant_bundle(store.base_dir, "codex", tmp_path / "codex", concept_refs=["channel-capacity"])
 
     assert (tmp_path / "codex" / "SKILL.md").exists()
+    assert (tmp_path / "codex" / "STARTUP.md").exists()
     assert (tmp_path / "codex" / "codex_bundle.json").exists()
     assert (tmp_path / "codex" / "assistant_export_manifest.json").exists()
     assert manifest["assistant"] == "codex"
@@ -111,8 +112,57 @@ def test_claude_code_adapter_exports_memory_and_json_bundle(tmp_path: Path) -> N
     manifest = export_assistant_bundle(store.base_dir, "claude_code", tmp_path / "claude", concept_refs=["channel-capacity"])
 
     assert (tmp_path / "claude" / "CLAUDE.md").exists()
+    assert (tmp_path / "claude" / "STARTUP.md").exists()
     assert (tmp_path / "claude" / "claude_code_bundle.json").exists()
     assert manifest["assistant"] == "claude_code"
+
+
+def test_assistant_export_uses_startup_profile_for_curated_concepts(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall" / "store")
+    _seed_store(store)
+    source_notes = tmp_path / "groundrecall" / "source-notes"
+    source_notes.mkdir(parents=True)
+    (source_notes / "recent-note.md").write_text("# Recent Note\n", encoding="utf-8")
+    profile = tmp_path / "startup-profile.yaml"
+    profile.write_text(
+        "\n".join(
+            [
+                "host:",
+                "  host_id: test-host",
+                "canonical_export_dir: /tmp/canonical",
+                "curated_concepts:",
+                "  - channel-capacity",
+                "  - missing-concept",
+                "active_repos:",
+                "  - name: GroundRecall",
+                "    path: /tmp/GroundRecall",
+                "    branch: main",
+                "standing_premises:",
+                "  - Preserve graph-grounded scholarship goals.",
+                "startup_reminders:",
+                "  - Query GroundRecall before broad scans.",
+                "recent_note_count: 1",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = export_assistant_bundle(
+        store.base_dir,
+        "codex",
+        tmp_path / "codex",
+        startup_profile=profile,
+    )
+
+    startup = (tmp_path / "codex" / "STARTUP.md").read_text(encoding="utf-8")
+    bundle = json.loads((tmp_path / "codex" / "codex_bundle.json").read_text(encoding="utf-8"))
+    assert manifest["query_bundle_count"] == 1
+    assert manifest["unresolved_concepts"] == ["missing-concept"]
+    assert "Channel Capacity" in startup
+    assert "Preserve graph-grounded scholarship goals." in startup
+    assert "recent-note" in startup
+    assert bundle["startup_context"]["requested_concepts"] == ["channel-capacity", "missing-concept"]
 
 
 def test_adapter_contexts_are_derived_from_assistant_neutral_query_bundles(tmp_path: Path) -> None:
