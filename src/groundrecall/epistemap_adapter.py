@@ -13,6 +13,8 @@ _SOURCE_SIGNAL_KEYS = (
     "adversarial_intent",
     "adversarial",
     "denialist",
+    "access_scope",
+    "availability_status",
 )
 _TEMPORAL_SIGNAL_KEYS = (
     "available_at",
@@ -139,9 +141,9 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                     )
                 )
         for target_id in claim.get("contradicts_claim_ids", []):
-            edges.append(Edge(source=claim_id, target=str(target_id), type="contradicts", metadata=_temporal_metadata(claim)))
+            edges.append(Edge(source=claim_id, target=str(target_id), type="contradicts", metadata={**_temporal_metadata(claim), **_source_signal_metadata(claim)}))
         for target_id in claim.get("supersedes_claim_ids", []):
-            edges.append(Edge(source=claim_id, target=str(target_id), type="supersedes", metadata=_temporal_metadata(claim)))
+            edges.append(Edge(source=claim_id, target=str(target_id), type="supersedes", metadata={**_temporal_metadata(claim), **_source_signal_metadata(claim)}))
     for observation in payload.get("supporting_observations", []):
         observation_id = str(observation.get("observation_id", ""))
         _set_node(

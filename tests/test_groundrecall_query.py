@@ -208,6 +208,7 @@ def test_build_query_bundle_for_concept_is_assistant_neutral(tmp_path: Path) -> 
     assert payload["epistemic_summary"]["reliability"]["components"]["grounding"] > 0
     assert payload["temporal_summary"]["summary"]["timeline_event_count"] >= 1
     assert payload["temporal_summary"]["claim_windows"]["clm_001"]["introduced_at"] == "2026-04-18"
+    assert payload["temporal_summary"]["fair_play_diagnostic"]["summary"]["claim_count"] >= 1
     assert isinstance(payload["suggested_next_actions"], list)
     forbidden = {"assistant", "codex", "claude", "prompt_text"}
     assert set(payload).isdisjoint(forbidden)
@@ -223,6 +224,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
             concept_ids=["concept::channel-capacity"],
             source_observation_ids=["obs_004"],
             contradicts_claim_ids=["clm_001"],
+            metadata={"access_scope": "detective_only"},
             provenance=ProvenanceRecord(
                 origin_artifact_id="ia_001",
                 origin_path="wiki/channel-capacity.md",
@@ -298,3 +300,5 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert payload["epistemic_summary"]["reliability"]["components"]["adversarial_penalty"] > 0
     assert payload["temporal_summary"]["first_contradictions"]["clm_001"]["time"] == "2026-05-01"
     assert any(item["claim_id"] == "clm_001" for item in payload["temporal_summary"]["stale_claims"])
+    assert payload["temporal_summary"]["fair_play_diagnostic"]["rating"] == "unfair"
+    assert "hidden_or_private_decisive_evidence" in payload["temporal_summary"]["fair_play_diagnostic"]["summary"]["failure_counts"]

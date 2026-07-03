@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 from typing import Any
 
-from epistemap import first_contradiction_time, stale_claims_after, timeline_events, tenability_window, epistemic_summary
+from epistemap import fair_play_diagnostic, first_contradiction_time, stale_claims_after, timeline_events, tenability_window, epistemic_summary
 
 from .epistemap_adapter import graph_bundle_from_query_payload
 from .store import GroundRecallStore
@@ -409,6 +409,7 @@ def _temporal_summary(graph_bundle, claims: list[dict[str, Any]]) -> dict[str, A
         if contradiction is not None
     }
     events = timeline_events(graph_bundle)
+    reveal_at = events[-1]["time"] if events else None
     return {
         "summary": {
             "claim_count": len(claim_ids),
@@ -418,7 +419,12 @@ def _temporal_summary(graph_bundle, claims: list[dict[str, Any]]) -> dict[str, A
         },
         "claim_windows": windows,
         "first_contradictions": first_contradictions,
-        "stale_claims": stale_claims_after(graph_bundle, events[-1]["time"]) if events else [],
+        "stale_claims": stale_claims_after(graph_bundle, reveal_at) if reveal_at else [],
+        "fair_play_diagnostic": (
+            fair_play_diagnostic(graph_bundle, claim_ids=claim_ids, reveal_at=reveal_at)
+            if reveal_at
+            else {"rating": "no_timeline", "summary": {"claim_count": len(claim_ids)}, "claims": []}
+        ),
         "events": events[:24],
     }
 
