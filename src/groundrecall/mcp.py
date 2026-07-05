@@ -171,3 +171,7 @@ def serve(input_stream=sys.stdin, output_stream=sys.stdout) -> None:
 
 def main() -> None:
     serve()
+
+
+if __name__ == "__main__":
+    main()
