@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any
 
 from epistemap import (
+    AssessmentMethodRef,
+    ConfidenceAssessment,
     Edge,
     GraphBundle,
     Node,
@@ -40,6 +42,12 @@ _TEMPORAL_SIGNAL_KEYS = (
     "superseded_at",
     "rejected_at",
     "timestep",
+)
+
+_GROUNDRECALL_ADAPTER_METHOD = AssessmentMethodRef(
+    name="groundrecall_epistemap_adapter",
+    version="1.0",
+    policy_id="groundrecall_confidence_mapping_v1",
 )
 
 
@@ -131,7 +139,8 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 title=str(claim.get("claim_text", ""))[:100],
                 description=str(claim.get("claim_text", "")),
                 status=str(claim.get("current_status", "")),
-                confidence=float(claim.get("review_confidence") or claim.get("confidence_hint") or 0.0),
+                confidence=_legacy_confidence_value(claim),
+                assessments=_claim_assessments(claim, claim_id),
                 provenance=[_provenance_from_row(claim)],
                 metadata={
                     "claim_kind": claim.get("claim_kind", "statement"),
@@ -167,6 +176,7 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
                 title=str(observation.get("role", "")),
                 description=str(observation.get("text", "")),
                 status=str(observation.get("grounding_status", "")),
+                assessments=_observation_assessments(observation, observation_id),
                 provenance=[_provenance_from_row(observation)],
                 metadata={
                     "source_role": observation.get("source_role", ""),
@@ -209,8 +219,107 @@ def graph_bundle_from_query_payload(payload: dict[str, Any]) -> GraphBundle:
         description="GroundRecall concept, claim, evidence, and relation graph",
         nodes=[node for node in nodes.values() if node.id],
         edges=[edge for edge in edges if edge.source and edge.target],
-        metadata={"source": "groundrecall", "bundle_kind": "groundrecall_query_epistemap"},
+        metadata={
+            "source": "groundrecall",
+            "bundle_kind": "groundrecall_query_epistemap",
+            "legacy_confidence_mapping_policy": "groundrecall_confidence_mapping_v1",
+        },
     )
+
+
+def _legacy_confidence_value(row: dict[str, Any]) -> float | None:
+    review_confidence = _optional_bounded_float(row.get("review_confidence"))
+    if review_confidence is not None:
+        return review_confidence
+    return _optional_bounded_float(row.get("confidence_hint"))
+
+
+def _claim_assessments(row: dict[str, Any], subject_id: str) -> list[ConfidenceAssessment]:
+    assessments: list[ConfidenceAssessment] = []
+    review_confidence = _optional_bounded_float(row.get("review_confidence"))
+    if review_confidence is not None:
+        assessments.append(
+            _assessment(
+                assessment_id=f"{subject_id}::reviewer_endorsement",
+                subject_id=subject_id,
+                dimension="reviewer_endorsement",
+                value=review_confidence,
+                basis_record_ids=[subject_id, *[str(value) for value in row.get("supporting_fragment_ids", [])]],
+                rationale="Mapped from GroundRecall reviewed claim confidence; not promotion authority.",
+            )
+        )
+    confidence_hint = _optional_bounded_float(row.get("confidence_hint"))
+    if confidence_hint is not None:
+        assessments.append(
+            _assessment(
+                assessment_id=f"{subject_id}::extraction_fidelity",
+                subject_id=subject_id,
+                dimension="extraction_fidelity",
+                value=confidence_hint,
+                basis_record_ids=[subject_id, *[str(value) for value in row.get("source_observation_ids", [])]],
+                rationale="Mapped from GroundRecall adapter confidence_hint as extraction fidelity.",
+            )
+        )
+    return assessments
+
+
+def _observation_assessments(row: dict[str, Any], subject_id: str) -> list[ConfidenceAssessment]:
+    confidence_hint = _optional_bounded_float(row.get("confidence_hint"))
+    if confidence_hint is None:
+        return []
+    return [
+        _assessment(
+            assessment_id=f"{subject_id}::extraction_fidelity",
+            subject_id=subject_id,
+            dimension="extraction_fidelity",
+            value=confidence_hint,
+            basis_record_ids=[subject_id],
+            rationale="Mapped from GroundRecall observation confidence_hint as extraction fidelity.",
+        )
+    ]
+
+
+def _assessment(
+    *,
+    assessment_id: str,
+    subject_id: str,
+    dimension: str,
+    value: float,
+    basis_record_ids: list[str],
+    rationale: str,
+) -> ConfidenceAssessment:
+    return ConfidenceAssessment(
+        assessment_id=assessment_id,
+        subject_id=subject_id,
+        dimension=dimension,
+        value=value,
+        band=_confidence_band(value),
+        method=_GROUNDRECALL_ADAPTER_METHOD,
+        basis_record_ids=basis_record_ids,
+        rationale=rationale,
+        recorded_at="2026-07-25T00:00:00+00:00",
+    )
+
+
+def _confidence_band(value: float) -> str:
+    if value < 0.2:
+        return "very_low"
+    if value < 0.4:
+        return "low"
+    if value < 0.7:
+        return "moderate"
+    if value < 0.9:
+        return "high"
+    return "very_high"
+
+
+def _optional_bounded_float(value: Any) -> float | None:
+    if value in ("", None):
+        return None
+    numeric = float(value)
+    if numeric < 0.0 or numeric > 1.0:
+        raise ValueError(f"confidence value must be between 0 and 1: {numeric}")
+    return numeric
 
 
 def g_evaluation_row_from_claim_evaluation(

@@ -4,6 +4,11 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+try:
+    from epistemap import ConfidenceAssessment
+except ImportError:  # pragma: no cover - optional local integration fallback
+    ConfidenceAssessment = dict  # type: ignore[misc,assignment]
+
 
 LifecycleStatus = Literal["draft", "triaged", "reviewed", "promoted", "superseded", "archived", "rejected"]
 GroundingStatus = Literal["grounded", "partially_grounded", "ungrounded"]
@@ -61,7 +66,8 @@ class ObservationRecord(BaseModel):
     role: str
     text: str
     provenance: ProvenanceRecord = Field(default_factory=ProvenanceRecord)
-    confidence_hint: float = 0.0
+    confidence_hint: float | None = Field(default=None, ge=0.0, le=1.0)
+    assessments: list[ConfidenceAssessment] = Field(default_factory=list)
     current_status: LifecycleStatus = "draft"
 
 
@@ -75,8 +81,9 @@ class ClaimRecord(BaseModel):
     concept_ids: list[str] = Field(default_factory=list)
     contradicts_claim_ids: list[str] = Field(default_factory=list)
     supersedes_claim_ids: list[str] = Field(default_factory=list)
-    confidence_hint: float = 0.0
-    review_confidence: float = 0.0
+    confidence_hint: float | None = Field(default=None, ge=0.0, le=1.0)
+    review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    assessments: list[ConfidenceAssessment] = Field(default_factory=list)
     last_confirmed_at: str = ""
     provenance: ProvenanceRecord = Field(default_factory=ProvenanceRecord)
     current_status: LifecycleStatus = "draft"
@@ -98,6 +105,7 @@ class RelationRecord(BaseModel):
     relation_type: str
     evidence_ids: list[str] = Field(default_factory=list)
     provenance: ProvenanceRecord = Field(default_factory=ProvenanceRecord)
+    assessments: list[ConfidenceAssessment] = Field(default_factory=list)
     current_status: LifecycleStatus = "draft"
 
 

@@ -6,6 +6,7 @@ from groundrecall.epistemap_adapter import (
     export_claim_evaluation_g_package,
     g_evaluation_row_from_claim_evaluation,
     g_evaluation_rows_from_claim_evaluations,
+    graph_bundle_from_query_payload,
 )
 
 
@@ -70,6 +71,37 @@ def test_g_evaluation_rows_from_claim_evaluations_batches_with_claim_context() -
     assert len(rows) == 2
     assert rows[0]["claim_text"] == "Channel capacity bounds reliable communication rate."
     assert rows[1]["source_anchor"] == "wiki/channel-capacity.md"
+
+
+def test_graph_bundle_preserves_explicit_zero_review_confidence() -> None:
+    bundle = graph_bundle_from_query_payload(
+        {
+            "concept": {"concept_id": "concept::channel-capacity", "title": "Channel capacity"},
+            "claims": [
+                {
+                    "claim_id": "clm_zero",
+                    "claim_text": "A reviewed zero must remain explicit.",
+                    "concept_ids": ["concept::channel-capacity"],
+                    "confidence_hint": 0.8,
+                    "review_confidence": 0.0,
+                    "provenance": {"support_kind": "derived_from_page", "grounding_status": "grounded"},
+                },
+                {
+                    "claim_id": "clm_missing",
+                    "claim_text": "Missing confidence should remain missing.",
+                    "concept_ids": ["concept::channel-capacity"],
+                    "provenance": {"support_kind": "derived_from_page", "grounding_status": "grounded"},
+                },
+            ],
+        }
+    )
+
+    zero = next(node for node in bundle.nodes if node.id == "clm_zero")
+    missing = next(node for node in bundle.nodes if node.id == "clm_missing")
+    assert zero.confidence == 0.0
+    assert {assessment.dimension for assessment in zero.assessments} == {"reviewer_endorsement", "extraction_fidelity"}
+    assert missing.confidence is None
+    assert missing.assessments == []
 
 
 def test_export_claim_evaluation_g_package_writes_rows_manifest_and_summary(tmp_path) -> None:

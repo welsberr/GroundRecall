@@ -1,6 +1,12 @@
 # Sync Roadmap
 
-The current standalone alpha is local-first. Sync and merge are planned next-stage features.
+The current standalone alpha is local-first. Stable re-import and append-only
+version events are now foundational memory-lifecycle work; distributed merge
+remains a later-stage feature.
+
+See [memory-lifecycle-roadmap.md](memory-lifecycle-roadmap.md) for the governing
+priority order. Its R1 phase incorporates Phases 1 and 2 below, while its R5
+phase incorporates the distributed and team portions of Phases 3 through 5.
 
 ## Goal
 
@@ -43,6 +49,8 @@ This avoids treating compiled wiki pages or generated bundles as merge primitive
 - record machine-local observations and import events
 - distinguish machine-local state from promoted shared state
 - preserve provenance and timestamps explicitly
+- preserve immutable object versions, content hashes, and derivation events
+- support rollback and deterministic derived-index invalidation
 
 ### Phase 3: Merge And Consolidation
 
@@ -55,6 +63,8 @@ This avoids treating compiled wiki pages or generated bundles as merge primitive
 - private notes and private candidate knowledge
 - shared promoted knowledge
 - controlled promotion from private to shared
+- mechanically enforce principals, scope, sensitivity, and review authority
+- keep per-agent draft memory separate from reviewed shared memory
 
 ### Phase 5: Team And Corpus Workflows
 
@@ -70,4 +80,6 @@ The current repo does not yet provide:
 - conflict-free replicated data types
 - hosted review services
 
-The next useful milestone is a practical local event-log and re-import model, not a full distributed platform in one step.
+The next useful milestone is a practical local event-log, stable re-import,
+temporal validity, and rollback model—not a full distributed platform in one
+step.
