@@ -209,9 +209,9 @@ planned, and promoted into a canonical store only when signature verification,
 release-level acceptance, local policy, and conflict checks pass. Local trust
 registries retain created/revoked/supersession metadata and can revoke keys so
 old signatures are blocked without erasing audit history. Ed25519 signatures,
-signed public keysets, and local role-directory-to-policy compilation are now
-available. It does not yet provide network transport, distributed policy
-publication, or public release-pack publishing.
+signed public keysets, local role-directory-to-policy compilation, and signed
+role-directory publication/import are now available. It does not yet provide
+network transport or public release-pack publishing.
 
 Local policy files use the `groundrecall.local_federation_policy.v1` shape:
 
@@ -274,6 +274,35 @@ groundrecall federation import ./bundle.json ./quarantine \
 Compilation fails closed if a membership references an unknown role. At policy
 evaluation time, grants with `scopes` require a matching `--scope-id`; unscoped
 grants remain global for the permitted action, release level, and instance.
+
+Reviewed role-directory distribution can be automated through signed
+role-directory publications. A project or entity hub signs the directory with an
+already pinned Ed25519 signing key:
+
+```bash
+groundrecall federation role-publish-directory ./roles.json ./roles-publication.json \
+  --producer-instance-id host-a \
+  --signing-key-file ./host-a-role-root-private.pem \
+  --signer-key-id host-a-role-root
+```
+
+Receivers verify the signed publication and write a locally capped policy. Caps
+are intersected with the published directory before compilation, so imported
+policies cannot exceed the receiver's allowed subjects, roles, instances,
+release levels, actions, or scopes:
+
+```bash
+groundrecall federation policy-import-roles ./roles-publication.json ./policy.json \
+  --signer-key-file ./host-a-role-root-public.pem \
+  --signer-key-id host-a-role-root \
+  --policy-id receiver-role-policy \
+  --allow-subject-id alice \
+  --allow-instance-id host-a \
+  --allow-release-level internal \
+  --allow-action import \
+  --allow-action promote \
+  --allow-scope project-alpha
+```
 
 Audit events use `groundrecall.federation_audit.v1` JSONL records and capture
 the requester, action, decision, release level, bundle ID, instance ID, policy
@@ -456,7 +485,8 @@ Acceptance criteria:
 ### F4: Project And Entity Federation
 
 - Add project/team/entity scopes and role mappings.
-- Support policy distribution from an entity or project hub.
+- Support signed role-directory/policy distribution from an entity or project
+  hub, with receiver-side caps before local policy compilation.
 - Add import/export audit logs and revocation handling.
 
 Acceptance criteria:

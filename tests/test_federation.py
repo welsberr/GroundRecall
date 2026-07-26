@@ -21,10 +21,13 @@ from groundrecall.federation import (
     evaluate_federation_policy,
     export_federation_bundle,
     export_federation_public_keyset,
+    export_federation_role_directory_publication,
     export_federation_trust_metadata,
     federation_key_fingerprint,
+    filter_federation_role_directory,
     import_federation_bundle_to_quarantine,
     import_federation_public_keyset_to_trust_registry,
+    import_federation_role_directory_publication_to_policy,
     is_allowed_for_target,
     is_less_restrictive,
     list_quarantine_bundles,
@@ -36,6 +39,7 @@ from groundrecall.federation import (
     save_federation_trust_registry,
     verify_federation_bundle,
     verify_federation_public_keyset,
+    verify_federation_role_directory_publication,
 )
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, SourceRecord
 from groundrecall.store import GroundRecallStore
@@ -262,6 +266,134 @@ def test_role_directory_rejects_unknown_role_reference() -> None:
 
     with pytest.raises(FederationPolicyError, match="unknown role"):
         compile_federation_role_directory_to_policy(directory)
+
+
+def test_signed_role_directory_publication_imports_with_local_caps(tmp_path: Path) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    directory = FederationRoleDirectory(
+        directory_id="project-alpha-roles",
+        roles=[
+            FederationRoleDefinition(
+                role_id="reviewer",
+                actions=["import", "promote", "export"],
+                release_levels=["public", "internal"],
+                instance_ids=["*"],
+                scopes=["project-alpha", "project-beta"],
+            )
+        ],
+        memberships=[
+            FederationRoleMembership(subject_id="alice", role_ids=["reviewer"]),
+            FederationRoleMembership(subject_id="mallory", role_ids=["reviewer"]),
+        ],
+    )
+    publication_path = tmp_path / "roles-publication.json"
+
+    publication = export_federation_role_directory_publication(
+        directory,
+        publication_path,
+        producer_instance_id="host-a",
+        signing_key=signer_private_pem,
+        signer_key_id="host-a-role-root",
+        created_at="2026-07-27T00:00:00Z",
+    )
+
+    assert publication.manifest.signature is not None
+    assert publication.manifest.signature.algorithm == "ed25519"
+    verified = verify_federation_role_directory_publication(
+        json.loads(publication_path.read_text(encoding="utf-8")),
+        verification_key=signer_public_pem,
+        signer_key_id="host-a-role-root",
+    )
+    policy = import_federation_role_directory_publication_to_policy(
+        verified,
+        verification_key=signer_public_pem,
+        signer_key_id="host-a-role-root",
+        policy_id="receiver-policy",
+        allowed_subject_ids=["alice"],
+        allowed_role_ids=["reviewer"],
+        allowed_instance_ids=["host-a"],
+        allowed_release_levels=["public"],
+        allowed_actions=["import"],
+        allowed_scopes=["project-alpha"],
+    )
+
+    assert len(policy.grants) == 1
+    grant = policy.grants[0]
+    assert grant.subject_id == "alice"
+    assert grant.actions == ["import"]
+    assert grant.release_levels == ["public"]
+    assert grant.instance_ids == ["host-a"]
+    assert grant.scopes == ["project-alpha"]
+    assert evaluate_federation_policy(
+        policy,
+        subject_id="alice",
+        action="import",
+        release_level="public",
+        instance_id="host-a",
+        scope_id="project-alpha",
+    ).allowed is True
+    assert evaluate_federation_policy(
+        policy,
+        subject_id="alice",
+        action="promote",
+        release_level="public",
+        instance_id="host-a",
+        scope_id="project-alpha",
+    ).allowed is False
+    assert evaluate_federation_policy(
+        policy,
+        subject_id="mallory",
+        action="import",
+        release_level="public",
+        instance_id="host-a",
+        scope_id="project-alpha",
+    ).allowed is False
+
+
+def test_signed_role_directory_publication_rejects_tampering(tmp_path: Path) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    directory = FederationRoleDirectory(
+        roles=[
+            FederationRoleDefinition(
+                role_id="reviewer",
+                actions=["import"],
+                release_levels=["public"],
+                instance_ids=["host-a"],
+            )
+        ],
+        memberships=[FederationRoleMembership(subject_id="alice", role_ids=["reviewer"])],
+    )
+    publication_path = tmp_path / "roles-publication.json"
+    export_federation_role_directory_publication(
+        directory,
+        publication_path,
+        producer_instance_id="host-a",
+        signing_key=signer_private_pem,
+        signer_key_id="host-a-role-root",
+    )
+    tampered = json.loads(publication_path.read_text(encoding="utf-8"))
+    tampered["directory"]["memberships"][0]["subject_id"] = "mallory"
+
+    with pytest.raises(FederationPolicyError, match="signature verification failed"):
+        verify_federation_role_directory_publication(tampered, verification_key=signer_public_pem, signer_key_id="host-a-role-root")
+
+
+def test_role_directory_filter_can_impose_scope_on_unscoped_role() -> None:
+    directory = FederationRoleDirectory(
+        roles=[
+            FederationRoleDefinition(
+                role_id="reviewer",
+                actions=["import"],
+                release_levels=["public"],
+                instance_ids=["host-a"],
+            )
+        ],
+        memberships=[FederationRoleMembership(subject_id="alice", role_ids=["reviewer"])],
+    )
+
+    filtered = filter_federation_role_directory(directory, allowed_scopes=["project-alpha"])
+
+    assert filtered.roles[0].scopes == ["project-alpha"]
 
 
 def test_trust_registry_resolves_active_instance_key_for_allowed_actions(tmp_path: Path) -> None:
@@ -1170,6 +1302,88 @@ def test_federation_cli_compiles_policy_from_roles(tmp_path: Path, monkeypatch: 
     assert output["grants"][0]["subject_id"] == "alice"
     policy = FederationLocalPolicy.model_validate(written)
     assert evaluate_federation_policy(policy, subject_id="alice", action="promote", release_level="internal", instance_id="host-a").allowed is True
+
+
+def test_federation_cli_publishes_and_imports_signed_role_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    signer_private_file = tmp_path / "role-signer-private.pem"
+    signer_public_file = tmp_path / "role-signer-public.pem"
+    signer_private_file.write_bytes(signer_private_pem)
+    signer_public_file.write_bytes(signer_public_pem)
+    role_directory_path = tmp_path / "roles.json"
+    publication_path = tmp_path / "roles-publication.json"
+    policy_path = tmp_path / "policy.json"
+    role_directory_path.write_text(
+        FederationRoleDirectory(
+            directory_id="team-roles",
+            roles=[
+                FederationRoleDefinition(
+                    role_id="reviewer",
+                    actions=["import", "promote"],
+                    release_levels=["public", "internal"],
+                    instance_ids=["*"],
+                    scopes=["project-alpha", "project-beta"],
+                )
+            ],
+            memberships=[FederationRoleMembership(subject_id="alice", role_ids=["reviewer"])],
+        ).model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "role-publish-directory",
+            str(role_directory_path),
+            str(publication_path),
+            "--producer-instance-id",
+            "host-a",
+            "--signing-key-file",
+            str(signer_private_file),
+            "--signer-key-id",
+            "host-a-role-root",
+        ],
+    )
+    federation.main()
+    publication_output = json.loads(capsys.readouterr().out)
+    assert publication_output["manifest"]["signature"]["algorithm"] == "ed25519"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "policy-import-roles",
+            str(publication_path),
+            str(policy_path),
+            "--signer-key-file",
+            str(signer_public_file),
+            "--signer-key-id",
+            "host-a-role-root",
+            "--policy-id",
+            "receiver-role-policy",
+            "--allow-subject-id",
+            "alice",
+            "--allow-instance-id",
+            "host-a",
+            "--allow-release-level",
+            "internal",
+            "--allow-action",
+            "import",
+            "--allow-scope",
+            "project-alpha",
+        ],
+    )
+    federation.main()
+    output = json.loads(capsys.readouterr().out)
+    written = json.loads(policy_path.read_text(encoding="utf-8"))
+
+    assert output == written
+    assert output["policy_id"] == "receiver-role-policy"
+    assert output["grants"][0]["actions"] == ["import"]
+    assert output["grants"][0]["release_levels"] == ["internal"]
+    assert output["grants"][0]["instance_ids"] == ["host-a"]
+    assert output["grants"][0]["scopes"] == ["project-alpha"]
 
 
 def test_federation_cli_trust_registry_can_sign_verify_and_promote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

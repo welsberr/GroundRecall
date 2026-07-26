@@ -165,6 +165,24 @@ class FederationRoleDirectory(BaseModel):
     memberships: list[FederationRoleMembership] = Field(default_factory=list)
 
 
+class FederationRoleDirectoryPublicationManifest(BaseModel):
+    directory_kind: str = "groundrecall_federation_role_directory_publication"
+    schema_version: str = "groundrecall.federation_role_directory_publication.v1"
+    publication_id: str
+    created_at: str
+    producer_instance_id: str
+    signer_key_id: str
+    role_count: int
+    membership_count: int
+    content_hash: str
+    signature: FederationSignature | None = None
+
+
+class FederationRoleDirectoryPublication(BaseModel):
+    manifest: FederationRoleDirectoryPublicationManifest
+    directory: FederationRoleDirectory
+
+
 class FederationTrustKey(BaseModel):
     instance_id: str
     key_id: str
@@ -367,6 +385,168 @@ def compile_federation_role_directory_to_policy(
     return FederationLocalPolicy(
         policy_id=policy_id or f"compiled::{directory.directory_id}",
         grants=grants,
+    )
+
+
+def export_federation_role_directory_publication(
+    directory: FederationRoleDirectory,
+    out_path: str | Path,
+    *,
+    producer_instance_id: str,
+    signing_key: str | bytes,
+    signer_key_id: str,
+    created_at: str | None = None,
+) -> FederationRoleDirectoryPublication:
+    timestamp = created_at or now_utc()
+    content_hash = _content_hash_for_role_directory(directory)
+    manifest = FederationRoleDirectoryPublicationManifest(
+        publication_id=f"federation-role-directory::{producer_instance_id}::{content_hash[:12]}",
+        created_at=timestamp,
+        producer_instance_id=producer_instance_id,
+        signer_key_id=signer_key_id,
+        role_count=len(directory.roles),
+        membership_count=len(directory.memberships),
+        content_hash=content_hash,
+    )
+    unsigned = FederationRoleDirectoryPublication(manifest=manifest, directory=directory)
+    signed_manifest = manifest.model_copy(
+        update={
+            "signature": FederationSignature(
+                algorithm="ed25519",
+                key_id=signer_key_id,
+                value=_signature_for_payload(unsigned.model_dump(mode="json"), signing_key, algorithm="ed25519"),
+            )
+        }
+    )
+    publication = unsigned.model_copy(update={"manifest": signed_manifest})
+    target = Path(out_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(publication.model_dump(mode="json"), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return publication
+
+
+def verify_federation_role_directory_publication(
+    publication: FederationRoleDirectoryPublication | dict[str, Any],
+    *,
+    verification_key: str | bytes,
+    signer_key_id: str | None = None,
+) -> FederationRoleDirectoryPublication:
+    parsed = publication if isinstance(publication, FederationRoleDirectoryPublication) else FederationRoleDirectoryPublication.model_validate(publication)
+    signature = parsed.manifest.signature
+    if signature is None:
+        raise FederationPolicyError("federation role directory publication is unsigned")
+    if signature.algorithm != "ed25519":
+        raise FederationPolicyError(f"unsupported role directory publication signature algorithm: {signature.algorithm}")
+    if signer_key_id is not None and signature.key_id != signer_key_id:
+        raise FederationPolicyError(f"unexpected federation role directory signer key_id: {signature.key_id}")
+    unsigned_manifest = parsed.manifest.model_copy(update={"signature": None})
+    unsigned_publication = parsed.model_copy(update={"manifest": unsigned_manifest})
+    if not _verify_signature_for_payload(
+        unsigned_publication.model_dump(mode="json"),
+        verification_key,
+        algorithm="ed25519",
+        signature_value=signature.value,
+    ):
+        raise FederationPolicyError("federation role directory publication signature verification failed")
+    if parsed.manifest.role_count != len(parsed.directory.roles):
+        raise FederationPolicyError("federation role directory role count verification failed")
+    if parsed.manifest.membership_count != len(parsed.directory.memberships):
+        raise FederationPolicyError("federation role directory membership count verification failed")
+    if parsed.manifest.content_hash != _content_hash_for_role_directory(parsed.directory):
+        raise FederationPolicyError("federation role directory content hash verification failed")
+    return parsed
+
+
+def import_federation_role_directory_publication_to_policy(
+    publication: FederationRoleDirectoryPublication | dict[str, Any],
+    *,
+    verification_key: str | bytes,
+    signer_key_id: str | None = None,
+    policy_id: str | None = None,
+    allowed_subject_ids: list[str] | None = None,
+    allowed_role_ids: list[str] | None = None,
+    allowed_instance_ids: list[str] | None = None,
+    allowed_release_levels: list[ReleaseLevel] | None = None,
+    allowed_actions: list[FederationAction] | None = None,
+    allowed_scopes: list[str] | None = None,
+) -> FederationLocalPolicy:
+    parsed = verify_federation_role_directory_publication(publication, verification_key=verification_key, signer_key_id=signer_key_id)
+    scoped_directory = filter_federation_role_directory(
+        parsed.directory,
+        allowed_subject_ids=allowed_subject_ids,
+        allowed_role_ids=allowed_role_ids,
+        allowed_instance_ids=allowed_instance_ids or [parsed.manifest.producer_instance_id],
+        allowed_release_levels=allowed_release_levels or ["public"],
+        allowed_actions=allowed_actions or ["import", "promote"],
+        allowed_scopes=allowed_scopes,
+    )
+    return compile_federation_role_directory_to_policy(scoped_directory, policy_id=policy_id or f"compiled::{parsed.manifest.publication_id}")
+
+
+def filter_federation_role_directory(
+    directory: FederationRoleDirectory,
+    *,
+    allowed_subject_ids: list[str] | None = None,
+    allowed_role_ids: list[str] | None = None,
+    allowed_instance_ids: list[str] | None = None,
+    allowed_release_levels: list[ReleaseLevel] | None = None,
+    allowed_actions: list[FederationAction] | None = None,
+    allowed_scopes: list[str] | None = None,
+) -> FederationRoleDirectory:
+    subject_allow = set(allowed_subject_ids or [])
+    role_allow = set(allowed_role_ids or [])
+    instance_allow = set(allowed_instance_ids or [])
+    release_allow = set(allowed_release_levels or [])
+    action_allow = set(allowed_actions or [])
+    scope_allow = set(allowed_scopes or [])
+    roles: list[FederationRoleDefinition] = []
+    retained_role_ids: set[str] = set()
+    for role in directory.roles:
+        if role_allow and role.role_id not in role_allow:
+            continue
+        actions = [action for action in role.actions if not action_allow or action in action_allow]
+        release_levels = [level for level in role.release_levels if not release_allow or level in release_allow]
+        if instance_allow:
+            instance_ids = [instance_id for instance_id in role.instance_ids if instance_id in instance_allow]
+            if "*" in role.instance_ids:
+                instance_ids = sorted(instance_allow)
+        else:
+            instance_ids = list(role.instance_ids)
+        if scope_allow:
+            scopes = [scope for scope in role.scopes if scope in scope_allow]
+            if not role.scopes:
+                scopes = sorted(scope_allow)
+        else:
+            scopes = list(role.scopes)
+        if not actions or not release_levels or not instance_ids:
+            continue
+        if scope_allow and not scopes:
+            continue
+        allow_privileged = role.allow_privileged and "privileged" in release_levels
+        roles.append(
+            FederationRoleDefinition(
+                role_id=role.role_id,
+                actions=actions,
+                release_levels=release_levels,
+                instance_ids=instance_ids,
+                scopes=scopes,
+                allow_privileged=allow_privileged,
+            )
+        )
+        retained_role_ids.add(role.role_id)
+    memberships = [
+        FederationRoleMembership(
+            subject_id=membership.subject_id,
+            role_ids=[role_id for role_id in membership.role_ids if role_id in retained_role_ids],
+        )
+        for membership in directory.memberships
+        if (not subject_allow or membership.subject_id in subject_allow)
+    ]
+    memberships = [membership for membership in memberships if membership.role_ids]
+    return FederationRoleDirectory(
+        directory_id=f"filtered::{directory.directory_id}",
+        roles=roles,
+        memberships=memberships,
     )
 
 
@@ -1294,6 +1474,44 @@ def build_parser() -> argparse.ArgumentParser:
     role_compile_parser.add_argument("policy_path")
     role_compile_parser.add_argument("--policy-id", default=None)
 
+    role_publish_parser = subparsers.add_parser(
+        "role-publish-directory",
+        help="Write a signed Ed25519 federation role-directory publication.",
+    )
+    role_publish_parser.add_argument("role_directory_path")
+    role_publish_parser.add_argument("out_path")
+    role_publish_parser.add_argument("--producer-instance-id", required=True)
+    role_publish_parser.add_argument("--signing-key-file", required=True, help="Path containing the Ed25519 private key that signs the role directory.")
+    role_publish_parser.add_argument("--signer-key-id", required=True)
+
+    role_import_parser = subparsers.add_parser(
+        "policy-import-roles",
+        help="Verify a signed role-directory publication and write a locally capped federation policy.",
+    )
+    role_import_parser.add_argument("publication_path")
+    role_import_parser.add_argument("policy_path")
+    role_import_parser.add_argument("--signer-key-file", required=True, help="Path containing the pinned Ed25519 public key for the role-directory signer.")
+    role_import_parser.add_argument("--signer-key-id", default=None)
+    role_import_parser.add_argument("--policy-id", default=None)
+    role_import_parser.add_argument("--allow-subject-id", action="append", default=[], help="Subject ID allowed to receive grants from the publication. May be repeated.")
+    role_import_parser.add_argument("--allow-role-id", action="append", default=[], help="Role ID allowed from the publication. May be repeated.")
+    role_import_parser.add_argument("--allow-instance-id", action="append", default=[], help="Instance ID allowed in imported grants. Defaults to the publication producer instance.")
+    role_import_parser.add_argument(
+        "--allow-release-level",
+        action="append",
+        default=[],
+        choices=["public", "internal", "confidential", "privileged"],
+        help="Maximum locally allowed release levels to grant. Defaults to public.",
+    )
+    role_import_parser.add_argument(
+        "--allow-action",
+        action="append",
+        default=[],
+        choices=["export", "import", "promote"],
+        help="Maximum locally allowed actions to grant. Defaults to import and promote.",
+    )
+    role_import_parser.add_argument("--allow-scope", action="append", default=[], help="Scope ID allowed in imported grants. May be repeated.")
+
     trust_add_parser = subparsers.add_parser("trust-add", help="Add or replace a trusted federation key in a local registry.")
     trust_add_parser.add_argument("registry_path")
     trust_add_parser.add_argument("--instance-id", required=True)
@@ -1386,6 +1604,34 @@ def main() -> None:
     if args.command == "policy-from-roles":
         directory = load_federation_role_directory(args.role_directory_path)
         policy = compile_federation_role_directory_to_policy(directory, policy_id=args.policy_id)
+        save_federation_policy(args.policy_path, policy)
+        print(json.dumps(policy.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "role-publish-directory":
+        directory = load_federation_role_directory(args.role_directory_path)
+        publication = export_federation_role_directory_publication(
+            directory,
+            args.out_path,
+            producer_instance_id=args.producer_instance_id,
+            signing_key=Path(args.signing_key_file).read_bytes(),
+            signer_key_id=args.signer_key_id,
+        )
+        print(json.dumps(publication.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "policy-import-roles":
+        publication = FederationRoleDirectoryPublication.model_validate_json(Path(args.publication_path).read_text(encoding="utf-8"))
+        policy = import_federation_role_directory_publication_to_policy(
+            publication,
+            verification_key=Path(args.signer_key_file).read_bytes(),
+            signer_key_id=args.signer_key_id,
+            policy_id=args.policy_id,
+            allowed_subject_ids=args.allow_subject_id or None,
+            allowed_role_ids=args.allow_role_id or None,
+            allowed_instance_ids=args.allow_instance_id or None,
+            allowed_release_levels=args.allow_release_level or ["public"],
+            allowed_actions=args.allow_action or ["import", "promote"],
+            allowed_scopes=args.allow_scope or None,
+        )
         save_federation_policy(args.policy_path, policy)
         print(json.dumps(policy.model_dump(mode="json"), indent=2, sort_keys=True))
         return
@@ -1691,6 +1937,10 @@ def _content_hash_for_snapshot(snapshot: GroundRecallSnapshot) -> str:
 
 def _content_hash_for_public_key_entries(keys: list[FederationPublicKeyEntry]) -> str:
     return hashlib.sha256(_canonical_json([key.model_dump(mode="json") for key in keys]).encode("utf-8")).hexdigest()
+
+
+def _content_hash_for_role_directory(directory: FederationRoleDirectory) -> str:
+    return hashlib.sha256(_canonical_json(directory.model_dump(mode="json")).encode("utf-8")).hexdigest()
 
 
 def _signature_for_payload(
