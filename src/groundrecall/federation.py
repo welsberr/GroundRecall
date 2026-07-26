@@ -188,6 +188,38 @@ class FederationTrustRegistryMetadata(BaseModel):
     keys: list[FederationTrustKeyMetadata] = Field(default_factory=list)
 
 
+class FederationPublicKeyEntry(BaseModel):
+    instance_id: str
+    key_id: str
+    public_key_pem: str
+    algorithm: Literal["ed25519"] = "ed25519"
+    active: bool = True
+    created_at: str = ""
+    expires_at: str = ""
+    revoked_at: str = ""
+    revocation_reason: str = ""
+    superseded_by_key_id: str = ""
+    release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
+    trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
+
+
+class FederationPublicKeySetManifest(BaseModel):
+    keyset_kind: str = "groundrecall_federation_public_keyset"
+    schema_version: str = "groundrecall.federation_public_keyset.v1"
+    keyset_id: str
+    created_at: str
+    producer_instance_id: str
+    signer_key_id: str
+    key_count: int
+    content_hash: str
+    signature: FederationSignature | None = None
+
+
+class FederationPublicKeySet(BaseModel):
+    manifest: FederationPublicKeySetManifest
+    keys: list[FederationPublicKeyEntry] = Field(default_factory=list)
+
+
 class FederationPolicyDecision(BaseModel):
     allowed: bool
     policy_id: str
@@ -332,6 +364,9 @@ def add_federation_trust_key(
     active: bool = True,
     created_at: str | None = None,
     expires_at: str = "",
+    revoked_at: str = "",
+    revocation_reason: str = "",
+    superseded_by_key_id: str = "",
 ) -> FederationTrustRegistry:
     keys = [key for key in registry.keys if not (key.instance_id == instance_id and key.key_id == key_id)]
     keys.append(
@@ -343,11 +378,138 @@ def add_federation_trust_key(
             active=active,
             created_at=created_at or now_utc(),
             expires_at=expires_at,
+            revoked_at=revoked_at,
+            revocation_reason=revocation_reason,
+            superseded_by_key_id=superseded_by_key_id,
             release_levels=release_levels,
             trusted_actions=trusted_actions,
         )
     )
     return registry.model_copy(update={"keys": keys})
+
+
+def export_federation_public_keyset(
+    registry: FederationTrustRegistry,
+    out_path: str | Path,
+    *,
+    producer_instance_id: str,
+    signing_key: str | bytes,
+    signer_key_id: str,
+    created_at: str | None = None,
+    active_only: bool = False,
+) -> FederationPublicKeySet:
+    keys = [
+        FederationPublicKeyEntry(
+            instance_id=key.instance_id,
+            key_id=key.key_id,
+            public_key_pem=key.key_material,
+            active=key.active,
+            created_at=key.created_at,
+            expires_at=key.expires_at,
+            revoked_at=key.revoked_at,
+            revocation_reason=key.revocation_reason,
+            superseded_by_key_id=key.superseded_by_key_id,
+            release_levels=key.release_levels,
+            trusted_actions=key.trusted_actions,
+        )
+        for key in registry.keys
+        if key.algorithm == "ed25519" and (key.active or not active_only)
+    ]
+    timestamp = created_at or now_utc()
+    content_hash = _content_hash_for_public_key_entries(keys)
+    manifest = FederationPublicKeySetManifest(
+        keyset_id=f"federation-keyset::{producer_instance_id}::{content_hash[:12]}",
+        created_at=timestamp,
+        producer_instance_id=producer_instance_id,
+        signer_key_id=signer_key_id,
+        key_count=len(keys),
+        content_hash=content_hash,
+    )
+    unsigned = FederationPublicKeySet(manifest=manifest, keys=keys)
+    signed_manifest = manifest.model_copy(
+        update={
+            "signature": FederationSignature(
+                algorithm="ed25519",
+                key_id=signer_key_id,
+                value=_signature_for_payload(unsigned.model_dump(mode="json"), signing_key, algorithm="ed25519"),
+            )
+        }
+    )
+    keyset = unsigned.model_copy(update={"manifest": signed_manifest})
+    target = Path(out_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(keyset.model_dump(mode="json"), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return keyset
+
+
+def verify_federation_public_keyset(
+    keyset: FederationPublicKeySet | dict[str, Any],
+    *,
+    verification_key: str | bytes,
+    signer_key_id: str | None = None,
+) -> FederationPublicKeySet:
+    parsed = keyset if isinstance(keyset, FederationPublicKeySet) else FederationPublicKeySet.model_validate(keyset)
+    signature = parsed.manifest.signature
+    if signature is None:
+        raise FederationPolicyError("federation public keyset is unsigned")
+    if signature.algorithm != "ed25519":
+        raise FederationPolicyError(f"unsupported public keyset signature algorithm: {signature.algorithm}")
+    if signer_key_id is not None and signature.key_id != signer_key_id:
+        raise FederationPolicyError(f"unexpected federation public keyset signer key_id: {signature.key_id}")
+    unsigned_manifest = parsed.manifest.model_copy(update={"signature": None})
+    unsigned_keyset = parsed.model_copy(update={"manifest": unsigned_manifest})
+    if not _verify_signature_for_payload(
+        unsigned_keyset.model_dump(mode="json"),
+        verification_key,
+        algorithm="ed25519",
+        signature_value=signature.value,
+    ):
+        raise FederationPolicyError("federation public keyset signature verification failed")
+    if parsed.manifest.key_count != len(parsed.keys):
+        raise FederationPolicyError("federation public keyset key count verification failed")
+    if parsed.manifest.content_hash != _content_hash_for_public_key_entries(parsed.keys):
+        raise FederationPolicyError("federation public keyset content hash verification failed")
+    return parsed
+
+
+def import_federation_public_keyset_to_trust_registry(
+    keyset: FederationPublicKeySet | dict[str, Any],
+    registry: FederationTrustRegistry,
+    *,
+    verification_key: str | bytes,
+    signer_key_id: str | None = None,
+    allowed_instance_ids: list[str] | None = None,
+    allowed_release_levels: list[ReleaseLevel] | None = None,
+    allowed_trusted_actions: list[FederationAction] | None = None,
+) -> FederationTrustRegistry:
+    parsed = verify_federation_public_keyset(keyset, verification_key=verification_key, signer_key_id=signer_key_id)
+    instance_allow = set(allowed_instance_ids or [parsed.manifest.producer_instance_id])
+    release_allow = set(allowed_release_levels or ["public"])
+    action_allow = set(allowed_trusted_actions or ["import", "promote"])
+    updated = registry
+    for key in parsed.keys:
+        if key.instance_id not in instance_allow:
+            continue
+        release_levels = [level for level in key.release_levels if level in release_allow]
+        trusted_actions = [action for action in key.trusted_actions if action in action_allow]
+        if not release_levels or not trusted_actions:
+            continue
+        updated = add_federation_trust_key(
+            updated,
+            instance_id=key.instance_id,
+            key_id=key.key_id,
+            key_material=key.public_key_pem,
+            algorithm="ed25519",
+            release_levels=release_levels,
+            trusted_actions=trusted_actions,
+            active=key.active,
+            created_at=key.created_at,
+            expires_at=key.expires_at,
+            revoked_at=key.revoked_at,
+            revocation_reason=key.revocation_reason,
+            superseded_by_key_id=key.superseded_by_key_id,
+        )
+    return updated
 
 
 def revoke_federation_trust_key(
@@ -1082,6 +1244,46 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include sha256 fingerprints of key material for operator comparison. Use only for high-entropy keys.",
     )
 
+    trust_publish_keyset_parser = subparsers.add_parser(
+        "trust-publish-keyset",
+        help="Write a signed Ed25519 public-key publication from local trust registry entries.",
+    )
+    trust_publish_keyset_parser.add_argument("registry_path")
+    trust_publish_keyset_parser.add_argument("out_path")
+    trust_publish_keyset_parser.add_argument("--producer-instance-id", required=True)
+    trust_publish_keyset_parser.add_argument("--signing-key-file", required=True, help="Path containing the Ed25519 private key that signs the keyset.")
+    trust_publish_keyset_parser.add_argument("--signer-key-id", required=True)
+    trust_publish_keyset_parser.add_argument("--active-only", action="store_true", help="Omit inactive/revoked keys from the publication.")
+
+    trust_import_keyset_parser = subparsers.add_parser(
+        "trust-import-keyset",
+        help="Verify a signed Ed25519 public-key publication and merge it into a local trust registry.",
+    )
+    trust_import_keyset_parser.add_argument("keyset_path")
+    trust_import_keyset_parser.add_argument("registry_path")
+    trust_import_keyset_parser.add_argument("--signer-key-file", required=True, help="Path containing the pinned Ed25519 public key for the keyset signer.")
+    trust_import_keyset_parser.add_argument("--signer-key-id", default=None)
+    trust_import_keyset_parser.add_argument(
+        "--allow-instance-id",
+        action="append",
+        default=[],
+        help="Locally allowed instance IDs to import from the keyset. Defaults to the keyset producer instance.",
+    )
+    trust_import_keyset_parser.add_argument(
+        "--allow-release-level",
+        action="append",
+        default=[],
+        choices=["public", "internal", "confidential", "privileged"],
+        help="Maximum locally allowed release levels to grant from the keyset. Defaults to public.",
+    )
+    trust_import_keyset_parser.add_argument(
+        "--allow-trusted-action",
+        action="append",
+        default=[],
+        choices=["export", "import", "promote"],
+        help="Maximum locally allowed actions to grant from the keyset. Defaults to import and promote.",
+    )
+
     trust_list_parser = subparsers.add_parser("trust-list", help="List trusted federation keys in a local registry.")
     trust_list_parser.add_argument("registry_path")
     return parser
@@ -1126,6 +1328,34 @@ def main() -> None:
         )
         save_federation_trust_metadata(args.out_path, metadata)
         print(json.dumps(metadata.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "trust-publish-keyset":
+        registry = load_federation_trust_registry(args.registry_path)
+        keyset = export_federation_public_keyset(
+            registry,
+            args.out_path,
+            producer_instance_id=args.producer_instance_id,
+            signing_key=Path(args.signing_key_file).read_bytes(),
+            signer_key_id=args.signer_key_id,
+            active_only=args.active_only,
+        )
+        print(json.dumps(keyset.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "trust-import-keyset":
+        path = Path(args.registry_path)
+        registry = load_federation_trust_registry(path) if path.exists() else FederationTrustRegistry()
+        keyset = FederationPublicKeySet.model_validate_json(Path(args.keyset_path).read_text(encoding="utf-8"))
+        registry = import_federation_public_keyset_to_trust_registry(
+            keyset,
+            registry,
+            verification_key=Path(args.signer_key_file).read_bytes(),
+            signer_key_id=args.signer_key_id,
+            allowed_instance_ids=args.allow_instance_id or None,
+            allowed_release_levels=args.allow_release_level or ["public"],
+            allowed_trusted_actions=args.allow_trusted_action or ["import", "promote"],
+        )
+        save_federation_trust_registry(path, registry)
+        print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
         return
     if args.command == "trust-list":
         registry = load_federation_trust_registry(args.registry_path)
@@ -1356,6 +1586,10 @@ def _manifest_for_snapshot(
 
 def _content_hash_for_snapshot(snapshot: GroundRecallSnapshot) -> str:
     return hashlib.sha256(_canonical_json(snapshot.model_dump(mode="json")).encode("utf-8")).hexdigest()
+
+
+def _content_hash_for_public_key_entries(keys: list[FederationPublicKeyEntry]) -> str:
+    return hashlib.sha256(_canonical_json([key.model_dump(mode="json") for key in keys]).encode("utf-8")).hexdigest()
 
 
 def _signature_for_payload(

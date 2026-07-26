@@ -303,13 +303,42 @@ groundrecall federation trust-add ./trust.json \
   --trusted-action promote
 ```
 
+Reviewed Ed25519 public-key distribution can be automated through signed
+keysets. The producer publishes Ed25519 public keys from a local registry and
+signs the publication with an already pinned Ed25519 signing key:
+
+```bash
+groundrecall federation trust-publish-keyset ./producer-trust.json ./host-a-keyset.json \
+  --producer-instance-id host-a \
+  --signing-key-file ./host-a-root-private.pem \
+  --signer-key-id host-a-root
+```
+
+The receiver verifies the keyset with the pinned signer public key before
+merging it into a local trust registry. Receiver-side caps are mandatory in the
+workflow: imported entries are intersected with the receiver's allowed release
+instance IDs, release levels, and actions, so a producer cannot grant itself or
+another host broader local authority by publishing a wider keyset. If
+`--allow-instance-id` is omitted, import defaults to the keyset producer
+instance.
+
+```bash
+groundrecall federation trust-import-keyset ./host-a-keyset.json ./receiver-trust.json \
+  --signer-key-file ./host-a-root-public.pem \
+  --signer-key-id host-a-root \
+  --allow-instance-id host-a \
+  --allow-release-level internal \
+  --allow-trusted-action import \
+  --allow-trusted-action promote
+```
+
 HMAC registry files contain shared secrets and must be treated as secrets; they
 are local trust roots, not public federation artifacts. Ed25519 registry entries
 contain public keys, but the registry still records local trust decisions and
 should be reviewed before use. Expired, inactive, or revoked keys are retained
 for audit/history but are blocked from export, import, and promotion. A later
-milestone should replace manual public-key exchange with organization-managed
-signed key publication and rotation/revocation feeds.
+milestone should add organization-managed role directories and transport for
+publishing and polling signed keysets.
 
 For coordination between hosts, `trust-export-metadata` writes
 `groundrecall.federation_trust_metadata.v1`, which omits `key_material` and
@@ -317,9 +346,8 @@ retains only instance/key IDs, algorithm, lifecycle fields, release levels, and
 trusted actions. `--include-key-fingerprint` can add a `sha256:` fingerprint
 for operator comparison, but should only be used with high-entropy keys because
 fingerprints of weak shared secrets can aid guessing. This metadata file is
-safe for inventory/review workflows. For Ed25519, the full public key still
-needs to be distributed through a reviewed trust-registry update until signed
-public-key publication is added.
+safe for inventory/review workflows. For Ed25519, use signed public keysets
+when receivers need to ingest full public verification keys.
 
 ### F0: Instance Identity And Trust Roots
 

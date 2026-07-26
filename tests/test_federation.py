@@ -16,9 +16,11 @@ from groundrecall.federation import (
     add_federation_trust_key,
     evaluate_federation_policy,
     export_federation_bundle,
+    export_federation_public_keyset,
     export_federation_trust_metadata,
     federation_key_fingerprint,
     import_federation_bundle_to_quarantine,
+    import_federation_public_keyset_to_trust_registry,
     is_allowed_for_target,
     is_less_restrictive,
     list_quarantine_bundles,
@@ -29,6 +31,7 @@ from groundrecall.federation import (
     revoke_federation_trust_key,
     save_federation_trust_registry,
     verify_federation_bundle,
+    verify_federation_public_keyset,
 )
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, SourceRecord
 from groundrecall.store import GroundRecallStore
@@ -303,6 +306,118 @@ def test_trust_metadata_export_can_include_key_fingerprint() -> None:
     assert metadata.keys[0].key_fingerprint == federation_key_fingerprint(SIGNING_KEY)
     assert metadata.keys[0].key_material_redacted is True
     assert SIGNING_KEY not in metadata.model_dump_json()
+
+
+def test_signed_public_keyset_imports_ed25519_keys_with_local_caps(tmp_path: Path) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    _, producer_public_pem = _ed25519_key_pair()
+    source_registry = add_federation_trust_key(
+        FederationTrustRegistry(registry_id="producer-registry"),
+        instance_id="host-a",
+        key_id="host-a-ed",
+        key_material=producer_public_pem.decode("utf-8"),
+        algorithm="ed25519",
+        release_levels=["public", "internal"],
+        trusted_actions=["import", "promote"],
+        created_at="2026-07-26T00:00:00Z",
+        expires_at="2026-10-24T00:00:00Z",
+    )
+    keyset_path = tmp_path / "public-keyset.json"
+
+    keyset = export_federation_public_keyset(
+        source_registry,
+        keyset_path,
+        producer_instance_id="host-a",
+        signing_key=signer_private_pem,
+        signer_key_id="host-a-root",
+        created_at="2026-07-27T00:00:00Z",
+    )
+
+    assert keyset.manifest.signature is not None
+    assert keyset.manifest.signature.algorithm == "ed25519"
+    assert keyset.keys[0].public_key_pem == producer_public_pem.decode("utf-8")
+    verified = verify_federation_public_keyset(json.loads(keyset_path.read_text(encoding="utf-8")), verification_key=signer_public_pem, signer_key_id="host-a-root")
+    receiver_registry = import_federation_public_keyset_to_trust_registry(
+        verified,
+        FederationTrustRegistry(registry_id="receiver-registry"),
+        verification_key=signer_public_pem,
+        signer_key_id="host-a-root",
+        allowed_release_levels=["public"],
+        allowed_trusted_actions=["import"],
+    )
+
+    imported_key = receiver_registry.keys[0]
+    assert imported_key.algorithm == "ed25519"
+    assert imported_key.key_material == producer_public_pem.decode("utf-8")
+    assert imported_key.release_levels == ["public"]
+    assert imported_key.trusted_actions == ["import"]
+    assert imported_key.expires_at == "2026-10-24T00:00:00Z"
+    with pytest.raises(FederationPolicyError, match="does not allow release level"):
+        resolve_trust_key(receiver_registry, instance_id="host-a", key_id="host-a-ed", release_level="internal", action="import", algorithm="ed25519")
+
+
+def test_signed_public_keyset_rejects_tampering(tmp_path: Path) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    _, producer_public_pem = _ed25519_key_pair()
+    source_registry = add_federation_trust_key(
+        FederationTrustRegistry(),
+        instance_id="host-a",
+        key_id="host-a-ed",
+        key_material=producer_public_pem.decode("utf-8"),
+        algorithm="ed25519",
+        release_levels=["public"],
+        trusted_actions=["import"],
+    )
+    keyset_path = tmp_path / "public-keyset.json"
+    export_federation_public_keyset(
+        source_registry,
+        keyset_path,
+        producer_instance_id="host-a",
+        signing_key=signer_private_pem,
+        signer_key_id="host-a-root",
+    )
+    tampered = json.loads(keyset_path.read_text(encoding="utf-8"))
+    tampered["keys"][0]["key_id"] = "attacker-key"
+
+    with pytest.raises(FederationPolicyError, match="signature verification failed"):
+        verify_federation_public_keyset(tampered, verification_key=signer_public_pem, signer_key_id="host-a-root")
+
+
+def test_signed_public_keyset_import_defaults_to_producer_instance_only(tmp_path: Path) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    _, producer_public_pem = _ed25519_key_pair()
+    source_registry = add_federation_trust_key(
+        FederationTrustRegistry(),
+        instance_id="host-b",
+        key_id="host-b-ed",
+        key_material=producer_public_pem.decode("utf-8"),
+        algorithm="ed25519",
+        release_levels=["public"],
+        trusted_actions=["import"],
+    )
+    keyset_path = tmp_path / "public-keyset.json"
+    keyset = export_federation_public_keyset(
+        source_registry,
+        keyset_path,
+        producer_instance_id="host-a",
+        signing_key=signer_private_pem,
+        signer_key_id="host-a-root",
+    )
+
+    default_registry = import_federation_public_keyset_to_trust_registry(
+        keyset,
+        FederationTrustRegistry(),
+        verification_key=signer_public_pem,
+    )
+    assert default_registry.keys == []
+
+    allowed_registry = import_federation_public_keyset_to_trust_registry(
+        keyset,
+        FederationTrustRegistry(),
+        verification_key=signer_public_pem,
+        allowed_instance_ids=["host-b"],
+    )
+    assert allowed_registry.keys[0].instance_id == "host-b"
 
 
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
@@ -1089,6 +1204,129 @@ def test_federation_cli_ed25519_export_and_registry_import(tmp_path: Path, monke
             str(quarantine_dir),
             "--trust-registry",
             str(trust_registry),
+            "--accept-release-level",
+            "internal",
+        ],
+    )
+    federation.main()
+    import_output = json.loads(capsys.readouterr().out)
+    assert import_output["decision"] == "quarantined"
+
+
+def test_federation_cli_publishes_and_imports_signed_public_keyset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    signer_private_pem, signer_public_pem = _ed25519_key_pair()
+    producer_private_pem, producer_public_pem = _ed25519_key_pair()
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    signer_private_file = tmp_path / "signer-private.pem"
+    signer_public_file = tmp_path / "signer-public.pem"
+    producer_private_file = tmp_path / "producer-private.pem"
+    producer_public_file = tmp_path / "producer-public.pem"
+    signer_private_file.write_bytes(signer_private_pem)
+    signer_public_file.write_bytes(signer_public_pem)
+    producer_private_file.write_bytes(producer_private_pem)
+    producer_public_file.write_bytes(producer_public_pem)
+    source_registry = tmp_path / "source-trust.json"
+    receiver_registry = tmp_path / "receiver-trust.json"
+    keyset_path = tmp_path / "public-keyset.json"
+    bundle_path = tmp_path / "bundle.json"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(source_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "producer-ed",
+            "--key-file",
+            str(producer_public_file),
+            "--algorithm",
+            "ed25519",
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "import",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-publish-keyset",
+            str(source_registry),
+            str(keyset_path),
+            "--producer-instance-id",
+            "host-a",
+            "--signing-key-file",
+            str(signer_private_file),
+            "--signer-key-id",
+            "host-a-root",
+        ],
+    )
+    federation.main()
+    keyset_output = json.loads(capsys.readouterr().out)
+    assert keyset_output["manifest"]["signature"]["algorithm"] == "ed25519"
+    assert keyset_output["keys"][0]["public_key_pem"] == producer_public_pem.decode("utf-8").strip()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-import-keyset",
+            str(keyset_path),
+            str(receiver_registry),
+            "--signer-key-file",
+            str(signer_public_file),
+            "--signer-key-id",
+            "host-a-root",
+            "--allow-release-level",
+            "internal",
+            "--allow-trusted-action",
+            "import",
+        ],
+    )
+    federation.main()
+    receiver_output = json.loads(capsys.readouterr().out)
+    assert receiver_output["keys"][0]["algorithm"] == "ed25519"
+    assert receiver_output["keys"][0]["key_material"] == producer_public_pem.decode("utf-8").strip()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "export",
+            str(store.base_dir),
+            str(bundle_path),
+            "--target-release-level",
+            "internal",
+            "--producer-instance-id",
+            "host-a",
+            "--key-file",
+            str(producer_private_file),
+            "--key-id",
+            "producer-ed",
+            "--signature-algorithm",
+            "ed25519",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "import",
+            str(bundle_path),
+            str(tmp_path / "quarantine"),
+            "--trust-registry",
+            str(receiver_registry),
             "--accept-release-level",
             "internal",
         ],
