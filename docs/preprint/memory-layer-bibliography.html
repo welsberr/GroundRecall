@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>GroundRecall Memory Layer Bibliography</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">GroundRecall Memory Layer Bibliography</h1>
+</header>
+<h1 id="memory-layer-technology-seed-bibliography">Memory-Layer Technology Seed Bibliography</h1>
+<p>Date: 2026-07-26</p>
+<p>This is the initial CiteGeist-seeded bibliography for the GroundRecall preprint. It focuses on memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals.</p>
+<p>The bibliography was started as a BibTeX seed file at <code>docs/preprint/memory-layer-seed.bib</code> and ingested into a dedicated CiteGeist database at <code>docs/preprint/citegeist-memory-layer.sqlite3</code>.</p>
+<h2 id="how-to-use-this-bibliography-in-the-preprint">How To Use This Bibliography In The Preprint</h2>
+<p>GroundRecall should position itself relative to this literature as a governance-oriented memory control plane:</p>
+<ul>
+<li>more provenance/governance-focused than memory-stream systems;</li>
+<li>more release-policy and federation-focused than most agent memory layers;</li>
+<li>compatible with graph/RAG memory trends, but stricter about review, access, contradiction handling, and local authority;</li>
+<li>not claiming automatic semantic contradiction detection or production IAM.</li>
+</ul>
+<h2 id="annotated-sources">Annotated Sources</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Key</th>
+<th>Source</th>
+<th>Why it matters for GroundRecall</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>park2023generativeagents</code></td>
+<td>Park et al., 2023, <em>Generative Agents</em></td>
+<td>Establishes memory streams, reflection, and retrieval as an agent architecture pattern. GroundRecall differs by centering durable provenance, review gates, release controls, and federation.</td>
+</tr>
+<tr class="even">
+<td><code>packer2023memgpt</code></td>
+<td>Packer et al., 2023/2024, <em>MemGPT</em></td>
+<td>Frames LLM memory as an operating-system-style virtual context problem. GroundRecall extends the OS analogy toward governance, provenance, release policy, contradiction cases, and audit.</td>
+</tr>
+<tr class="odd">
+<td><code>gutierrez2024hipporag</code></td>
+<td>Gutiérrez et al., 2024, <em>HippoRAG</em></td>
+<td>Shows graph-based long-term retrieval can improve multi-hop memory use. GroundRecall’s graph operations and contradiction diagnostics fit this direction but add review and policy controls.</td>
+</tr>
+<tr class="even">
+<td><code>xu2025amem</code></td>
+<td>Xu et al., 2025, <em>A-MEM</em></td>
+<td>Uses dynamically linked memory notes and memory evolution. GroundRecall should cite it as evidence that adaptive graph memory is a current research direction, while contrasting GroundRecall’s non-destructive adjudication/history model.</td>
+</tr>
+<tr class="odd">
+<td><code>chhikara2025mem0</code></td>
+<td>Chhikara et al., 2025, <em>Mem0</em></td>
+<td>Represents production-oriented long-term agent memory, including consolidation/retrieval and graph-memory variant. GroundRecall should contrast its governance controls with production memory performance claims.</td>
+</tr>
+<tr class="even">
+<td><code>kang2025memoryos</code></td>
+<td>Kang et al., 2025, <em>Memory OS of AI Agent</em></td>
+<td>Hierarchical short/mid/long-term personal memory architecture. Useful for comparing memory tiers and update policies.</td>
+</tr>
+<tr class="odd">
+<td><code>li2025memos</code></td>
+<td>Li et al., 2025, <em>MemOS</em></td>
+<td>Memory OS abstraction treating memory as a manageable system resource across plaintext, activation, and parameter memories. Strong conceptual neighbor for GroundRecall’s memory control-plane framing.</td>
+</tr>
+<tr class="even">
+<td><code>anokhin2025arigraph</code></td>
+<td>Anokhin et al., 2025, <em>AriGraph</em></td>
+<td>Uses semantic and episodic knowledge graph memory for agent planning. Useful for graph-memory comparison.</td>
+</tr>
+<tr class="odd">
+<td><code>zhang2025memorysurvey</code></td>
+<td>Zhang et al., 2025, <em>A Survey on the Memory Mechanism of LLM-based Agents</em></td>
+<td>Provides survey/taxonomy support for the claim that memory mechanisms are a defined LLM-agent subsystem.</td>
+</tr>
+<tr class="even">
+<td><code>tian2025kgalignment</code></td>
+<td>Tian et al., 2025, <em>Knowledge Graph Alignment with LLMs in RAG</em></td>
+<td>Supports the point that KG representation/linearization choices matter for downstream LLM use.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="source-links-used-for-verification">Source Links Used For Verification</h2>
+<ul>
+<li>Park et al., <em>Generative Agents</em>: https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/</li>
+<li>arXiv <code>2304.03442</code>: https://arxiv.org/abs/2304.03442</li>
+<li>arXiv <code>2310.08560</code>: https://arxiv.org/abs/2310.08560</li>
+<li>HippoRAG ML Anthology page: https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/</li>
+<li>arXiv <code>2502.12110</code>: https://arxiv.org/abs/2502.12110</li>
+<li>arXiv <code>2504.19413</code>: https://arxiv.org/abs/2504.19413</li>
+<li>arXiv <code>2506.06326</code>: https://arxiv.org/abs/2506.06326</li>
+<li>arXiv <code>2507.03724</code>: https://arxiv.org/abs/2507.03724</li>
+<li>IJCAI AriGraph page: https://www.ijcai.org/proceedings/2025/0002</li>
+<li>ACM TOIS memory survey DOI: https://doi.org/10.1145/3748302</li>
+<li>AAAI KG alignment paper: https://ojs.aaai.org/index.php/AAAI/article/view/34716</li>
+</ul>
+<h2 id="next-bibliography-expansion-targets">Next Bibliography Expansion Targets</h2>
+<ul>
+<li>LongMemEval and LoCoMo benchmark papers/datasets.</li>
+<li>GraphRAG and agentic GraphRAG surveys.</li>
+<li>Security/governance papers on persistent AI memory, privacy leakage, and retrieval authorization.</li>
+<li>Systems literature on append-only logs, capability-based access control, and provenance-aware data governance.</li>
+</ul>
+</body>
+</html>

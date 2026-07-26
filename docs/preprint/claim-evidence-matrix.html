@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>GroundRecall Claim Evidence Matrix</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">GroundRecall Claim Evidence Matrix</h1>
+</header>
+<h1 id="groundrecall-preprint-claim-to-evidence-matrix">GroundRecall Preprint Claim-To-Evidence Matrix</h1>
+<p>Date: 2026-07-26</p>
+<p>This matrix maps paper claims to current implementation evidence and known caveats. It is intended to keep the preprint claims defensible.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Preprint claim</th>
+<th>Implementation artifact</th>
+<th>Test / evidence</th>
+<th>Caveat</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GroundRecall stores durable memory as typed, provenance-linked records.</td>
+<td><code>src/groundrecall/models.py</code>, <code>src/groundrecall/store.py</code></td>
+<td>Store round-trip and snapshot tests.</td>
+<td>File-backed prototype, not a distributed database.</td>
+</tr>
+<tr class="even">
+<td>GroundRecall preserves evidence rather than flattening memory into ungrounded summaries.</td>
+<td>Observation/claim provenance fields; snapshot/export paths.</td>
+<td>Query/export/store tests; deterministic JSON snapshots.</td>
+<td>Extraction accuracy is not guaranteed by the store.</td>
+</tr>
+<tr class="odd">
+<td>Confidence is structured and reviewable.</td>
+<td><code>src/groundrecall/confidence.py</code>; Epistemap integration.</td>
+<td>Confidence profile and migration tests.</td>
+<td>Full calibration/evaluation remains future work.</td>
+</tr>
+<tr class="even">
+<td>Ordinary forgetting is non-destructive lifecycle management.</td>
+<td>Expiry/supersession/retraction/applicability metadata and confidence handling.</td>
+<td>Confidence and temporal query behavior tests.</td>
+<td>Exceptional erasure workflow not complete.</td>
+</tr>
+<tr class="odd">
+<td>Contradictions are reviewable first-class objects.</td>
+<td><code>ContradictionCaseRecord</code>; <code>src/groundrecall/contradictions.py</code>.</td>
+<td><code>tests/test_contradictions.py</code>; query and diagnostics tests.</td>
+<td>Depends on explicit contradiction links; no semantic auto-detection yet.</td>
+</tr>
+<tr class="even">
+<td>Contradiction adjudication preserves disagreement history.</td>
+<td><code>groundrecall contradictions adjudicate</code>; adjudication records with <code>subject_type="contradiction_case"</code>.</td>
+<td>CLI/adjudication tests.</td>
+<td>Does not rewrite or automatically re-rank underlying claims yet.</td>
+</tr>
+<tr class="odd">
+<td>Export/federation enforces release-level constraints.</td>
+<td><code>src/groundrecall/federation.py</code>, <code>src/groundrecall/export_guardrails.py</code>.</td>
+<td>Federation tests for public/internal/confidential/privileged/private behavior.</td>
+<td>Correct classification still depends on input metadata and review.</td>
+</tr>
+<tr class="even">
+<td>Signed bundles detect tampering.</td>
+<td>Federation bundle manifest, content hash, HMAC/Ed25519 verification.</td>
+<td>Signature/hash verification tests.</td>
+<td>Key management is local prototype level.</td>
+</tr>
+<tr class="odd">
+<td>Imported memory is quarantine-first.</td>
+<td><code>import_federation_bundle_to_quarantine</code>; promotion planning/apply functions.</td>
+<td>Quarantine and promotion tests.</td>
+<td>No hosted review service.</td>
+</tr>
+<tr class="even">
+<td>Promotion is local-policy-gated.</td>
+<td><code>FederationLocalPolicy</code>, scoped grants, audit events.</td>
+<td>Policy, scope, role-directory, and audit tests.</td>
+<td>Not integrated with enterprise IAM.</td>
+</tr>
+<tr class="odd">
+<td>Public-key trust distribution is locally capped.</td>
+<td>Signed keysets and role-directory publication/import.</td>
+<td>Ed25519 keyset and role-directory tests.</td>
+<td>Requires pinned signer keys; no key transparency service.</td>
+</tr>
+<tr class="even">
+<td>GroundRecall aligns with memory-layer research but contributes governance controls.</td>
+<td>Preprint memory-layer bibliography and architecture note.</td>
+<td>CiteGeist-seeded bibliography; source-verified annotations.</td>
+<td>Needs broader literature expansion before manuscript submission.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="immediate-evidence-gaps">Immediate Evidence Gaps</h2>
+<ul>
+<li>Reproducible demonstration scripts under <code>examples/preprint/</code>.</li>
+<li>A generated paper table mapping tests to claims.</li>
+<li>A short comparative table against MemGPT, Generative Agents, HippoRAG, A-MEM, Mem0, MemoryOS, and MemOS.</li>
+<li>Bibliography expansion into privacy/security/provenance governance literature.</li>
+</ul>
+</body>
+</html>

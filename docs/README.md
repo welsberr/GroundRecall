@@ -17,6 +17,15 @@ Primary docs:
 - [sync-roadmap.md](sync-roadmap.md)
 - [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md)
 
+Preprint preparation:
+
+- [preprint-roadmap.md](preprint-roadmap.md)
+- [preprint-architecture.md](preprint-architecture.md)
+- [implemented-features-summary.md](implemented-features-summary.md)
+- [preprint/threat-model.md](preprint/threat-model.md)
+- [preprint/claim-evidence-matrix.md](preprint/claim-evidence-matrix.md)
+- [preprint/memory-layer-bibliography.md](preprint/memory-layer-bibliography.md)
+
 The memory lifecycle roadmap is the primary forward-looking roadmap. The sync
 and knowledge-graph roadmaps provide focused implementation detail beneath it.
 

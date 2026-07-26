@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>preprint-roadmap</title>
+  <title>GroundRecall Preprint Roadmap</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -15,6 +15,9 @@
   </style>
 </head>
 <body>
+<header id="title-block-header">
+<h1 class="title">GroundRecall Preprint Roadmap</h1>
+</header>
 <h1 id="groundrecall-preprint-roadmap">GroundRecall Preprint Roadmap</h1>
 <p>Date: 2026-07-26</p>
 <p>This roadmap begins the paper-preparation phase for GroundRecall. It freezes the current implementation scope for preprint purposes, identifies defensible claims, and defines the remaining documentation, evidence, and drafting work needed before writing the manuscript.</p>
@@ -289,8 +292,10 @@
 <li>this preprint roadmap;</li>
 <li>implemented-features summary;</li>
 <li>one architecture note;</li>
-<li>one threat-model table;</li>
-<li>one claim-to-evidence matrix.</li>
+<li>one threat-model table at <code>docs/preprint/threat-model.md</code>;</li>
+<li>one claim-to-evidence matrix at <code>docs/preprint/claim-evidence-matrix.md</code>;</li>
+<li>one memory-layer seed bibliography at <code>docs/preprint/memory-layer-bibliography.md</code>;</li>
+<li>one CiteGeist-backed BibTeX seed/export pair under <code>docs/preprint/</code>.</li>
 </ul>
 <p>Exit criteria:</p>
 <ul>
@@ -313,7 +318,7 @@
 <h3 id="p2-threat-model-and-governance-analysis">P2: Threat Model And Governance Analysis</h3>
 <p>Deliverable:</p>
 <ul>
-<li><code>docs/preprint-threat-model.md</code></li>
+<li><code>docs/preprint/threat-model.md</code></li>
 </ul>
 <p>Contents:</p>
 <ul>
@@ -336,7 +341,7 @@
 <h3 id="p4-claim-to-evidence-matrix">P4: Claim-To-Evidence Matrix</h3>
 <p>Deliverable:</p>
 <ul>
-<li><code>docs/preprint-claim-evidence-matrix.md</code></li>
+<li><code>docs/preprint/claim-evidence-matrix.md</code></li>
 </ul>
 <p>Contents:</p>
 <ul>
@@ -345,6 +350,21 @@
 <li>test coverage;</li>
 <li>demonstration artifact;</li>
 <li>caveat/limitation.</li>
+</ul>
+<h3 id="p4a-memory-layer-bibliography">P4a: Memory-Layer Bibliography</h3>
+<p>Deliverables:</p>
+<ul>
+<li><code>docs/preprint/memory-layer-bibliography.md</code></li>
+<li><code>docs/preprint/memory-layer-seed.bib</code></li>
+<li><code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><code>docs/preprint/citegeist-memory-layer.sqlite3</code></li>
+</ul>
+<p>Contents:</p>
+<ul>
+<li>seeded bibliography for agent memory and memory-layer technology;</li>
+<li>annotation of how each source positions GroundRecall;</li>
+<li>source URLs used for verification;</li>
+<li>expansion targets for benchmarks, privacy/security, provenance, and governance literature.</li>
 </ul>
 <h3 id="p5-manuscript-draft">P5: Manuscript Draft</h3>
 <p>Deliverable:</p>

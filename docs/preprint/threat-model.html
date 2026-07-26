@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>GroundRecall Preprint Threat Model</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">GroundRecall Preprint Threat Model</h1>
+</header>
+<h1 id="groundrecall-preprint-threat-model">GroundRecall Preprint Threat Model</h1>
+<p>Date: 2026-07-26</p>
+<p>This threat model is scoped to the current GroundRecall prototype. It supports the preprint claim that GroundRecall is a governed memory control plane, not a finished distributed platform or complete IAM/security product.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Threat</th>
+<th>Implemented mitigation</th>
+<th>Residual limitation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Stale memory treated as current</td>
+<td>Confidence and temporal-validity metadata; expiry, supersession, retraction, applicability, and confidence review markers.</td>
+<td>No complete automated policy engine for every downstream context-use decision.</td>
+</tr>
+<tr class="even">
+<td>Ungrounded summary replaces evidence</td>
+<td>Claims link back to observations/fragments and provenance records; exports preserve IDs and content hashes.</td>
+<td>Upstream extraction can still be wrong; review remains necessary.</td>
+</tr>
+<tr class="odd">
+<td>Contradictions remain invisible</td>
+<td>Explicit <code>contradicts_claim_ids</code> can be materialized into contradiction cases; diagnostics flag missing cases and open promoted conflicts; adjudications can target cases.</td>
+<td>No automatic semantic contradiction detection yet.</td>
+</tr>
+<tr class="even">
+<td>Conflicting imported record overwrites local canonical memory</td>
+<td>Federation import quarantines first; promotion detects existing-record conflicts; promotion avoids overwriting differing canonical records.</td>
+<td>No CRDT merge layer or rich conflict-resolution UI yet.</td>
+</tr>
+<tr class="odd">
+<td>Private/internal material leaks through public export</td>
+<td>Release lattice blocks broadening; <code>private</code> is local-only; hidden basis is marked partial; derivatives require redaction/declassification metadata.</td>
+<td>Correct classification still depends on import/review discipline.</td>
+</tr>
+<tr class="even">
+<td>Privileged material is shared too broadly</td>
+<td>Privileged federation requires explicit privileged allowance in policy.</td>
+<td>Not a substitute for enterprise IAM, DLP, legal-hold, or HSM-backed controls.</td>
+</tr>
+<tr class="odd">
+<td>Valid signature is mistaken for local authority</td>
+<td>Import verifies signatures but still requires local release acceptance, policy, quarantine, and promotion.</td>
+<td>Operators must maintain local policies and trust registries correctly.</td>
+</tr>
+<tr class="even">
+<td>Malicious or mistaken role directory grants too much authority</td>
+<td>Signed role directories are locally capped before compilation into local policy.</td>
+<td>No production identity integration or external revocation propagation service.</td>
+</tr>
+<tr class="odd">
+<td>Stale, expired, or revoked trust key remains usable</td>
+<td>Trust registry records expiry, revocation, active state, supersession, and trusted actions; resolver blocks expired/inactive/revoked keys.</td>
+<td>No automated global key transparency or recovery service.</td>
+</tr>
+<tr class="even">
+<td>Audit history is lost during ordinary forgetting</td>
+<td>Ordinary lifecycle changes are non-destructive; history remains via statuses, metadata, adjudications, and audit logs.</td>
+<td>Exceptional erasure workflows are not yet implemented end-to-end.</td>
+</tr>
+<tr class="odd">
+<td>Imported knowledge expands access scope indirectly</td>
+<td>Federation filtering requires dependencies to be exportable; contradiction cases export only when referenced claims are included and case release level is allowed.</td>
+<td>Transitive semantic leakage still requires conservative review/redaction practices.</td>
+</tr>
+<tr class="even">
+<td>Agent writes bypass review</td>
+<td>Promotion gates candidate/imported material before canonical persistence; contradiction adjudication records explicit reviewer decisions.</td>
+<td>GroundRecall does not by itself sandbox all host tools or prevent direct filesystem writes outside its store.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="paper-framing">Paper Framing</h2>
+<p>The paper should state that GroundRecall addresses memory governance at the data-model and workflow layer:</p>
+<ul>
+<li>provenance is kept inspectable;</li>
+<li>promotion is review-gated;</li>
+<li>cross-host exchange is signed and quarantined;</li>
+<li>release-level policy prevents obvious access broadening;</li>
+<li>contradiction/adjudication state is preserved rather than erased;</li>
+<li>local policy remains final authority.</li>
+</ul>
+<p>The paper should not claim complete security against host compromise, full regulatory compliance, complete erasure propagation, or production organization identity management.</p>
+</body>
+</html>
