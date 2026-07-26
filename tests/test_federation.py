@@ -14,6 +14,8 @@ from groundrecall.federation import (
     add_federation_trust_key,
     evaluate_federation_policy,
     export_federation_bundle,
+    export_federation_trust_metadata,
+    federation_key_fingerprint,
     import_federation_bundle_to_quarantine,
     is_allowed_for_target,
     is_less_restrictive,
@@ -244,6 +246,47 @@ def test_trust_registry_rejects_expired_key() -> None:
             action="import",
             as_of="2026-07-27T00:00:00Z",
         )
+
+
+def test_trust_metadata_export_redacts_key_material_by_default() -> None:
+    registry = add_federation_trust_key(
+        FederationTrustRegistry(registry_id="local-registry"),
+        instance_id="host-a",
+        key_id="metadata-key",
+        key_material=SIGNING_KEY,
+        release_levels=["public", "internal"],
+        trusted_actions=["import", "promote"],
+        created_at="2026-07-26T00:00:00Z",
+        expires_at="2026-10-24T00:00:00Z",
+    )
+
+    metadata = export_federation_trust_metadata(registry, exported_at="2026-07-27T00:00:00Z")
+    exported = metadata.model_dump(mode="json")
+
+    assert exported["registry_id"] == "groundrecall.federation_trust_metadata.v1"
+    assert exported["source_registry_id"] == "local-registry"
+    assert exported["exported_at"] == "2026-07-27T00:00:00Z"
+    assert exported["keys"][0]["key_material_redacted"] is True
+    assert exported["keys"][0]["key_fingerprint"] == ""
+    assert "key_material" not in exported["keys"][0]
+    assert SIGNING_KEY not in metadata.model_dump_json()
+
+
+def test_trust_metadata_export_can_include_key_fingerprint() -> None:
+    registry = add_federation_trust_key(
+        FederationTrustRegistry(),
+        instance_id="host-a",
+        key_id="metadata-key",
+        key_material=SIGNING_KEY,
+        release_levels=["internal"],
+        trusted_actions=["import"],
+    )
+
+    metadata = export_federation_trust_metadata(registry, include_key_fingerprints=True)
+
+    assert metadata.keys[0].key_fingerprint == federation_key_fingerprint(SIGNING_KEY)
+    assert metadata.keys[0].key_material_redacted is True
+    assert SIGNING_KEY not in metadata.model_dump_json()
 
 
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
@@ -1116,3 +1159,50 @@ def test_federation_cli_expired_registry_key_blocks_import(tmp_path: Path, monke
     )
     with pytest.raises(FederationPolicyError, match="expired"):
         federation.main()
+
+
+def test_federation_cli_exports_redacted_trust_metadata(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    key_file = tmp_path / "federation.key"
+    key_file.write_text(SIGNING_KEY, encoding="utf-8")
+    trust_registry = tmp_path / "trust.json"
+    metadata_path = tmp_path / "trust-metadata.json"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(trust_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "metadata-key",
+            "--key-file",
+            str(key_file),
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "import",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-export-metadata",
+            str(trust_registry),
+            str(metadata_path),
+            "--include-key-fingerprint",
+        ],
+    )
+    federation.main()
+    output = json.loads(capsys.readouterr().out)
+    written = json.loads(metadata_path.read_text(encoding="utf-8"))
+
+    assert output == written
+    assert output["keys"][0]["key_fingerprint"] == federation_key_fingerprint(SIGNING_KEY)
+    assert "key_material" not in output["keys"][0]
+    assert SIGNING_KEY not in metadata_path.read_text(encoding="utf-8")

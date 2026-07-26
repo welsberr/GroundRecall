@@ -154,9 +154,32 @@ class FederationTrustKey(BaseModel):
     trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
 
 
+class FederationTrustKeyMetadata(BaseModel):
+    instance_id: str
+    key_id: str
+    algorithm: str = "hmac-sha256"
+    active: bool = True
+    created_at: str = ""
+    expires_at: str = ""
+    revoked_at: str = ""
+    revocation_reason: str = ""
+    superseded_by_key_id: str = ""
+    release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
+    trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
+    key_material_redacted: bool = True
+    key_fingerprint: str = ""
+
+
 class FederationTrustRegistry(BaseModel):
     registry_id: str = "groundrecall.local_federation_trust_registry.v1"
     keys: list[FederationTrustKey] = Field(default_factory=list)
+
+
+class FederationTrustRegistryMetadata(BaseModel):
+    registry_id: str = "groundrecall.federation_trust_metadata.v1"
+    source_registry_id: str = ""
+    exported_at: str
+    keys: list[FederationTrustKeyMetadata] = Field(default_factory=list)
 
 
 class FederationPolicyDecision(BaseModel):
@@ -249,6 +272,46 @@ def save_federation_trust_registry(path: str | Path, registry: FederationTrustRe
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(registry.model_dump_json(indent=2) + "\n", encoding="utf-8")
+
+
+def federation_key_fingerprint(key_material: str) -> str:
+    return "sha256:" + hashlib.sha256(key_material.encode("utf-8")).hexdigest()
+
+
+def export_federation_trust_metadata(
+    registry: FederationTrustRegistry,
+    *,
+    exported_at: str | None = None,
+    include_key_fingerprints: bool = False,
+) -> FederationTrustRegistryMetadata:
+    keys = [
+        FederationTrustKeyMetadata(
+            instance_id=key.instance_id,
+            key_id=key.key_id,
+            algorithm=key.algorithm,
+            active=key.active,
+            created_at=key.created_at,
+            expires_at=key.expires_at,
+            revoked_at=key.revoked_at,
+            revocation_reason=key.revocation_reason,
+            superseded_by_key_id=key.superseded_by_key_id,
+            release_levels=key.release_levels,
+            trusted_actions=key.trusted_actions,
+            key_fingerprint=federation_key_fingerprint(key.key_material) if include_key_fingerprints else "",
+        )
+        for key in registry.keys
+    ]
+    return FederationTrustRegistryMetadata(
+        source_registry_id=registry.registry_id,
+        exported_at=exported_at or now_utc(),
+        keys=keys,
+    )
+
+
+def save_federation_trust_metadata(path: str | Path, metadata: FederationTrustRegistryMetadata) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(metadata.model_dump_json(indent=2) + "\n", encoding="utf-8")
 
 
 def add_federation_trust_key(
@@ -988,6 +1051,18 @@ def build_parser() -> argparse.ArgumentParser:
     trust_revoke_parser.add_argument("--reason", default="")
     trust_revoke_parser.add_argument("--superseded-by-key-id", default="")
 
+    trust_export_metadata_parser = subparsers.add_parser(
+        "trust-export-metadata",
+        help="Write a non-secret federation trust metadata file with key material redacted.",
+    )
+    trust_export_metadata_parser.add_argument("registry_path")
+    trust_export_metadata_parser.add_argument("out_path")
+    trust_export_metadata_parser.add_argument(
+        "--include-key-fingerprint",
+        action="store_true",
+        help="Include sha256 fingerprints of key material for operator comparison. Use only for high-entropy keys.",
+    )
+
     trust_list_parser = subparsers.add_parser("trust-list", help="List trusted federation keys in a local registry.")
     trust_list_parser.add_argument("registry_path")
     return parser
@@ -1022,6 +1097,15 @@ def main() -> None:
         )
         save_federation_trust_registry(args.registry_path, registry)
         print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "trust-export-metadata":
+        registry = load_federation_trust_registry(args.registry_path)
+        metadata = export_federation_trust_metadata(
+            registry,
+            include_key_fingerprints=args.include_key_fingerprint,
+        )
+        save_federation_trust_metadata(args.out_path, metadata)
+        print(json.dumps(metadata.model_dump(mode="json"), indent=2, sort_keys=True))
         return
     if args.command == "trust-list":
         registry = load_federation_trust_registry(args.registry_path)

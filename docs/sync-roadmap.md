@@ -280,6 +280,8 @@ groundrecall federation trust-revoke ./trust.json \
   --key-id host-a-2026-07 \
   --reason rotation \
   --superseded-by-key-id host-a-2026-08
+
+groundrecall federation trust-export-metadata ./trust.json ./trust-metadata.json
 ```
 
 `--trust-registry` can then replace `--key-file` for export, import, and
@@ -289,6 +291,15 @@ or revoked keys are retained for audit/history but are blocked from export,
 import, and promotion. A later milestone should replace this local
 symmetric-key registry with organization-managed asymmetric key publication and
 signed rotation/revocation feeds.
+
+For coordination between hosts, `trust-export-metadata` writes
+`groundrecall.federation_trust_metadata.v1`, which omits `key_material` and
+retains only instance/key IDs, algorithm, lifecycle fields, release levels, and
+trusted actions. `--include-key-fingerprint` can add a `sha256:` fingerprint
+for operator comparison, but should only be used with high-entropy keys because
+fingerprints of weak shared secrets can aid guessing. This metadata file is
+safe for inventory/review workflows but is not sufficient for bundle
+verification until asymmetric public-key trust publication is added.
 
 ### F0: Instance Identity And Trust Roots
 
