@@ -11,7 +11,7 @@ from .query import query_concept
 from .search_index import search_index
 
 
-SERVER_INFO = {"name": "groundrecall-mcp", "version": "0.1.0a0"}
+SERVER_INFO = {"name": "groundrecall-mcp", "version": "0.1.0a1"}
 
 
 def _json_text(payload: Any) -> dict[str, Any]:
