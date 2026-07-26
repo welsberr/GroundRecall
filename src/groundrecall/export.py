@@ -243,6 +243,9 @@ def export_groundrecall_query_bundle(
     assessment_manifest_path = target / "assessment_manifest.json"
     assessment_validation_json_path = target / "assessment_validation.json"
     assessment_validation_markdown_path = target / "assessment_validation.md"
+    confidence_profile_path = target / "confidence_profile.json"
+    if isinstance(payload.get("confidence_profile"), dict):
+        _write_json(confidence_profile_path, payload["confidence_profile"])
     if isinstance(payload.get("epistemap_graph"), dict):
         graph = GraphBundle.model_validate(payload["epistemap_graph"])
         assessment = bayesian_assessment_report(graph)
@@ -276,6 +279,7 @@ def export_groundrecall_query_bundle(
         "assessment_manifest_json_path": str(assessment_manifest_path) if assessment_manifest_path.exists() else "",
         "assessment_validation_json_path": str(assessment_validation_json_path) if assessment_validation_json_path.exists() else "",
         "assessment_validation_markdown_path": str(assessment_validation_markdown_path) if assessment_validation_markdown_path.exists() else "",
+        "confidence_profile_json_path": str(confidence_profile_path) if confidence_profile_path.exists() else "",
         "bayesian_assessment_json_path": str(assessment_json_path) if assessment_json_path.exists() else "",
         "bayesian_assessment_markdown_path": str(assessment_markdown_path) if assessment_markdown_path.exists() else "",
         "bayesian_reliability_markdown_path": str(bayesian_path) if bayesian_path.exists() else "",

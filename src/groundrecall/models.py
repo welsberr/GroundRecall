@@ -133,6 +133,19 @@ class PromotionRecord(BaseModel):
     promoted_at: str = ""
 
 
+class AdjudicationRecord(BaseModel):
+    adjudication_id: str
+    subject_id: str
+    subject_type: Literal["claim", "observation", "relation"] = "claim"
+    selected_assessment_ids: list[str] = Field(default_factory=list)
+    considered_assessment_ids: list[str] = Field(default_factory=list)
+    adjudicator: str = ""
+    method: str = "explicit_review"
+    rationale: str = ""
+    decided_at: str = ""
+    metadata: dict = Field(default_factory=dict)
+
+
 class GroundRecallSnapshot(BaseModel):
     snapshot_id: str
     created_at: str
@@ -144,4 +157,5 @@ class GroundRecallSnapshot(BaseModel):
     concepts: list[ConceptRecord] = Field(default_factory=list)
     relations: list[RelationRecord] = Field(default_factory=list)
     promotions: list[PromotionRecord] = Field(default_factory=list)
+    adjudications: list[AdjudicationRecord] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)

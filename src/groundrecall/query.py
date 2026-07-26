@@ -16,6 +16,7 @@ from epistemap import (
 )
 
 from .epistemap_adapter import graph_bundle_from_query_payload
+from .confidence import confidence_profile_for_query_payload
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
 from .search_index import search_index
 from .store import GroundRecallStore
@@ -388,6 +389,17 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     concept_id = str(payload["concept"].get("concept_id", ""))
     epistemic = epistemic_summary(graph_bundle, concept_id) if concept_id else {}
     temporal_summary = _temporal_summary(graph_bundle, claims)
+    claim_ids = {str(item.get("claim_id", "")) for item in claims}
+    adjudications = [
+        item
+        for item in GroundRecallStore(store_dir).list_adjudications()
+        if item.subject_id in claim_ids
+    ]
+    confidence_profile = confidence_profile_for_query_payload(
+        payload,
+        graph_bundle=graph_bundle,
+        adjudications=adjudications,
+    )
     return {
         "bundle_kind": "groundrecall_query_bundle",
         "query_type": "concept",
@@ -406,6 +418,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "epistemic_summary": epistemic,
         "assessment_summary": _assessment_summary(epistemic, temporal_summary),
         "temporal_summary": temporal_summary,
+        "confidence_profile": confidence_profile,
         "suggested_next_actions": [
             "Review promoted claims with low review confidence.",
             "Inspect supporting observations before exporting assistant context.",
