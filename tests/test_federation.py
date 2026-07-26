@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import pytest
 
 from groundrecall import federation
@@ -33,6 +35,20 @@ from groundrecall.store import GroundRecallStore
 
 
 SIGNING_KEY = "test federation signing key"
+
+
+def _ed25519_key_pair() -> tuple[bytes, bytes]:
+    private_key = Ed25519PrivateKey.generate()
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    public_pem = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    return private_pem, public_pem
 
 
 def _seed_federation_store(store: GroundRecallStore) -> None:
@@ -443,6 +459,33 @@ def test_import_verifies_signature_and_quarantines_without_promotion(tmp_path: P
     summaries = list_quarantine_bundles(tmp_path / "receiver" / "quarantine")
     assert len(summaries) == 1
     assert summaries[0].bundle_id == result.bundle_id
+
+
+def test_ed25519_bundle_signature_verifies_with_public_key(tmp_path: Path) -> None:
+    private_pem, public_pem = _ed25519_key_pair()
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    bundle_path = tmp_path / "ed25519-federation.json"
+
+    bundle = export_federation_bundle(
+        store.base_dir,
+        bundle_path,
+        target_release_level="internal",
+        producer_instance_id="host-a",
+        signing_key=private_pem,
+        key_id="ed-key",
+        signature_algorithm="ed25519",
+        snapshot_id="snap-ed25519",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    assert bundle.manifest.signature is not None
+    assert bundle.manifest.signature.algorithm == "ed25519"
+    verified = verify_federation_bundle(json.loads(bundle_path.read_text(encoding="utf-8")), signing_key=public_pem, key_id="ed-key")
+    assert verified.manifest.bundle_id == bundle.manifest.bundle_id
+
+    with pytest.raises(FederationPolicyError, match="signature verification failed"):
+        verify_federation_bundle(json.loads(bundle_path.read_text(encoding="utf-8")), signing_key=_ed25519_key_pair()[1], key_id="ed-key")
 
 
 def test_policy_rejects_unauthorized_export_and_writes_audit(tmp_path: Path) -> None:
@@ -976,6 +1019,83 @@ def test_federation_cli_trust_registry_can_sign_verify_and_promote(tmp_path: Pat
     promote_output = json.loads(capsys.readouterr().out)
     assert promote_output["decision"] == "promoted"
     assert (receiver_store / "claims" / "clm_public.json").exists()
+
+
+def test_federation_cli_ed25519_export_and_registry_import(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    private_pem, public_pem = _ed25519_key_pair()
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    private_key_file = tmp_path / "ed25519-private.pem"
+    public_key_file = tmp_path / "ed25519-public.pem"
+    private_key_file.write_bytes(private_pem)
+    public_key_file.write_bytes(public_pem)
+    trust_registry = tmp_path / "trust.json"
+    bundle_path = tmp_path / "bundle.json"
+    quarantine_dir = tmp_path / "quarantine"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(trust_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "ed-key",
+            "--key-file",
+            str(public_key_file),
+            "--algorithm",
+            "ed25519",
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "import",
+        ],
+    )
+    federation.main()
+    trust_add_output = json.loads(capsys.readouterr().out)
+    assert trust_add_output["keys"][0]["algorithm"] == "ed25519"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "export",
+            str(store.base_dir),
+            str(bundle_path),
+            "--target-release-level",
+            "internal",
+            "--producer-instance-id",
+            "host-a",
+            "--key-file",
+            str(private_key_file),
+            "--key-id",
+            "ed-key",
+            "--signature-algorithm",
+            "ed25519",
+        ],
+    )
+    federation.main()
+    export_output = json.loads(capsys.readouterr().out)
+    assert export_output["manifest"]["signature"]["algorithm"] == "ed25519"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "import",
+            str(bundle_path),
+            str(quarantine_dir),
+            "--trust-registry",
+            str(trust_registry),
+            "--accept-release-level",
+            "internal",
+        ],
+    )
+    federation.main()
+    import_output = json.loads(capsys.readouterr().out)
+    assert import_output["decision"] == "quarantined"
 
 
 def test_federation_cli_revoke_blocks_registry_verification(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

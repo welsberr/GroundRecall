@@ -236,8 +236,9 @@ ID, reasons, and decision metadata.
 
 Local trust registries use the
 `groundrecall.local_federation_trust_registry.v1` shape. They map producer
-instances and key IDs to locally trusted HMAC key material, allowed release
-levels, and trusted actions:
+instances and key IDs to locally trusted key material, allowed release levels,
+and trusted actions. `hmac-sha256` entries contain local shared secrets;
+`ed25519` entries contain public verification keys:
 
 ```json
 {
@@ -246,7 +247,7 @@ levels, and trusted actions:
     {
       "instance_id": "host-a",
       "key_id": "host-a-2026-07",
-      "key_material": "store this outside public exports",
+      "key_material": "store this outside public exports for HMAC; Ed25519 entries store public PEM keys",
       "algorithm": "hmac-sha256",
       "active": true,
       "created_at": "2026-07-26T00:00:00Z",
@@ -268,6 +269,7 @@ groundrecall federation trust-add ./trust.json \
   --instance-id host-a \
   --key-id host-a-2026-07 \
   --key-file ./host-a-federation.key \
+  --algorithm hmac-sha256 \
   --release-level internal \
   --trusted-action import \
   --trusted-action promote \
@@ -285,12 +287,29 @@ groundrecall federation trust-export-metadata ./trust.json ./trust-metadata.json
 ```
 
 `--trust-registry` can then replace `--key-file` for export, import, and
-promotion. Registry files contain key material and must be treated as secrets;
-they are local trust roots, not public federation artifacts. Expired, inactive,
-or revoked keys are retained for audit/history but are blocked from export,
-import, and promotion. A later milestone should replace this local
-symmetric-key registry with organization-managed asymmetric key publication and
-signed rotation/revocation feeds.
+promotion for HMAC workflows. For Ed25519 workflows, export uses
+`--key-file ./private-signing-key.pem --signature-algorithm ed25519`, while
+import and promotion can use a trust registry entry created from the producer's
+public key:
+
+```bash
+groundrecall federation trust-add ./trust.json \
+  --instance-id host-a \
+  --key-id host-a-2026-07 \
+  --key-file ./host-a-ed25519-public.pem \
+  --algorithm ed25519 \
+  --release-level internal \
+  --trusted-action import \
+  --trusted-action promote
+```
+
+HMAC registry files contain shared secrets and must be treated as secrets; they
+are local trust roots, not public federation artifacts. Ed25519 registry entries
+contain public keys, but the registry still records local trust decisions and
+should be reviewed before use. Expired, inactive, or revoked keys are retained
+for audit/history but are blocked from export, import, and promotion. A later
+milestone should replace manual public-key exchange with organization-managed
+signed key publication and rotation/revocation feeds.
 
 For coordination between hosts, `trust-export-metadata` writes
 `groundrecall.federation_trust_metadata.v1`, which omits `key_material` and
@@ -298,8 +317,9 @@ retains only instance/key IDs, algorithm, lifecycle fields, release levels, and
 trusted actions. `--include-key-fingerprint` can add a `sha256:` fingerprint
 for operator comparison, but should only be used with high-entropy keys because
 fingerprints of weak shared secrets can aid guessing. This metadata file is
-safe for inventory/review workflows but is not sufficient for bundle
-verification until asymmetric public-key trust publication is added.
+safe for inventory/review workflows. For Ed25519, the full public key still
+needs to be distributed through a reviewed trust-registry update until signed
+public-key publication is added.
 
 ### F0: Instance Identity And Trust Roots
 
@@ -308,6 +328,8 @@ verification until asymmetric public-key trust publication is added.
 - Record origin and owner instance on imported records.
 - Support explicit trust relationships between instances rather than implicit
   trust from network reachability.
+- Support Ed25519 bundle signatures so receivers can verify with producer
+  public keys instead of shared HMAC secrets.
 
 Acceptance criteria:
 

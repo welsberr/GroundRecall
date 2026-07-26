@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -8,6 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from pydantic import BaseModel, Field
 
 from .export_guardrails import _secret_field_path
@@ -19,6 +24,7 @@ ReleaseLevel = Literal["public", "internal", "confidential", "privileged", "priv
 ProvenanceVisibility = Literal["full", "partial", "redacted", "hidden"]
 ImportDecision = Literal["quarantined", "rejected"]
 FederationAction = Literal["export", "import", "promote"]
+FederationSignatureAlgorithm = Literal["hmac-sha256", "ed25519"]
 
 RELEASE_LEVELS: tuple[ReleaseLevel, ...] = (
     "public",
@@ -90,7 +96,7 @@ class FederationPolicyReport(BaseModel):
 
 
 class FederationSignature(BaseModel):
-    algorithm: str = "hmac-sha256"
+    algorithm: FederationSignatureAlgorithm = "hmac-sha256"
     key_id: str
     value: str
 
@@ -143,7 +149,7 @@ class FederationTrustKey(BaseModel):
     instance_id: str
     key_id: str
     key_material: str
-    algorithm: str = "hmac-sha256"
+    algorithm: FederationSignatureAlgorithm = "hmac-sha256"
     active: bool = True
     created_at: str = ""
     expires_at: str = ""
@@ -157,7 +163,7 @@ class FederationTrustKey(BaseModel):
 class FederationTrustKeyMetadata(BaseModel):
     instance_id: str
     key_id: str
-    algorithm: str = "hmac-sha256"
+    algorithm: FederationSignatureAlgorithm = "hmac-sha256"
     active: bool = True
     created_at: str = ""
     expires_at: str = ""
@@ -322,6 +328,7 @@ def add_federation_trust_key(
     key_material: str,
     release_levels: list[ReleaseLevel],
     trusted_actions: list[FederationAction],
+    algorithm: FederationSignatureAlgorithm = "hmac-sha256",
     active: bool = True,
     created_at: str | None = None,
     expires_at: str = "",
@@ -332,6 +339,7 @@ def add_federation_trust_key(
             instance_id=instance_id,
             key_id=key_id,
             key_material=key_material,
+            algorithm=algorithm,
             active=active,
             created_at=created_at or now_utc(),
             expires_at=expires_at,
@@ -380,6 +388,7 @@ def resolve_trust_key(
     key_id: str,
     release_level: ReleaseLevel,
     action: FederationAction,
+    algorithm: FederationSignatureAlgorithm | None = None,
     as_of: str | datetime | None = None,
 ) -> bytes:
     matches = [key for key in registry.keys if key.instance_id == instance_id and key.key_id == key_id]
@@ -395,7 +404,9 @@ def resolve_trust_key(
         check_time = parse_federation_time(as_of) or datetime.now(timezone.utc)
         if expires_at <= check_time:
             raise FederationPolicyError(f"trusted key is expired: {instance_id}:{key_id}")
-    if key.algorithm != "hmac-sha256":
+    if algorithm is not None and key.algorithm != algorithm:
+        raise FederationPolicyError(f"trusted key algorithm mismatch: expected {algorithm} got {key.algorithm}")
+    if key.algorithm not in ("hmac-sha256", "ed25519"):
         raise FederationPolicyError(f"unsupported trusted key algorithm: {key.algorithm}")
     if release_level not in key.release_levels:
         raise FederationPolicyError(f"trusted key does not allow release level: {release_level}")
@@ -523,6 +534,7 @@ def export_federation_bundle(
     producer_instance_id: str,
     signing_key: str | bytes,
     key_id: str,
+    signature_algorithm: FederationSignatureAlgorithm = "hmac-sha256",
     owner_instance_id: str = "",
     snapshot_id: str | None = None,
     created_at: str | None = None,
@@ -587,8 +599,9 @@ def export_federation_bundle(
     signed_manifest = manifest.model_copy(
         update={
             "signature": FederationSignature(
+                algorithm=signature_algorithm,
                 key_id=key_id,
-                value=_signature_for_payload(unsigned.model_dump(mode="json"), signing_key),
+                value=_signature_for_payload(unsigned.model_dump(mode="json"), signing_key, algorithm=signature_algorithm),
             )
         }
     )
@@ -745,8 +758,12 @@ def verify_federation_bundle(bundle: FederationBundle | dict[str, Any], *, signi
         raise FederationPolicyError(f"unexpected federation key_id: {signature.key_id}")
     unsigned_manifest = parsed.manifest.model_copy(update={"signature": None})
     unsigned_bundle = parsed.model_copy(update={"manifest": unsigned_manifest})
-    expected = _signature_for_payload(unsigned_bundle.model_dump(mode="json"), signing_key)
-    if not hmac.compare_digest(signature.value, expected):
+    if not _verify_signature_for_payload(
+        unsigned_bundle.model_dump(mode="json"),
+        signing_key,
+        algorithm=signature.algorithm,
+        signature_value=signature.value,
+    ):
         raise FederationPolicyError("federation bundle signature verification failed")
     content_hash = _content_hash_for_snapshot(parsed.snapshot)
     if parsed.manifest.content_hash != content_hash:
@@ -975,9 +992,10 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--target-release-level", required=True, choices=["public", "internal", "confidential", "privileged"])
     export_parser.add_argument("--producer-instance-id", required=True)
     export_parser.add_argument("--owner-instance-id", default="")
-    export_parser.add_argument("--key-file", default=None, help="Path containing the HMAC signing key.")
+    export_parser.add_argument("--key-file", default=None, help="Path containing the HMAC signing key or Ed25519 private signing key.")
     export_parser.add_argument("--trust-registry", default=None, help="Optional local trust registry JSON file.")
     export_parser.add_argument("--key-id", required=True)
+    export_parser.add_argument("--signature-algorithm", default="hmac-sha256", choices=["hmac-sha256", "ed25519"])
     export_parser.add_argument("--snapshot-id", default=None)
     export_parser.add_argument("--allow-unclassified-public", action="store_true")
     export_parser.add_argument("--allow-privileged", action="store_true")
@@ -1026,7 +1044,8 @@ def build_parser() -> argparse.ArgumentParser:
     trust_add_parser.add_argument("registry_path")
     trust_add_parser.add_argument("--instance-id", required=True)
     trust_add_parser.add_argument("--key-id", required=True)
-    trust_add_parser.add_argument("--key-file", required=True, help="Path containing the HMAC key material to trust.")
+    trust_add_parser.add_argument("--key-file", required=True, help="Path containing HMAC key material or an Ed25519 public key to trust.")
+    trust_add_parser.add_argument("--algorithm", default="hmac-sha256", choices=["hmac-sha256", "ed25519"])
     trust_add_parser.add_argument(
         "--release-level",
         action="append",
@@ -1078,6 +1097,7 @@ def main() -> None:
             instance_id=args.instance_id,
             key_id=args.key_id,
             key_material=Path(args.key_file).read_text(encoding="utf-8").strip(),
+            algorithm=args.algorithm,
             release_levels=args.release_level or ["public"],
             trusted_actions=args.trusted_action or ["import", "promote"],
             active=not args.inactive,
@@ -1126,6 +1146,7 @@ def main() -> None:
             owner_instance_id=args.owner_instance_id,
             signing_key=key,
             key_id=args.key_id,
+            signature_algorithm=args.signature_algorithm,
             snapshot_id=args.snapshot_id,
             allow_unclassified_public=args.allow_unclassified_public,
             allow_privileged=args.allow_privileged,
@@ -1172,6 +1193,8 @@ def _key_for_export_args(args: argparse.Namespace) -> bytes:
     if args.key_file:
         return Path(args.key_file).read_bytes()
     if args.trust_registry:
+        if args.signature_algorithm != "hmac-sha256":
+            raise FederationPolicyError("ed25519 export requires --key-file with an Ed25519 private key")
         registry = load_federation_trust_registry(args.trust_registry)
         return resolve_trust_key(
             registry,
@@ -1179,6 +1202,7 @@ def _key_for_export_args(args: argparse.Namespace) -> bytes:
             key_id=args.key_id,
             release_level=args.target_release_level,
             action="export",
+            algorithm=args.signature_algorithm,
         )
     raise FederationPolicyError("export requires --key-file or --trust-registry")
 
@@ -1199,6 +1223,7 @@ def _key_for_bundle_args(args: argparse.Namespace, *, action: FederationAction) 
             key_id=key_id,
             release_level=bundle.manifest.target_release_level,
             action=action,
+            algorithm=signature.algorithm,
         )
         return key, key_id
     raise FederationPolicyError(f"{action} requires --key-file or --trust-registry")
@@ -1333,9 +1358,49 @@ def _content_hash_for_snapshot(snapshot: GroundRecallSnapshot) -> str:
     return hashlib.sha256(_canonical_json(snapshot.model_dump(mode="json")).encode("utf-8")).hexdigest()
 
 
-def _signature_for_payload(payload: dict[str, Any], signing_key: str | bytes) -> str:
+def _signature_for_payload(
+    payload: dict[str, Any],
+    signing_key: str | bytes,
+    *,
+    algorithm: FederationSignatureAlgorithm,
+) -> str:
     key = signing_key.encode("utf-8") if isinstance(signing_key, str) else signing_key
-    return hmac.new(key, _canonical_json(payload).encode("utf-8"), hashlib.sha256).hexdigest()
+    message = _canonical_json(payload).encode("utf-8")
+    if algorithm == "hmac-sha256":
+        return hmac.new(key, message, hashlib.sha256).hexdigest()
+    if algorithm == "ed25519":
+        try:
+            private_key = serialization.load_pem_private_key(key, password=None)
+        except ValueError as exc:
+            raise FederationPolicyError("ed25519 signing requires a valid Ed25519 private key") from exc
+        if not isinstance(private_key, Ed25519PrivateKey):
+            raise FederationPolicyError("ed25519 signing requires an Ed25519 private key")
+        return base64.b64encode(private_key.sign(message)).decode("ascii")
+    raise FederationPolicyError(f"unsupported federation signature algorithm: {algorithm}")
+
+
+def _verify_signature_for_payload(
+    payload: dict[str, Any],
+    verification_key: str | bytes,
+    *,
+    algorithm: FederationSignatureAlgorithm,
+    signature_value: str,
+) -> bool:
+    key = verification_key.encode("utf-8") if isinstance(verification_key, str) else verification_key
+    message = _canonical_json(payload).encode("utf-8")
+    if algorithm == "hmac-sha256":
+        expected = hmac.new(key, message, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(signature_value, expected)
+    if algorithm == "ed25519":
+        try:
+            public_key = serialization.load_pem_public_key(key)
+            if not isinstance(public_key, Ed25519PublicKey):
+                raise FederationPolicyError("ed25519 verification requires an Ed25519 public key")
+            public_key.verify(base64.b64decode(signature_value.encode("ascii")), message)
+        except (InvalidSignature, ValueError, binascii.Error):
+            return False
+        return True
+    raise FederationPolicyError(f"unsupported federation signature algorithm: {algorithm}")
 
 
 def _canonical_json(payload: Any) -> str:
