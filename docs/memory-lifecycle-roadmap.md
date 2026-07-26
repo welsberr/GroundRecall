@@ -11,6 +11,11 @@ partial until store migration/rollback, producer-level method provenance,
 reviewer/adjudication records, confidence profiles, and deduplicated evidence
 ledgers are implemented and tested.
 
+GroundRecall consumes the portable confidence contract from Epistemap
+`v0.1.0a1`. This is an immutable Git-tag dependency; it does not imply that the
+remaining GroundRecall migration phases or legacy-field deprecation are
+complete.
+
 GroundRecall's primary product direction is a review-gated,
 provenance-first memory substrate for long-lived AI work.
 
