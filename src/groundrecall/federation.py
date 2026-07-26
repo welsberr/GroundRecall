@@ -139,6 +139,21 @@ class FederationLocalPolicy(BaseModel):
     grants: list[FederationPolicyGrant] = Field(default_factory=list)
 
 
+class FederationTrustKey(BaseModel):
+    instance_id: str
+    key_id: str
+    key_material: str
+    algorithm: str = "hmac-sha256"
+    active: bool = True
+    release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
+    trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
+
+
+class FederationTrustRegistry(BaseModel):
+    registry_id: str = "groundrecall.local_federation_trust_registry.v1"
+    keys: list[FederationTrustKey] = Field(default_factory=list)
+
+
 class FederationPolicyDecision(BaseModel):
     allowed: bool
     policy_id: str
@@ -201,6 +216,63 @@ def now_utc() -> str:
 
 def load_federation_policy(path: str | Path) -> FederationLocalPolicy:
     return FederationLocalPolicy.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def load_federation_trust_registry(path: str | Path) -> FederationTrustRegistry:
+    return FederationTrustRegistry.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def save_federation_trust_registry(path: str | Path, registry: FederationTrustRegistry) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(registry.model_dump_json(indent=2) + "\n", encoding="utf-8")
+
+
+def add_federation_trust_key(
+    registry: FederationTrustRegistry,
+    *,
+    instance_id: str,
+    key_id: str,
+    key_material: str,
+    release_levels: list[ReleaseLevel],
+    trusted_actions: list[FederationAction],
+    active: bool = True,
+) -> FederationTrustRegistry:
+    keys = [key for key in registry.keys if not (key.instance_id == instance_id and key.key_id == key_id)]
+    keys.append(
+        FederationTrustKey(
+            instance_id=instance_id,
+            key_id=key_id,
+            key_material=key_material,
+            active=active,
+            release_levels=release_levels,
+            trusted_actions=trusted_actions,
+        )
+    )
+    return registry.model_copy(update={"keys": keys})
+
+
+def resolve_trust_key(
+    registry: FederationTrustRegistry,
+    *,
+    instance_id: str,
+    key_id: str,
+    release_level: ReleaseLevel,
+    action: FederationAction,
+) -> bytes:
+    matches = [key for key in registry.keys if key.instance_id == instance_id and key.key_id == key_id]
+    if not matches:
+        raise FederationPolicyError(f"no trusted key for instance {instance_id} key {key_id}")
+    key = matches[-1]
+    if not key.active:
+        raise FederationPolicyError(f"trusted key is inactive: {instance_id}:{key_id}")
+    if key.algorithm != "hmac-sha256":
+        raise FederationPolicyError(f"unsupported trusted key algorithm: {key.algorithm}")
+    if release_level not in key.release_levels:
+        raise FederationPolicyError(f"trusted key does not allow release level: {release_level}")
+    if action not in key.trusted_actions:
+        raise FederationPolicyError(f"trusted key does not allow action: {action}")
+    return key.key_material.encode("utf-8")
 
 
 def evaluate_federation_policy(
@@ -774,7 +846,8 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--target-release-level", required=True, choices=["public", "internal", "confidential", "privileged"])
     export_parser.add_argument("--producer-instance-id", required=True)
     export_parser.add_argument("--owner-instance-id", default="")
-    export_parser.add_argument("--key-file", required=True, help="Path containing the HMAC signing key.")
+    export_parser.add_argument("--key-file", default=None, help="Path containing the HMAC signing key.")
+    export_parser.add_argument("--trust-registry", default=None, help="Optional local trust registry JSON file.")
     export_parser.add_argument("--key-id", required=True)
     export_parser.add_argument("--snapshot-id", default=None)
     export_parser.add_argument("--allow-unclassified-public", action="store_true")
@@ -786,7 +859,8 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser = subparsers.add_parser("import", help="Verify a federation bundle and place it in quarantine.")
     import_parser.add_argument("bundle_path")
     import_parser.add_argument("quarantine_dir")
-    import_parser.add_argument("--key-file", required=True, help="Path containing the HMAC verification key.")
+    import_parser.add_argument("--key-file", default=None, help="Path containing the HMAC verification key.")
+    import_parser.add_argument("--trust-registry", default=None, help="Optional local trust registry JSON file.")
     import_parser.add_argument("--key-id", default=None)
     import_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
     import_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the import.")
@@ -804,7 +878,8 @@ def build_parser() -> argparse.ArgumentParser:
     promote_parser = subparsers.add_parser("promote", help="Plan or apply promotion of a quarantined bundle into a canonical store.")
     promote_parser.add_argument("bundle_path")
     promote_parser.add_argument("store_dir")
-    promote_parser.add_argument("--key-file", required=True, help="Path containing the HMAC verification key.")
+    promote_parser.add_argument("--key-file", default=None, help="Path containing the HMAC verification key.")
+    promote_parser.add_argument("--trust-registry", default=None, help="Optional local trust registry JSON file.")
     promote_parser.add_argument("--key-id", default=None)
     promote_parser.add_argument(
         "--accept-release-level",
@@ -817,18 +892,61 @@ def build_parser() -> argparse.ArgumentParser:
     promote_parser.add_argument("--requester-id", default="", help="Subject/principal requesting promotion.")
     promote_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
     promote_parser.add_argument("--apply", action="store_true", help="Write non-conflicting records into the canonical store.")
+
+    trust_add_parser = subparsers.add_parser("trust-add", help="Add or replace a trusted federation key in a local registry.")
+    trust_add_parser.add_argument("registry_path")
+    trust_add_parser.add_argument("--instance-id", required=True)
+    trust_add_parser.add_argument("--key-id", required=True)
+    trust_add_parser.add_argument("--key-file", required=True, help="Path containing the HMAC key material to trust.")
+    trust_add_parser.add_argument(
+        "--release-level",
+        action="append",
+        default=[],
+        choices=["public", "internal", "confidential", "privileged"],
+        help="Allowed release level. May be repeated.",
+    )
+    trust_add_parser.add_argument(
+        "--trusted-action",
+        action="append",
+        default=[],
+        choices=["export", "import", "promote"],
+        help="Allowed action. May be repeated.",
+    )
+    trust_add_parser.add_argument("--inactive", action="store_true")
+
+    trust_list_parser = subparsers.add_parser("trust-list", help="List trusted federation keys in a local registry.")
+    trust_list_parser.add_argument("registry_path")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.command == "trust-add":
+        path = Path(args.registry_path)
+        registry = load_federation_trust_registry(path) if path.exists() else FederationTrustRegistry()
+        registry = add_federation_trust_key(
+            registry,
+            instance_id=args.instance_id,
+            key_id=args.key_id,
+            key_material=Path(args.key_file).read_text(encoding="utf-8").strip(),
+            release_levels=args.release_level or ["public"],
+            trusted_actions=args.trusted_action or ["import", "promote"],
+            active=not args.inactive,
+        )
+        save_federation_trust_registry(path, registry)
+        print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "trust-list":
+        registry = load_federation_trust_registry(args.registry_path)
+        print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
     if args.command == "list-quarantine":
         summaries = list_quarantine_bundles(args.quarantine_dir)
         print(json.dumps([item.model_dump(mode="json") for item in summaries], indent=2, sort_keys=True))
         return
-    key = Path(args.key_file).read_bytes()
     policy = load_federation_policy(args.policy_file) if getattr(args, "policy_file", None) else None
     if args.command == "export":
+        key = _key_for_export_args(args)
         bundle = export_federation_bundle(
             store_dir=args.store_dir,
             out_path=args.out_path,
@@ -847,13 +965,14 @@ def main() -> None:
         print(json.dumps(bundle.model_dump(mode="json"), indent=2, sort_keys=True))
         return
     if args.command == "import":
+        key, resolved_key_id = _key_for_bundle_args(args, action="import")
         accepted = args.accept_release_level or ["public"]
         result = import_federation_bundle_to_quarantine(
             args.bundle_path,
             args.quarantine_dir,
             signing_key=key,
             accepted_release_levels=accepted,
-            key_id=args.key_id,
+            key_id=resolved_key_id,
             policy=policy,
             requester_id=args.requester_id,
             audit_log_path=args.audit_log,
@@ -861,12 +980,13 @@ def main() -> None:
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
         return
     if args.command == "promote":
+        key, resolved_key_id = _key_for_bundle_args(args, action="promote")
         accepted = args.accept_release_level or ["public"]
         result = promote_quarantined_bundle(
             args.bundle_path,
             args.store_dir,
             signing_key=key,
-            key_id=args.key_id,
+            key_id=resolved_key_id,
             accepted_release_levels=accepted,
             policy=policy,
             requester_id=args.requester_id,
@@ -875,6 +995,42 @@ def main() -> None:
         )
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
         return
+
+
+def _key_for_export_args(args: argparse.Namespace) -> bytes:
+    if args.key_file:
+        return Path(args.key_file).read_bytes()
+    if args.trust_registry:
+        registry = load_federation_trust_registry(args.trust_registry)
+        return resolve_trust_key(
+            registry,
+            instance_id=args.producer_instance_id,
+            key_id=args.key_id,
+            release_level=args.target_release_level,
+            action="export",
+        )
+    raise FederationPolicyError("export requires --key-file or --trust-registry")
+
+
+def _key_for_bundle_args(args: argparse.Namespace, *, action: FederationAction) -> tuple[bytes, str | None]:
+    if args.key_file:
+        return Path(args.key_file).read_bytes(), args.key_id
+    if args.trust_registry:
+        bundle = FederationBundle.model_validate_json(Path(args.bundle_path).read_text(encoding="utf-8"))
+        signature = bundle.manifest.signature
+        if signature is None:
+            raise FederationPolicyError("federation bundle is unsigned")
+        key_id = args.key_id or signature.key_id
+        registry = load_federation_trust_registry(args.trust_registry)
+        key = resolve_trust_key(
+            registry,
+            instance_id=bundle.manifest.producer_instance_id,
+            key_id=key_id,
+            release_level=bundle.manifest.target_release_level,
+            action=action,
+        )
+        return key, key_id
+    raise FederationPolicyError(f"{action} requires --key-file or --trust-registry")
 
 
 def _filter_records(

@@ -232,6 +232,48 @@ Audit events use `groundrecall.federation_audit.v1` JSONL records and capture
 the requester, action, decision, release level, bundle ID, instance ID, policy
 ID, reasons, and decision metadata.
 
+Local trust registries use the
+`groundrecall.local_federation_trust_registry.v1` shape. They map producer
+instances and key IDs to locally trusted HMAC key material, allowed release
+levels, and trusted actions:
+
+```json
+{
+  "registry_id": "example-project-trust-registry",
+  "keys": [
+    {
+      "instance_id": "host-a",
+      "key_id": "host-a-2026-07",
+      "key_material": "store this outside public exports",
+      "algorithm": "hmac-sha256",
+      "active": true,
+      "release_levels": ["public", "internal"],
+      "trusted_actions": ["export", "import", "promote"]
+    }
+  ]
+}
+```
+
+The CLI can manage this local file:
+
+```bash
+groundrecall federation trust-add ./trust.json \
+  --instance-id host-a \
+  --key-id host-a-2026-07 \
+  --key-file ./host-a-federation.key \
+  --release-level internal \
+  --trusted-action import \
+  --trusted-action promote
+
+groundrecall federation trust-list ./trust.json
+```
+
+`--trust-registry` can then replace `--key-file` for export, import, and
+promotion. Registry files contain key material and must be treated as secrets;
+they are local trust roots, not public federation artifacts. A later milestone
+should replace this local symmetric-key registry with organization-managed key
+publication, rotation, and revocation.
+
 ### F0: Instance Identity And Trust Roots
 
 - Define stable `instance_id`, local user/entity IDs, project IDs, and signing

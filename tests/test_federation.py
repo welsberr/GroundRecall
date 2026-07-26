@@ -10,14 +10,19 @@ from groundrecall.federation import (
     FederationLocalPolicy,
     FederationPolicyError,
     FederationPolicyGrant,
+    FederationTrustRegistry,
+    add_federation_trust_key,
     evaluate_federation_policy,
     export_federation_bundle,
     import_federation_bundle_to_quarantine,
     is_allowed_for_target,
     is_less_restrictive,
     list_quarantine_bundles,
+    load_federation_trust_registry,
     plan_quarantine_promotion,
     promote_quarantined_bundle,
+    resolve_trust_key,
+    save_federation_trust_registry,
     verify_federation_bundle,
 )
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, SourceRecord
@@ -144,6 +149,37 @@ def test_local_policy_grants_action_release_level_and_instance() -> None:
 
     promote = evaluate_federation_policy(policy, subject_id="alice", action="promote", release_level="internal", instance_id="host-a")
     assert promote.allowed is True
+
+
+def test_trust_registry_resolves_active_instance_key_for_allowed_actions(tmp_path: Path) -> None:
+    registry = add_federation_trust_key(
+        FederationTrustRegistry(registry_id="test-registry"),
+        instance_id="host-a",
+        key_id="test-key",
+        key_material=SIGNING_KEY,
+        release_levels=["public", "internal"],
+        trusted_actions=["export", "import", "promote"],
+    )
+    registry_path = tmp_path / "trust.json"
+    save_federation_trust_registry(registry_path, registry)
+    loaded = load_federation_trust_registry(registry_path)
+
+    assert resolve_trust_key(loaded, instance_id="host-a", key_id="test-key", release_level="internal", action="import") == SIGNING_KEY.encode("utf-8")
+
+    with pytest.raises(FederationPolicyError, match="does not allow release level"):
+        resolve_trust_key(loaded, instance_id="host-a", key_id="test-key", release_level="confidential", action="import")
+
+    inactive = add_federation_trust_key(
+        loaded,
+        instance_id="host-b",
+        key_id="inactive-key",
+        key_material=SIGNING_KEY,
+        release_levels=["public"],
+        trusted_actions=["import"],
+        active=False,
+    )
+    with pytest.raises(FederationPolicyError, match="inactive"):
+        resolve_trust_key(inactive, instance_id="host-b", key_id="inactive-key", release_level="public", action="import")
 
 
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
@@ -732,3 +768,104 @@ def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, mo
     assert output["manifest"]["target_release_level"] == "internal"
     assert bundle_path.exists()
     assert json.loads(audit_log.read_text(encoding="utf-8").splitlines()[0])["policy_id"] == "cli-policy"
+
+
+def test_federation_cli_trust_registry_can_sign_verify_and_promote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    key_file = tmp_path / "federation.key"
+    key_file.write_text(SIGNING_KEY, encoding="utf-8")
+    trust_registry = tmp_path / "trust.json"
+    bundle_path = tmp_path / "bundle.json"
+    quarantine_dir = tmp_path / "quarantine"
+    receiver_store = tmp_path / "receiver"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(trust_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "test-key",
+            "--key-file",
+            str(key_file),
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "export",
+            "--trusted-action",
+            "import",
+            "--trusted-action",
+            "promote",
+        ],
+    )
+    federation.main()
+    trust_add_output = json.loads(capsys.readouterr().out)
+    assert trust_add_output["keys"][0]["instance_id"] == "host-a"
+
+    monkeypatch.setattr("sys.argv", ["groundrecall federation", "trust-list", str(trust_registry)])
+    federation.main()
+    trust_list_output = json.loads(capsys.readouterr().out)
+    assert trust_list_output["keys"][0]["key_id"] == "test-key"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "export",
+            str(store.base_dir),
+            str(bundle_path),
+            "--target-release-level",
+            "internal",
+            "--producer-instance-id",
+            "host-a",
+            "--trust-registry",
+            str(trust_registry),
+            "--key-id",
+            "test-key",
+            "--snapshot-id",
+            "snap-trust",
+        ],
+    )
+    federation.main()
+    export_output = json.loads(capsys.readouterr().out)
+    assert export_output["manifest"]["signature"]["key_id"] == "test-key"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "import",
+            str(bundle_path),
+            str(quarantine_dir),
+            "--trust-registry",
+            str(trust_registry),
+            "--accept-release-level",
+            "internal",
+        ],
+    )
+    federation.main()
+    import_output = json.loads(capsys.readouterr().out)
+    assert import_output["decision"] == "quarantined"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "promote",
+            import_output["quarantine_path"],
+            str(receiver_store),
+            "--trust-registry",
+            str(trust_registry),
+            "--accept-release-level",
+            "internal",
+            "--apply",
+        ],
+    )
+    federation.main()
+    promote_output = json.loads(capsys.readouterr().out)
+    assert promote_output["decision"] == "promoted"
+    assert (receiver_store / "claims" / "clm_public.json").exists()
