@@ -145,6 +145,26 @@ class FederationLocalPolicy(BaseModel):
     grants: list[FederationPolicyGrant] = Field(default_factory=list)
 
 
+class FederationRoleDefinition(BaseModel):
+    role_id: str
+    actions: list[FederationAction] = Field(default_factory=list)
+    release_levels: list[ReleaseLevel] = Field(default_factory=list)
+    instance_ids: list[str] = Field(default_factory=lambda: ["*"])
+    scopes: list[str] = Field(default_factory=list)
+    allow_privileged: bool = False
+
+
+class FederationRoleMembership(BaseModel):
+    subject_id: str
+    role_ids: list[str] = Field(default_factory=list)
+
+
+class FederationRoleDirectory(BaseModel):
+    directory_id: str = "groundrecall.federation_role_directory.v1"
+    roles: list[FederationRoleDefinition] = Field(default_factory=list)
+    memberships: list[FederationRoleMembership] = Field(default_factory=list)
+
+
 class FederationTrustKey(BaseModel):
     instance_id: str
     key_id: str
@@ -227,6 +247,7 @@ class FederationPolicyDecision(BaseModel):
     action: FederationAction
     release_level: ReleaseLevel
     instance_id: str = ""
+    scope_id: str = ""
     reasons: list[str] = Field(default_factory=list)
     grant_index: int | None = None
 
@@ -242,6 +263,7 @@ class FederationAuditEvent(BaseModel):
     release_level: ReleaseLevel
     bundle_id: str = ""
     instance_id: str = ""
+    scope_id: str = ""
     policy_id: str = ""
     reasons: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -300,6 +322,52 @@ def parse_federation_time(value: str | datetime | None) -> datetime | None:
 
 def load_federation_policy(path: str | Path) -> FederationLocalPolicy:
     return FederationLocalPolicy.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def save_federation_policy(path: str | Path, policy: FederationLocalPolicy) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(policy.model_dump_json(indent=2) + "\n", encoding="utf-8")
+
+
+def load_federation_role_directory(path: str | Path) -> FederationRoleDirectory:
+    return FederationRoleDirectory.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def save_federation_role_directory(path: str | Path, directory: FederationRoleDirectory) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(directory.model_dump_json(indent=2) + "\n", encoding="utf-8")
+
+
+def compile_federation_role_directory_to_policy(
+    directory: FederationRoleDirectory,
+    *,
+    policy_id: str | None = None,
+) -> FederationLocalPolicy:
+    roles = {role.role_id: role for role in directory.roles}
+    grants: list[FederationPolicyGrant] = []
+    for membership in directory.memberships:
+        if not membership.subject_id:
+            raise FederationPolicyError("role directory membership is missing subject_id")
+        for role_id in membership.role_ids:
+            role = roles.get(role_id)
+            if role is None:
+                raise FederationPolicyError(f"role directory membership references unknown role: {role_id}")
+            grants.append(
+                FederationPolicyGrant(
+                    subject_id=membership.subject_id,
+                    actions=role.actions,
+                    release_levels=role.release_levels,
+                    instance_ids=role.instance_ids,
+                    scopes=role.scopes,
+                    allow_privileged=role.allow_privileged,
+                )
+            )
+    return FederationLocalPolicy(
+        policy_id=policy_id or f"compiled::{directory.directory_id}",
+        grants=grants,
+    )
 
 
 def load_federation_trust_registry(path: str | Path) -> FederationTrustRegistry:
@@ -584,6 +652,7 @@ def evaluate_federation_policy(
     action: FederationAction,
     release_level: ReleaseLevel,
     instance_id: str = "",
+    scope_id: str = "",
 ) -> FederationPolicyDecision:
     if not subject_id:
         return FederationPolicyDecision(
@@ -593,6 +662,7 @@ def evaluate_federation_policy(
             action=action,
             release_level=release_level,
             instance_id=instance_id,
+            scope_id=scope_id,
             reasons=["missing_subject_id"],
         )
     for index, grant in enumerate(policy.grants):
@@ -606,6 +676,8 @@ def evaluate_federation_policy(
             continue
         if "*" not in grant.instance_ids and instance_id and instance_id not in grant.instance_ids:
             continue
+        if grant.scopes and scope_id not in grant.scopes:
+            continue
         return FederationPolicyDecision(
             allowed=True,
             policy_id=policy.policy_id,
@@ -613,6 +685,7 @@ def evaluate_federation_policy(
             action=action,
             release_level=release_level,
             instance_id=instance_id,
+            scope_id=scope_id,
             grant_index=index,
         )
     return FederationPolicyDecision(
@@ -622,6 +695,7 @@ def evaluate_federation_policy(
         action=action,
         release_level=release_level,
         instance_id=instance_id,
+        scope_id=scope_id,
         reasons=["no_matching_federation_grant"],
     )
 
@@ -655,6 +729,7 @@ def build_federation_audit_event(
         release_level=release_level,
         bundle_id=bundle_id,
         instance_id=instance_id,
+        scope_id=policy_decision.scope_id if policy_decision is not None else "",
         policy_id=policy_decision.policy_id if policy_decision is not None else "",
         reasons=list(reasons if reasons is not None else (policy_decision.reasons if policy_decision is not None else [])),
         metadata=metadata or {},
@@ -704,6 +779,7 @@ def export_federation_bundle(
     allow_privileged: bool = False,
     policy: FederationLocalPolicy | None = None,
     requester_id: str = "",
+    scope_id: str = "",
     audit_log_path: str | Path | None = None,
 ) -> FederationBundle:
     if target_release_level == "private":
@@ -718,6 +794,7 @@ def export_federation_bundle(
             action="export",
             release_level=target_release_level,
             instance_id=producer_instance_id,
+            scope_id=scope_id,
         )
         if not policy_decision.allowed:
             if audit_log_path is not None:
@@ -942,6 +1019,7 @@ def import_federation_bundle_to_quarantine(
     key_id: str | None = None,
     policy: FederationLocalPolicy | None = None,
     requester_id: str = "",
+    scope_id: str = "",
     audit_log_path: str | Path | None = None,
 ) -> FederationImportResult:
     payload = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
@@ -956,6 +1034,7 @@ def import_federation_bundle_to_quarantine(
             action="import",
             release_level=bundle.manifest.target_release_level,
             instance_id=bundle.manifest.producer_instance_id,
+            scope_id=scope_id,
         )
         if not policy_decision.allowed:
             reasons.extend(policy_decision.reasons)
@@ -1092,6 +1171,7 @@ def promote_quarantined_bundle(
     accepted_release_levels: Iterable[ReleaseLevel] = ("public",),
     policy: FederationLocalPolicy | None = None,
     requester_id: str = "",
+    scope_id: str = "",
     audit_log_path: str | Path | None = None,
     apply: bool = False,
 ) -> FederationPromotionResult:
@@ -1104,6 +1184,7 @@ def promote_quarantined_bundle(
             action="promote",
             release_level=bundle.manifest.target_release_level,
             instance_id=bundle.manifest.producer_instance_id,
+            scope_id=scope_id,
         )
         if not policy_decision.allowed:
             plan = plan_quarantine_promotion(
@@ -1163,6 +1244,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--allow-privileged", action="store_true")
     export_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
     export_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the export.")
+    export_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
     export_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
 
     import_parser = subparsers.add_parser("import", help="Verify a federation bundle and place it in quarantine.")
@@ -1173,6 +1255,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser.add_argument("--key-id", default=None)
     import_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
     import_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the import.")
+    import_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
     import_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
     import_parser.add_argument(
         "--accept-release-level",
@@ -1199,8 +1282,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     promote_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
     promote_parser.add_argument("--requester-id", default="", help="Subject/principal requesting promotion.")
+    promote_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
     promote_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
     promote_parser.add_argument("--apply", action="store_true", help="Write non-conflicting records into the canonical store.")
+
+    role_compile_parser = subparsers.add_parser(
+        "policy-from-roles",
+        help="Compile a federation role directory JSON file into a local federation policy JSON file.",
+    )
+    role_compile_parser.add_argument("role_directory_path")
+    role_compile_parser.add_argument("policy_path")
+    role_compile_parser.add_argument("--policy-id", default=None)
 
     trust_add_parser = subparsers.add_parser("trust-add", help="Add or replace a trusted federation key in a local registry.")
     trust_add_parser.add_argument("registry_path")
@@ -1291,6 +1383,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.command == "policy-from-roles":
+        directory = load_federation_role_directory(args.role_directory_path)
+        policy = compile_federation_role_directory_to_policy(directory, policy_id=args.policy_id)
+        save_federation_policy(args.policy_path, policy)
+        print(json.dumps(policy.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
     if args.command == "trust-add":
         path = Path(args.registry_path)
         registry = load_federation_trust_registry(path) if path.exists() else FederationTrustRegistry()
@@ -1382,6 +1480,7 @@ def main() -> None:
             allow_privileged=args.allow_privileged,
             policy=policy,
             requester_id=args.requester_id,
+            scope_id=args.scope_id,
             audit_log_path=args.audit_log,
         )
         print(json.dumps(bundle.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -1397,6 +1496,7 @@ def main() -> None:
             key_id=resolved_key_id,
             policy=policy,
             requester_id=args.requester_id,
+            scope_id=args.scope_id,
             audit_log_path=args.audit_log,
         )
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -1412,6 +1512,7 @@ def main() -> None:
             accepted_release_levels=accepted,
             policy=policy,
             requester_id=args.requester_id,
+            scope_id=args.scope_id,
             audit_log_path=args.audit_log,
             apply=args.apply,
         )

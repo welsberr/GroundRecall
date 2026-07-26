@@ -12,8 +12,12 @@ from groundrecall.federation import (
     FederationLocalPolicy,
     FederationPolicyError,
     FederationPolicyGrant,
+    FederationRoleDefinition,
+    FederationRoleDirectory,
+    FederationRoleMembership,
     FederationTrustRegistry,
     add_federation_trust_key,
+    compile_federation_role_directory_to_policy,
     evaluate_federation_policy,
     export_federation_bundle,
     export_federation_public_keyset,
@@ -171,6 +175,93 @@ def test_local_policy_grants_action_release_level_and_instance() -> None:
 
     promote = evaluate_federation_policy(policy, subject_id="alice", action="promote", release_level="internal", instance_id="host-a")
     assert promote.allowed is True
+
+
+def test_local_policy_enforces_scope_when_grant_is_scoped() -> None:
+    policy = FederationLocalPolicy(
+        grants=[
+            FederationPolicyGrant(
+                subject_id="alice",
+                actions=["import"],
+                release_levels=["internal"],
+                instance_ids=["host-a"],
+                scopes=["project-alpha"],
+            )
+        ]
+    )
+
+    missing_scope = evaluate_federation_policy(policy, subject_id="alice", action="import", release_level="internal", instance_id="host-a")
+    wrong_scope = evaluate_federation_policy(
+        policy,
+        subject_id="alice",
+        action="import",
+        release_level="internal",
+        instance_id="host-a",
+        scope_id="project-beta",
+    )
+    matching_scope = evaluate_federation_policy(
+        policy,
+        subject_id="alice",
+        action="import",
+        release_level="internal",
+        instance_id="host-a",
+        scope_id="project-alpha",
+    )
+
+    assert missing_scope.allowed is False
+    assert wrong_scope.allowed is False
+    assert matching_scope.allowed is True
+    assert matching_scope.scope_id == "project-alpha"
+
+
+def test_role_directory_compiles_to_local_policy_grants() -> None:
+    directory = FederationRoleDirectory(
+        directory_id="project-alpha-roles",
+        roles=[
+            FederationRoleDefinition(
+                role_id="reviewer",
+                actions=["import", "promote"],
+                release_levels=["public", "internal"],
+                instance_ids=["host-a"],
+                scopes=["project-alpha"],
+            ),
+            FederationRoleDefinition(
+                role_id="publisher",
+                actions=["export"],
+                release_levels=["public"],
+                instance_ids=["host-a"],
+            ),
+        ],
+        memberships=[
+            FederationRoleMembership(subject_id="alice", role_ids=["reviewer", "publisher"]),
+            FederationRoleMembership(subject_id="bob", role_ids=["reviewer"]),
+        ],
+    )
+
+    policy = compile_federation_role_directory_to_policy(directory, policy_id="compiled-policy")
+
+    assert policy.policy_id == "compiled-policy"
+    assert len(policy.grants) == 3
+    assert evaluate_federation_policy(
+        policy,
+        subject_id="alice",
+        action="promote",
+        release_level="internal",
+        instance_id="host-a",
+        scope_id="project-alpha",
+    ).allowed is True
+    assert evaluate_federation_policy(policy, subject_id="alice", action="export", release_level="public", instance_id="host-a").allowed is True
+    assert evaluate_federation_policy(policy, subject_id="bob", action="export", release_level="public", instance_id="host-a").allowed is False
+
+
+def test_role_directory_rejects_unknown_role_reference() -> None:
+    directory = FederationRoleDirectory(
+        roles=[],
+        memberships=[FederationRoleMembership(subject_id="alice", role_ids=["missing-role"])],
+    )
+
+    with pytest.raises(FederationPolicyError, match="unknown role"):
+        compile_federation_role_directory_to_policy(directory)
 
 
 def test_trust_registry_resolves_active_instance_key_for_allowed_actions(tmp_path: Path) -> None:
@@ -997,6 +1088,7 @@ def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, mo
                     actions=["export"],
                     release_levels=["internal"],
                     instance_ids=["host-a"],
+                    scopes=["project-alpha"],
                 )
             ],
         ).model_dump_json(indent=2),
@@ -1024,6 +1116,8 @@ def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, mo
             str(policy_file),
             "--requester-id",
             "alice",
+            "--scope-id",
+            "project-alpha",
             "--audit-log",
             str(audit_log),
         ],
@@ -1032,7 +1126,50 @@ def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, mo
     output = json.loads(capsys.readouterr().out)
     assert output["manifest"]["target_release_level"] == "internal"
     assert bundle_path.exists()
-    assert json.loads(audit_log.read_text(encoding="utf-8").splitlines()[0])["policy_id"] == "cli-policy"
+    audit_row = json.loads(audit_log.read_text(encoding="utf-8").splitlines()[0])
+    assert audit_row["policy_id"] == "cli-policy"
+    assert audit_row["scope_id"] == "project-alpha"
+
+
+def test_federation_cli_compiles_policy_from_roles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    role_directory_path = tmp_path / "roles.json"
+    policy_path = tmp_path / "policy.json"
+    role_directory_path.write_text(
+        FederationRoleDirectory(
+            directory_id="team-roles",
+            roles=[
+                FederationRoleDefinition(
+                    role_id="reviewer",
+                    actions=["import", "promote"],
+                    release_levels=["public", "internal"],
+                    instance_ids=["host-a"],
+                )
+            ],
+            memberships=[FederationRoleMembership(subject_id="alice", role_ids=["reviewer"])],
+        ).model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "policy-from-roles",
+            str(role_directory_path),
+            str(policy_path),
+            "--policy-id",
+            "compiled-team-policy",
+        ],
+    )
+    federation.main()
+    output = json.loads(capsys.readouterr().out)
+    written = json.loads(policy_path.read_text(encoding="utf-8"))
+
+    assert output == written
+    assert output["policy_id"] == "compiled-team-policy"
+    assert output["grants"][0]["subject_id"] == "alice"
+    policy = FederationLocalPolicy.model_validate(written)
+    assert evaluate_federation_policy(policy, subject_id="alice", action="promote", release_level="internal", instance_id="host-a").allowed is True
 
 
 def test_federation_cli_trust_registry_can_sign_verify_and_promote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

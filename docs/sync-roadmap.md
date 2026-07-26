@@ -208,9 +208,10 @@ quarantine import, or promotion. Quarantined bundles can be listed, dry-run
 planned, and promoted into a canonical store only when signature verification,
 release-level acceptance, local policy, and conflict checks pass. Local trust
 registries retain created/revoked/supersession metadata and can revoke keys so
-old signatures are blocked without erasing audit history. It does not yet
-provide network transport, role directory integration, distributed policy
-publication, asymmetric key publication, or public release-pack publishing.
+old signatures are blocked without erasing audit history. Ed25519 signatures,
+signed public keysets, and local role-directory-to-policy compilation are now
+available. It does not yet provide network transport, distributed policy
+publication, or public release-pack publishing.
 
 Local policy files use the `groundrecall.local_federation_policy.v1` shape:
 
@@ -229,6 +230,50 @@ Local policy files use the `groundrecall.local_federation_policy.v1` shape:
   ]
 }
 ```
+
+Role directory files use the `groundrecall.federation_role_directory.v1` shape
+and compile into local policy files. This keeps runtime enforcement on the same
+audited grant model while letting teams maintain reusable role definitions:
+
+```json
+{
+  "directory_id": "project-alpha-roles",
+  "roles": [
+    {
+      "role_id": "reviewer",
+      "actions": ["import", "promote"],
+      "release_levels": ["public", "internal"],
+      "instance_ids": ["host-a"],
+      "scopes": ["project-alpha"],
+      "allow_privileged": false
+    }
+  ],
+  "memberships": [
+    {
+      "subject_id": "alice",
+      "role_ids": ["reviewer"]
+    }
+  ]
+}
+```
+
+Compile the directory before using it as `--policy-file`:
+
+```bash
+groundrecall federation policy-from-roles ./roles.json ./policy.json \
+  --policy-id project-alpha-compiled-policy
+
+groundrecall federation import ./bundle.json ./quarantine \
+  --trust-registry ./trust.json \
+  --policy-file ./policy.json \
+  --requester-id alice \
+  --scope-id project-alpha \
+  --accept-release-level internal
+```
+
+Compilation fails closed if a membership references an unknown role. At policy
+evaluation time, grants with `scopes` require a matching `--scope-id`; unscoped
+grants remain global for the permitted action, release level, and instance.
 
 Audit events use `groundrecall.federation_audit.v1` JSONL records and capture
 the requester, action, decision, release level, bundle ID, instance ID, policy
