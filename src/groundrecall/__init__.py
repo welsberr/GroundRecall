@@ -42,6 +42,7 @@ from .federation import (
     plan_quarantine_promotion,
     promote_quarantined_bundle,
     resolve_trust_key,
+    revoke_federation_trust_key,
     save_federation_trust_registry,
     verify_federation_bundle,
 )
@@ -92,6 +93,7 @@ __all__ = [
     "plan_quarantine_promotion",
     "promote_quarantined_bundle",
     "resolve_trust_key",
+    "revoke_federation_trust_key",
     "save_federation_trust_registry",
     "verify_federation_bundle",
     "build_query_parser",

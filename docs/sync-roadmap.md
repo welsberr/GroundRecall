@@ -206,9 +206,11 @@ the F0-F3 foundation. The CLI also accepts an optional local policy file and
 JSONL audit log so hosts can require explicit requester grants before export,
 quarantine import, or promotion. Quarantined bundles can be listed, dry-run
 planned, and promoted into a canonical store only when signature verification,
-release-level acceptance, local policy, and conflict checks pass. It does not
-yet provide network transport, role directory integration, distributed policy
-publication, or public release-pack publishing.
+release-level acceptance, local policy, and conflict checks pass. Local trust
+registries retain created/revoked/supersession metadata and can revoke keys so
+old signatures are blocked without erasing audit history. It does not yet
+provide network transport, role directory integration, distributed policy
+publication, asymmetric key publication, or public release-pack publishing.
 
 Local policy files use the `groundrecall.local_federation_policy.v1` shape:
 
@@ -247,6 +249,10 @@ levels, and trusted actions:
       "key_material": "store this outside public exports",
       "algorithm": "hmac-sha256",
       "active": true,
+      "created_at": "2026-07-26T00:00:00Z",
+      "revoked_at": "",
+      "revocation_reason": "",
+      "superseded_by_key_id": "",
       "release_levels": ["public", "internal"],
       "trusted_actions": ["export", "import", "promote"]
     }
@@ -266,13 +272,21 @@ groundrecall federation trust-add ./trust.json \
   --trusted-action promote
 
 groundrecall federation trust-list ./trust.json
+
+groundrecall federation trust-revoke ./trust.json \
+  --instance-id host-a \
+  --key-id host-a-2026-07 \
+  --reason rotation \
+  --superseded-by-key-id host-a-2026-08
 ```
 
 `--trust-registry` can then replace `--key-file` for export, import, and
 promotion. Registry files contain key material and must be treated as secrets;
-they are local trust roots, not public federation artifacts. A later milestone
-should replace this local symmetric-key registry with organization-managed key
-publication, rotation, and revocation.
+they are local trust roots, not public federation artifacts. Inactive or
+revoked keys are retained for audit/history but are blocked from export,
+import, and promotion. A later milestone should replace this local
+symmetric-key registry with organization-managed asymmetric key publication and
+signed rotation/revocation feeds.
 
 ### F0: Instance Identity And Trust Roots
 

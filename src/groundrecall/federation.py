@@ -145,6 +145,10 @@ class FederationTrustKey(BaseModel):
     key_material: str
     algorithm: str = "hmac-sha256"
     active: bool = True
+    created_at: str = ""
+    revoked_at: str = ""
+    revocation_reason: str = ""
+    superseded_by_key_id: str = ""
     release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
     trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
 
@@ -237,6 +241,7 @@ def add_federation_trust_key(
     release_levels: list[ReleaseLevel],
     trusted_actions: list[FederationAction],
     active: bool = True,
+    created_at: str | None = None,
 ) -> FederationTrustRegistry:
     keys = [key for key in registry.keys if not (key.instance_id == instance_id and key.key_id == key_id)]
     keys.append(
@@ -245,11 +250,43 @@ def add_federation_trust_key(
             key_id=key_id,
             key_material=key_material,
             active=active,
+            created_at=created_at or now_utc(),
             release_levels=release_levels,
             trusted_actions=trusted_actions,
         )
     )
     return registry.model_copy(update={"keys": keys})
+
+
+def revoke_federation_trust_key(
+    registry: FederationTrustRegistry,
+    *,
+    instance_id: str,
+    key_id: str,
+    revoked_at: str | None = None,
+    reason: str = "",
+    superseded_by_key_id: str = "",
+) -> FederationTrustRegistry:
+    updated: list[FederationTrustKey] = []
+    found = False
+    for key in registry.keys:
+        if key.instance_id == instance_id and key.key_id == key_id:
+            found = True
+            updated.append(
+                key.model_copy(
+                    update={
+                        "active": False,
+                        "revoked_at": revoked_at or now_utc(),
+                        "revocation_reason": reason,
+                        "superseded_by_key_id": superseded_by_key_id,
+                    }
+                )
+            )
+        else:
+            updated.append(key)
+    if not found:
+        raise FederationPolicyError(f"no trusted key for instance {instance_id} key {key_id}")
+    return registry.model_copy(update={"keys": updated})
 
 
 def resolve_trust_key(
@@ -264,6 +301,8 @@ def resolve_trust_key(
     if not matches:
         raise FederationPolicyError(f"no trusted key for instance {instance_id} key {key_id}")
     key = matches[-1]
+    if key.revoked_at:
+        raise FederationPolicyError(f"trusted key is revoked: {instance_id}:{key_id}")
     if not key.active:
         raise FederationPolicyError(f"trusted key is inactive: {instance_id}:{key_id}")
     if key.algorithm != "hmac-sha256":
@@ -914,6 +953,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     trust_add_parser.add_argument("--inactive", action="store_true")
 
+    trust_revoke_parser = subparsers.add_parser("trust-revoke", help="Revoke a trusted federation key in a local registry.")
+    trust_revoke_parser.add_argument("registry_path")
+    trust_revoke_parser.add_argument("--instance-id", required=True)
+    trust_revoke_parser.add_argument("--key-id", required=True)
+    trust_revoke_parser.add_argument("--reason", default="")
+    trust_revoke_parser.add_argument("--superseded-by-key-id", default="")
+
     trust_list_parser = subparsers.add_parser("trust-list", help="List trusted federation keys in a local registry.")
     trust_list_parser.add_argument("registry_path")
     return parser
@@ -934,6 +980,18 @@ def main() -> None:
             active=not args.inactive,
         )
         save_federation_trust_registry(path, registry)
+        print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "trust-revoke":
+        registry = load_federation_trust_registry(args.registry_path)
+        registry = revoke_federation_trust_key(
+            registry,
+            instance_id=args.instance_id,
+            key_id=args.key_id,
+            reason=args.reason,
+            superseded_by_key_id=args.superseded_by_key_id,
+        )
+        save_federation_trust_registry(args.registry_path, registry)
         print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
         return
     if args.command == "trust-list":

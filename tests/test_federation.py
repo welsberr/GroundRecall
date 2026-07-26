@@ -22,6 +22,7 @@ from groundrecall.federation import (
     plan_quarantine_promotion,
     promote_quarantined_bundle,
     resolve_trust_key,
+    revoke_federation_trust_key,
     save_federation_trust_registry,
     verify_federation_bundle,
 )
@@ -180,6 +181,36 @@ def test_trust_registry_resolves_active_instance_key_for_allowed_actions(tmp_pat
     )
     with pytest.raises(FederationPolicyError, match="inactive"):
         resolve_trust_key(inactive, instance_id="host-b", key_id="inactive-key", release_level="public", action="import")
+
+
+def test_trust_registry_revokes_key_and_preserves_revocation_metadata() -> None:
+    registry = add_federation_trust_key(
+        FederationTrustRegistry(),
+        instance_id="host-a",
+        key_id="old-key",
+        key_material=SIGNING_KEY,
+        release_levels=["internal"],
+        trusted_actions=["import", "promote"],
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    revoked = revoke_federation_trust_key(
+        registry,
+        instance_id="host-a",
+        key_id="old-key",
+        revoked_at="2026-07-27T00:00:00Z",
+        reason="rotation",
+        superseded_by_key_id="new-key",
+    )
+
+    key = revoked.keys[0]
+    assert key.active is False
+    assert key.created_at == "2026-07-26T00:00:00Z"
+    assert key.revoked_at == "2026-07-27T00:00:00Z"
+    assert key.revocation_reason == "rotation"
+    assert key.superseded_by_key_id == "new-key"
+    with pytest.raises(FederationPolicyError, match="revoked"):
+        resolve_trust_key(revoked, instance_id="host-a", key_id="old-key", release_level="internal", action="import")
 
 
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
@@ -869,3 +900,93 @@ def test_federation_cli_trust_registry_can_sign_verify_and_promote(tmp_path: Pat
     promote_output = json.loads(capsys.readouterr().out)
     assert promote_output["decision"] == "promoted"
     assert (receiver_store / "claims" / "clm_public.json").exists()
+
+
+def test_federation_cli_revoke_blocks_registry_verification(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    key_file = tmp_path / "federation.key"
+    key_file.write_text(SIGNING_KEY, encoding="utf-8")
+    trust_registry = tmp_path / "trust.json"
+    bundle_path = tmp_path / "bundle.json"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(trust_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "old-key",
+            "--key-file",
+            str(key_file),
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "export",
+            "--trusted-action",
+            "import",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "export",
+            str(store.base_dir),
+            str(bundle_path),
+            "--target-release-level",
+            "internal",
+            "--producer-instance-id",
+            "host-a",
+            "--trust-registry",
+            str(trust_registry),
+            "--key-id",
+            "old-key",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-revoke",
+            str(trust_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "old-key",
+            "--reason",
+            "rotation",
+            "--superseded-by-key-id",
+            "new-key",
+        ],
+    )
+    federation.main()
+    revoke_output = json.loads(capsys.readouterr().out)
+    assert revoke_output["keys"][0]["active"] is False
+    assert revoke_output["keys"][0]["revocation_reason"] == "rotation"
+    assert revoke_output["keys"][0]["superseded_by_key_id"] == "new-key"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "import",
+            str(bundle_path),
+            str(tmp_path / "quarantine"),
+            "--trust-registry",
+            str(trust_registry),
+            "--accept-release-level",
+            "internal",
+        ],
+    )
+    with pytest.raises(FederationPolicyError, match="revoked"):
+        federation.main()
