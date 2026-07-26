@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>preprint-roadmap</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<h1 id="groundrecall-preprint-roadmap">GroundRecall Preprint Roadmap</h1>
+<p>Date: 2026-07-26</p>
+<p>This roadmap begins the paper-preparation phase for GroundRecall. It freezes the current implementation scope for preprint purposes, identifies defensible claims, and defines the remaining documentation, evidence, and drafting work needed before writing the manuscript.</p>
+<h2 id="scope-freeze-for-the-preprint">Scope Freeze For The Preprint</h2>
+<p>The preprint should present GroundRecall as a working prototype and architecture for governed AI memory, not as a completed distributed platform.</p>
+<h3 id="in-scope">In Scope</h3>
+<p>The paper can describe and demonstrate:</p>
+<ul>
+<li>a local-first, provenance-preserving memory substrate;</li>
+<li>structured records for sources, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, and snapshots;</li>
+<li>confidence and temporal-validity metadata;</li>
+<li>first-class contradiction cases generated from explicit claim contradiction links;</li>
+<li>contradiction review batches and explicit contradiction-case adjudication;</li>
+<li>non-destructive memory lifecycle handling through expiry, supersession, retraction, applicability, and confidence review;</li>
+<li>release-level classification and no-access-broadening export controls;</li>
+<li>signed federation bundles;</li>
+<li>quarantine-before-promotion import;</li>
+<li>local policy-gated export/import/promotion;</li>
+<li>audit logs for federation decisions;</li>
+<li>HMAC and Ed25519 signature support;</li>
+<li>trust registries with expiry, revocation, and supersession metadata;</li>
+<li>signed Ed25519 public keysets;</li>
+<li>role directories, scoped grants, and policy compilation;</li>
+<li>signed role-directory publication/import with receiver-side caps.</li>
+</ul>
+<h3 id="out-of-scope">Out Of Scope</h3>
+<p>The paper should explicitly treat these as limitations or future work:</p>
+<ul>
+<li>network transport and polling;</li>
+<li>real-time synchronization;</li>
+<li>CRDT-based distributed editing;</li>
+<li>hosted review services;</li>
+<li>automatic semantic contradiction detection beyond explicit contradiction links;</li>
+<li>production IAM integration;</li>
+<li>public/internal release-pack publishing;</li>
+<li>production key recovery, HSM, or enterprise key-management workflows;</li>
+<li>empirical claims of improved safety, recall, or productivity beyond what the current tests and examples directly demonstrate.</li>
+</ul>
+<h2 id="core-paper-claim">Core Paper Claim</h2>
+<p>GroundRecall demonstrates that long-lived AI memory can be structured as a review-gated, provenance-first control plane where current-context use is governed by evidence, confidence, temporal validity, release level, local authority, and auditability.</p>
+<p>The central distinction should be:</p>
+<ul>
+<li>ordinary epistemic maintenance is usually non-destructive: expiry, supersession, retraction, temporal validity, confidence review, and retrieval-priority changes preserve evidence and decision history;</li>
+<li>exceptional erasure is a separately authorized privacy, legal, or security operation that removes protected content while preserving only minimal non-sensitive audit state.</li>
+</ul>
+<p>This framing directly addresses the “forgetting” issue without weakening provenance.</p>
+<h2 id="candidate-title">Candidate Title</h2>
+<p>GroundRecall: Review-Gated, Provenance-First Memory for Long-Lived AI Agents</p>
+<h2 id="proposed-abstract-claim-boundaries">Proposed Abstract Claim Boundaries</h2>
+<p>The abstract should claim that GroundRecall:</p>
+<ul>
+<li>implements a local prototype for governed memory;</li>
+<li>preserves provenance across import, review, export, federation, and promotion;</li>
+<li>models confidence and temporal validity explicitly;</li>
+<li>surfaces contradiction cases as reviewable and adjudicable objects;</li>
+<li>enforces release-level controls during federation export;</li>
+<li>verifies signed exchanged knowledge artifacts before quarantine;</li>
+<li>requires local policy before promotion;</li>
+<li>supports signed public-key and role-directory distribution with receiver-side authority caps.</li>
+</ul>
+<p>The abstract should not claim:</p>
+<ul>
+<li>production-grade distributed sync;</li>
+<li>autonomous safe memory writes;</li>
+<li>measured productivity improvement;</li>
+<li>complete regulatory compliance;</li>
+<li>complete deletion/erasure propagation.</li>
+</ul>
+<h2 id="paper-structure">Paper Structure</h2>
+<h3 id="introduction">1. Introduction</h3>
+<p>Purpose:</p>
+<ul>
+<li>explain why durable AI memory is useful and dangerous;</li>
+<li>motivate provenance-preserving memory instead of opaque summaries;</li>
+<li>introduce review-gated promotion and local authority as the control model.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>write a concise motivating example;</li>
+<li>define the target setting: long-lived agents, software/research workflows, multi-host collaboration.</li>
+</ul>
+<h3 id="problem-and-threat-model">2. Problem And Threat Model</h3>
+<p>Cover risks from:</p>
+<ul>
+<li>stale facts treated as current;</li>
+<li>ungrounded summaries replacing evidence;</li>
+<li>contradictions treated as invisible context noise rather than explicit review state;</li>
+<li>accidental private-to-public leakage;</li>
+<li>malicious or mistaken federation inputs;</li>
+<li>unauthorized promotion into durable memory;</li>
+<li>key compromise, stale trust, and policy drift;</li>
+<li>overbroad team roles.</li>
+</ul>
+<p>Clarify non-goals:</p>
+<ul>
+<li>not a full IAM system;</li>
+<li>not a CRDT sync platform;</li>
+<li>not proof against host compromise.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>write the threat model as a table: threat, mitigation implemented, remaining limitation.</li>
+</ul>
+<h3 id="data-model-and-memory-lifecycle">3. Data Model And Memory Lifecycle</h3>
+<p>Cover:</p>
+<ul>
+<li>source, artifact, observation, claim, concept, relation, contradiction case, promotion, adjudication, snapshot;</li>
+<li>provenance links;</li>
+<li>candidate/imported vs canonical memory;</li>
+<li>confidence and temporal metadata;</li>
+<li>expiry/supersession/retraction as ordinary lifecycle markers.</li>
+<li>contradiction cases as explicit, non-destructive review objects linking competing claims to adjudications.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>create one diagram: ingest → observation/claim/concept/relation → review/promotion → export/federation;</li>
+<li>add a compact schema table.</li>
+</ul>
+<h3 id="confidence-and-temporal-validity">4. Confidence And Temporal Validity</h3>
+<p>Cover:</p>
+<ul>
+<li>confidence as structured assessment rather than a single scalar;</li>
+<li>applicability and basis visibility;</li>
+<li>current validity vs historical support;</li>
+<li>contradiction/adjudication as confidence-relevant review evidence rather than silent averaging;</li>
+<li>why non-destructive lifecycle markers are preferable to ordinary deletion.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>summarize implemented confidence fields and migration status;</li>
+<li>avoid implying full Bayesian updating unless implemented and tested.</li>
+</ul>
+<h3 id="release-level-and-governance-controls">5. Release-Level And Governance Controls</h3>
+<p>Cover:</p>
+<ul>
+<li>release lattice: public, internal, confidential, privileged, private;</li>
+<li>no-access-broadening export rule;</li>
+<li>redaction/declassification policy references;</li>
+<li>partial/hidden provenance visibility.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>provide a small example where public export excludes internal/private records;</li>
+<li>provide a small example where a redacted public derivative is allowed with policy metadata.</li>
+</ul>
+<h3 id="federation-architecture">6. Federation Architecture</h3>
+<p>Cover:</p>
+<ul>
+<li>signed federation bundle;</li>
+<li>content hash and signature verification;</li>
+<li>quarantine import;</li>
+<li>dry-run promotion plan;</li>
+<li>apply promotion only after verification, release acceptance, policy, and conflict checks.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>create one diagram: producer → signed bundle → receiver verification → quarantine → local policy → promotion.</li>
+<li>include contradiction cases in the bundle contents and promotion discussion, noting that cases only promote when their referenced claims are also exportable.</li>
+</ul>
+<h3 id="trust-keys-and-role-distribution">7. Trust, Keys, And Role Distribution</h3>
+<p>Cover:</p>
+<ul>
+<li>HMAC local/shared-secret mode;</li>
+<li>Ed25519 public-key mode;</li>
+<li>trust registry lifecycle: created, expires, revoked, superseded;</li>
+<li>signed public keysets;</li>
+<li>role directories and scoped policy compilation;</li>
+<li>signed role-directory publications with receiver-side caps.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>create one table contrasting HMAC, Ed25519 bundle signatures, signed keysets, and signed role directories;</li>
+<li>include local-cap enforcement as a key design feature.</li>
+</ul>
+<h3 id="implementation">8. Implementation</h3>
+<p>Cover:</p>
+<ul>
+<li>Python package and CLI;</li>
+<li>file-backed deterministic JSON store;</li>
+<li>Pydantic models;</li>
+<li><code>cryptography</code> Ed25519 support;</li>
+<li>CLI commands for export/import/promote/trust/roles;</li>
+<li>CLI commands for contradiction case sync/list/adjudication;</li>
+<li>test suite status.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>generate a current CLI command inventory;</li>
+<li>include current validation count from a fresh run before paper submission.</li>
+</ul>
+<h3 id="demonstrations">9. Demonstrations</h3>
+<p>Minimum demonstrations to prepare:</p>
+<ol type="1">
+<li>Release-lattice export:
+<ul>
+<li>seed public/internal/private records;</li>
+<li>export public bundle;</li>
+<li>show internal/private exclusion.</li>
+</ul></li>
+<li>Signed bundle quarantine:
+<ul>
+<li>export signed internal bundle;</li>
+<li>verify and import to quarantine;</li>
+<li>show canonical store unchanged.</li>
+</ul></li>
+<li>Policy-gated promotion:
+<ul>
+<li>compile role policy;</li>
+<li>promote only with matching subject/scope.</li>
+</ul></li>
+<li>Key lifecycle:
+<ul>
+<li>show expired or revoked key rejection.</li>
+</ul></li>
+<li>Signed control-plane distribution:
+<ul>
+<li>publish/import public keyset;</li>
+<li>publish/import role directory with local caps.</li>
+</ul></li>
+<li>Contradiction adjudication:
+<ul>
+<li>create explicit contradiction links between claims;</li>
+<li>sync them into contradiction cases;</li>
+<li>list review batch with claim previews;</li>
+<li>adjudicate a case while preserving both underlying claims.</li>
+</ul></li>
+</ol>
+<p>Needed work:</p>
+<ul>
+<li>add reproducible scripts under <code>examples/preprint/</code> or <code>scripts/preprint/</code>;</li>
+<li>capture generated JSON snippets and expected outputs;</li>
+<li>decide which outputs become paper figures/tables.</li>
+</ul>
+<h3 id="evaluation-plan">10. Evaluation Plan</h3>
+<p>For the initial preprint, use engineering evidence rather than broad empirical claims.</p>
+<p>Evidence already available:</p>
+<ul>
+<li>unit tests for release lattice, policy decisions, scoped grants, bundle verification, quarantine, promotion, trust registry lifecycle, Ed25519 signatures, signed keysets, signed role directories, contradiction case generation, contradiction diagnostics, federation of contradiction cases, and contradiction adjudication workflow;</li>
+<li>full test suite currently passing;</li>
+<li>deterministic JSON artifacts and content hashes.</li>
+</ul>
+<p>Additional evidence to generate:</p>
+<ul>
+<li>reproducible demo outputs;</li>
+<li>small table mapping each claimed property to tests/examples;</li>
+<li>failure-mode table for tampering, unauthorized release level, missing scope, expired/revoked key, and unauthorized role publication.</li>
+</ul>
+<p>Defer:</p>
+<ul>
+<li>large user studies;</li>
+<li>productivity metrics;</li>
+<li>broad benchmark comparisons;</li>
+<li>claims of superior safety without empirical data.</li>
+</ul>
+<h3 id="limitations-and-future-work">11. Limitations And Future Work</h3>
+<p>State plainly:</p>
+<ul>
+<li>no network transport yet;</li>
+<li>no real-time sync;</li>
+<li>no CRDT conflict-free editing;</li>
+<li>no hosted review service;</li>
+<li>no production IAM integration;</li>
+<li>no release-pack publishing yet;</li>
+<li>no automatic semantic contradiction detection yet;</li>
+<li>no complete exceptional-erasure propagation proof;</li>
+<li>current implementation is a prototype.</li>
+</ul>
+<h2 id="immediate-work-plan">Immediate Work Plan</h2>
+<h3 id="p0-consolidate-paper-inputs">P0: Consolidate Paper Inputs</h3>
+<p>Deliverables:</p>
+<ul>
+<li>this preprint roadmap;</li>
+<li>implemented-features summary;</li>
+<li>one architecture note;</li>
+<li>one threat-model table;</li>
+<li>one claim-to-evidence matrix.</li>
+</ul>
+<p>Exit criteria:</p>
+<ul>
+<li>each paper claim has an implementation, test, demo, or is marked future work.</li>
+</ul>
+<h3 id="p1-architecture-note">P1: Architecture Note</h3>
+<p>Deliverable:</p>
+<ul>
+<li><code>docs/preprint-architecture.md</code></li>
+</ul>
+<p>Contents:</p>
+<ul>
+<li>memory lifecycle;</li>
+<li>data model;</li>
+<li>confidence/temporal validity;</li>
+<li>federation workflow;</li>
+<li>trust/key/role control plane;</li>
+<li>limitations.</li>
+</ul>
+<h3 id="p2-threat-model-and-governance-analysis">P2: Threat Model And Governance Analysis</h3>
+<p>Deliverable:</p>
+<ul>
+<li><code>docs/preprint-threat-model.md</code></li>
+</ul>
+<p>Contents:</p>
+<ul>
+<li>threat table;</li>
+<li>implemented mitigations;</li>
+<li>residual risks;</li>
+<li>deletion vs non-destructive forgetting distinction.</li>
+</ul>
+<h3 id="p3-reproducible-demonstrations">P3: Reproducible Demonstrations</h3>
+<p>Deliverables:</p>
+<ul>
+<li>scripts or examples under <code>examples/preprint/</code>;</li>
+<li>generated example artifacts;</li>
+<li>README with exact commands.</li>
+</ul>
+<p>Exit criteria:</p>
+<ul>
+<li>a clean checkout can reproduce the paper’s examples.</li>
+</ul>
+<h3 id="p4-claim-to-evidence-matrix">P4: Claim-To-Evidence Matrix</h3>
+<p>Deliverable:</p>
+<ul>
+<li><code>docs/preprint-claim-evidence-matrix.md</code></li>
+</ul>
+<p>Contents:</p>
+<ul>
+<li>claim;</li>
+<li>implementation artifact;</li>
+<li>test coverage;</li>
+<li>demonstration artifact;</li>
+<li>caveat/limitation.</li>
+</ul>
+<h3 id="p5-manuscript-draft">P5: Manuscript Draft</h3>
+<p>Deliverable:</p>
+<ul>
+<li><code>docs/preprint-draft.md</code> or a paper source directory.</li>
+</ul>
+<p>Exit criteria:</p>
+<ul>
+<li>all figures/tables referenced;</li>
+<li>limitations explicit;</li>
+<li>implementation claims align with committed code.</li>
+</ul>
+<h2 id="stop-rule-for-feature-expansion">Stop Rule For Feature Expansion</h2>
+<p>Further feature work should be deferred unless it blocks a specific paper claim. Network transport and release-pack publishing are useful next roadmap items, but they should not block the initial preprint. They belong in limitations/future work unless the paper’s scope changes.</p>
+</body>
+</html>

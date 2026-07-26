@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>preprint-architecture</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<h1 id="groundrecall-preprint-architecture-note">GroundRecall Preprint Architecture Note</h1>
+<p>Date: 2026-07-26</p>
+<p>This note describes the architecture that should anchor the GroundRecall preprint. It is intentionally paper-facing: it explains the design model and implemented prototype boundaries rather than documenting every API.</p>
+<h2 id="architectural-position">Architectural Position</h2>
+<p>GroundRecall is a local-first, provenance-aware memory substrate for long-lived AI-assisted work. It is designed for settings where assistants need durable context, but where durable memory also creates governance risks: stale facts, ungrounded summaries, accidental disclosure, poisoned writes, and unauthorized sharing.</p>
+<p>GroundRecall treats memory as a governed knowledge control plane rather than a passive transcript store or vector cache. The core architectural commitments are:</p>
+<ul>
+<li>memory records remain grounded in sources and observations;</li>
+<li>durable memory changes are review-gated;</li>
+<li>current-context use is distinct from historical preservation;</li>
+<li>confidence and applicability are explicit metadata;</li>
+<li>cross-host sharing is signed, release-level constrained, locally authorized, and quarantine-first;</li>
+<li>local policy remains authoritative even when keys or roles are imported from another host.</li>
+</ul>
+<h2 id="system-boundary">System Boundary</h2>
+<p>GroundRecall currently implements a local Python package and CLI. The canonical store is file-backed and deterministic JSON-oriented.</p>
+<p>Implemented:</p>
+<ul>
+<li>local store;</li>
+<li>import/promotion/query/export workflows;</li>
+<li>confidence and temporal-validity metadata handling;</li>
+<li>first-class contradiction cases generated from explicit claim contradiction links;</li>
+<li>contradiction case listing and adjudication workflow;</li>
+<li>federation bundle export/import/promote;</li>
+<li>release-level filtering;</li>
+<li>local policy and audit;</li>
+<li>HMAC and Ed25519 signatures;</li>
+<li>trust registry lifecycle management;</li>
+<li>signed public-key publication;</li>
+<li>role-directory compilation;</li>
+<li>signed role-directory publication/import.</li>
+</ul>
+<p>Not implemented:</p>
+<ul>
+<li>network transport;</li>
+<li>real-time sync;</li>
+<li>CRDT distributed editing;</li>
+<li>hosted review service;</li>
+<li>automatic semantic contradiction detection beyond explicit contradiction links;</li>
+<li>production IAM integration;</li>
+<li>public/internal release-pack publication.</li>
+</ul>
+<p>For the preprint, GroundRecall should be described as an inspectable prototype and architecture, not as a finished distributed memory platform.</p>
+<h2 id="data-model">Data Model</h2>
+<p>GroundRecall stores durable knowledge as typed records rather than raw chat history.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Record type</th>
+<th>Architectural role</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Source</td>
+<td>Originating source material or source identity.</td>
+</tr>
+<tr class="even">
+<td>Artifact</td>
+<td>Imported artifact, document, note, or extracted object.</td>
+</tr>
+<tr class="odd">
+<td>Observation</td>
+<td>Grounded extracted observation from an artifact/source.</td>
+</tr>
+<tr class="even">
+<td>Claim</td>
+<td>Durable propositional memory linked to observations, concepts, and other claims.</td>
+</tr>
+<tr class="odd">
+<td>Concept</td>
+<td>Stable topic/entity/category node.</td>
+</tr>
+<tr class="even">
+<td>Relation</td>
+<td>Typed relationship between concepts or knowledge objects.</td>
+</tr>
+<tr class="odd">
+<td>Contradiction case</td>
+<td>Reviewable conflict object linking contradictory claims to status, severity, rationale, and adjudication.</td>
+</tr>
+<tr class="even">
+<td>Promotion</td>
+<td>Review decision moving candidate/imported material toward canonical memory.</td>
+</tr>
+<tr class="odd">
+<td>Adjudication</td>
+<td>Review/adjudication state for claims, observations, relations, and contradiction cases.</td>
+</tr>
+<tr class="even">
+<td>Snapshot</td>
+<td>Deterministic export view of a store at a point in time.</td>
+</tr>
+</tbody>
+</table>
+<p>The model preserves record identity and linkage. This is important for both provenance and governance: a claim can remain historically present while its current applicability, confidence, or release status changes.</p>
+<h2 id="memory-lifecycle">Memory Lifecycle</h2>
+<p>GroundRecall separates memory lifecycle stages:</p>
+<pre class="text"><code>source/artifact
+    ↓
+observation extraction
+    ↓
+claim/concept/relation candidates
+    ↓
+review and promotion
+    ↓
+canonical store
+    ↓
+query/export/federation
+    ↓
+contradiction case review/adjudication when explicit conflicts are present</code></pre>
+<p>The core lifecycle principle is that ordinary epistemic maintenance is non-destructive. When facts age, conflict, expire, or are superseded, GroundRecall should preserve history and lower current applicability or confidence rather than deleting evidence. Deletion is reserved for exceptional privacy, legal, or security erasure workflows.</p>
+<h2 id="provenance-model">Provenance Model</h2>
+<p>GroundRecall keeps provenance close to the claims it supports.</p>
+<p>Implemented behavior includes:</p>
+<ul>
+<li>observations carry support/grounding metadata;</li>
+<li>claims reference source observations and supporting fragments;</li>
+<li>claims can record contradictions and supersession relationships;</li>
+<li>explicit contradiction links can be materialized as first-class contradiction cases;</li>
+<li>contradiction cases preserve review status, severity, rationale, and adjudication linkage;</li>
+<li>export and federation preserve record IDs and content hashes;</li>
+<li>hidden or redacted basis can be represented explicitly through basis-visibility metadata.</li>
+</ul>
+<p>This supports a paper claim that GroundRecall avoids replacing evidence with ungrounded summaries. It does not prove that all upstream extraction is correct; it preserves enough structure for later review and correction.</p>
+<h2 id="contradiction-and-adjudication-workflow">Contradiction And Adjudication Workflow</h2>
+<p>GroundRecall now treats explicit contradictions as reviewable objects rather than only claim-level links.</p>
+<p>Implemented behavior:</p>
+<ul>
+<li><code>contradicts_claim_ids</code> links between claims can be synchronized into deterministic contradiction case records;</li>
+<li>case records store participating claim IDs, case kind, status, severity, open/resolved timestamps, rationale, metadata, and optional adjudication ID;</li>
+<li>query bundles surface contradiction cases alongside the older link-level contradiction view;</li>
+<li>graph diagnostics distinguish raw contradiction links from first-class cases;</li>
+<li>diagnostics flag contradiction links without cases, cases referencing missing claims, and open cases involving promoted claims;</li>
+<li>adjudications can target <code>contradiction_case</code> subjects;</li>
+<li><code>groundrecall contradictions sync STORE</code> creates missing cases from explicit links;</li>
+<li><code>groundrecall contradictions list STORE --sync</code> returns review batches with claim previews;</li>
+<li><code>groundrecall contradictions adjudicate STORE CASE_ID ...</code> records the decision and updates case status without rewriting the underlying claims.</li>
+</ul>
+<p>This gives the paper a concrete mechanism for robust contradiction tracking: disagreement remains historically visible, and resolution is represented as additional review state rather than silent deletion or averaging. The current implementation does not infer semantic contradictions automatically; it relies on explicit contradiction links created by import/review workflows.</p>
+<h2 id="confidence-and-temporal-validity">Confidence And Temporal Validity</h2>
+<p>GroundRecall treats confidence as structured metadata, not merely a single scalar.</p>
+<p>Relevant architectural dimensions:</p>
+<ul>
+<li>evidential support;</li>
+<li>grounding status;</li>
+<li>basis visibility;</li>
+<li>ambiguity;</li>
+<li>temporal validity;</li>
+<li>expiry;</li>
+<li>supersession;</li>
+<li>retraction;</li>
+<li>current applicability.</li>
+</ul>
+<p>The paper should emphasize that confidence in historical support and confidence in current applicability are different. A record may remain well-supported as a historical fact while being inapplicable to current planning because it expired, was superseded, or became contextually stale.</p>
+<p>This is the basis for the paper’s treatment of “forgetting”: ordinary forgetting should usually mean controlled exclusion from current context, not destruction of provenance.</p>
+<h2 id="release-level-lattice">Release-Level Lattice</h2>
+<p>Federation/export uses a release-level lattice:</p>
+<pre class="text"><code>public &lt; internal &lt; confidential &lt; privileged &lt; private</code></pre>
+<p>Implemented rules:</p>
+<ul>
+<li><code>private</code> is local-only and not federated;</li>
+<li>records cannot be exported to a less restrictive target without appropriate redaction/declassification metadata;</li>
+<li>public exports block internal, confidential, privileged, private, and unclassified records unless policy allows;</li>
+<li>hidden support can be represented as partial basis visibility;</li>
+<li>privileged federation requires explicit privileged allowance.</li>
+</ul>
+<p>This provides a mechanical basis for the governance claim that GroundRecall can reduce accidental disclosure during memory sharing.</p>
+<h2 id="federation-bundle-architecture">Federation Bundle Architecture</h2>
+<p>A federation bundle is a signed, content-hashed snapshot for controlled exchange.</p>
+<p>Producer side:</p>
+<pre class="text"><code>canonical store
+    ↓
+snapshot
+    ↓
+release-level filter
+    ↓
+manifest + content hash
+    ↓
+signature
+    ↓
+federation bundle</code></pre>
+<p>Receiver side:</p>
+<pre class="text"><code>bundle
+    ↓
+signature and hash verification
+    ↓
+release-level acceptance
+    ↓
+local policy check
+    ↓
+quarantine
+    ↓
+promotion plan
+    ↓
+review-gated promotion</code></pre>
+<p>Implemented verification checks include:</p>
+<ul>
+<li>signature;</li>
+<li>expected key ID;</li>
+<li>content hash;</li>
+<li>accepted release level;</li>
+<li>bundle policy violations.</li>
+</ul>
+<p>Promotion is explicitly separate from import. This is important: receiving a valid signed bundle does not automatically make it canonical local memory.</p>
+<h2 id="quarantine-and-promotion">Quarantine And Promotion</h2>
+<p>Quarantine is the boundary between received knowledge and local durable memory.</p>
+<p>Implemented properties:</p>
+<ul>
+<li>imports write to quarantine first;</li>
+<li>canonical store is not overwritten by import;</li>
+<li>quarantine bundles can be listed;</li>
+<li>promotion can be dry-run planned;</li>
+<li>promotion detects conflicts;</li>
+<li>promotion applies only non-conflicting records;</li>
+<li>policy failures produce rejected/planned outcomes rather than silent writes.</li>
+<li>contradiction cases are promoted only when the case itself and all referenced claims are exportable at the target release level.</li>
+</ul>
+<p>This supports the paper’s review-gated memory claim.</p>
+<h2 id="local-policy-and-audit">Local Policy And Audit</h2>
+<p>Federation actions are governed by local policy.</p>
+<p>Policy grants can constrain:</p>
+<ul>
+<li>subject ID;</li>
+<li>action;</li>
+<li>release level;</li>
+<li>instance ID;</li>
+<li>scope ID;</li>
+<li>privileged access.</li>
+</ul>
+<p>Supported federation actions are:</p>
+<ul>
+<li>export;</li>
+<li>import;</li>
+<li>promote.</li>
+</ul>
+<p>Audit events capture:</p>
+<ul>
+<li>action;</li>
+<li>decision;</li>
+<li>subject;</li>
+<li>release level;</li>
+<li>bundle ID;</li>
+<li>instance ID;</li>
+<li>scope ID;</li>
+<li>policy ID;</li>
+<li>reasons;</li>
+<li>metadata.</li>
+</ul>
+<p>The paper should emphasize that imported keys or role directories do not override local policy. Local authorization remains the final authority for federation actions.</p>
+<h2 id="trust-registry-and-key-lifecycle">Trust Registry And Key Lifecycle</h2>
+<p>The trust registry is the local trust root for federation signing/verification workflows.</p>
+<p>Supported algorithms:</p>
+<ul>
+<li><code>hmac-sha256</code>;</li>
+<li><code>ed25519</code>.</li>
+</ul>
+<p>Trust entries record:</p>
+<ul>
+<li>instance ID;</li>
+<li>key ID;</li>
+<li>key material;</li>
+<li>algorithm;</li>
+<li>active status;</li>
+<li>creation time;</li>
+<li>expiry time;</li>
+<li>revocation time;</li>
+<li>revocation reason;</li>
+<li>superseding key ID;</li>
+<li>allowed release levels;</li>
+<li>trusted actions.</li>
+</ul>
+<p>Expired, inactive, and revoked keys are retained but blocked from use. This follows the same non-destructive governance pattern: history remains inspectable, but current authority changes.</p>
+<h2 id="signed-public-keysets">Signed Public Keysets</h2>
+<p>Signed public keysets distribute Ed25519 public verification keys.</p>
+<p>Producer:</p>
+<ul>
+<li>selects Ed25519 public keys from a local trust registry;</li>
+<li>creates a keyset with lifecycle metadata;</li>
+<li>signs the keyset with an Ed25519 signer key.</li>
+</ul>
+<p>Receiver:</p>
+<ul>
+<li>verifies the keyset signature with a pinned signer public key;</li>
+<li>checks signer key ID;</li>
+<li>checks content hash and key count;</li>
+<li>imports keys only after applying local caps.</li>
+</ul>
+<p>Receiver caps include:</p>
+<ul>
+<li>instance IDs;</li>
+<li>release levels;</li>
+<li>trusted actions.</li>
+</ul>
+<p>By default, import accepts only keys for the keyset producer instance.</p>
+<h2 id="role-directory-and-policy-compilation">Role Directory And Policy Compilation</h2>
+<p>Role directories provide reusable team/entity policy inputs.</p>
+<p>Role definitions include:</p>
+<ul>
+<li>role ID;</li>
+<li>allowed actions;</li>
+<li>release levels;</li>
+<li>instance IDs;</li>
+<li>scopes;</li>
+<li>privileged allowance.</li>
+</ul>
+<p>Memberships map subjects to roles. Role directories compile into ordinary <code>FederationLocalPolicy</code> grants. Compilation fails closed if a membership references an unknown role.</p>
+<p>Scoped grants require a matching scope ID during policy evaluation. This makes scope an enforced authorization dimension rather than a descriptive tag.</p>
+<h2 id="signed-role-directory-publication">Signed Role-Directory Publication</h2>
+<p>Signed role-directory publication mirrors signed public-key distribution.</p>
+<p>Producer:</p>
+<ul>
+<li>publishes a role directory;</li>
+<li>signs it with an Ed25519 signer key.</li>
+</ul>
+<p>Receiver:</p>
+<ul>
+<li>verifies signature, signer key ID, role count, membership count, and content hash;</li>
+<li>applies local caps;</li>
+<li>compiles the capped directory into a local policy.</li>
+</ul>
+<p>Receiver caps include:</p>
+<ul>
+<li>subjects;</li>
+<li>roles;</li>
+<li>instances;</li>
+<li>release levels;</li>
+<li>actions;</li>
+<li>scopes.</li>
+</ul>
+<p>Wildcard instance grants are narrowed to receiver-approved instances during import.</p>
+<p>This is the key governance pattern: a hub can publish proposed authority structure, but the receiver decides the maximum authority it will accept.</p>
+<h2 id="security-and-governance-properties-demonstrated">Security And Governance Properties Demonstrated</h2>
+<p>The implementation demonstrates these properties:</p>
+<ul>
+<li>signed bundles detect tampering;</li>
+<li>content hashes detect snapshot mutation;</li>
+<li>private records are blocked from federation;</li>
+<li>release-level broadening is blocked unless redaction/declassification metadata is present;</li>
+<li>imports do not overwrite canonical memory;</li>
+<li>promotion is policy-gated and conflict-aware;</li>
+<li>contradiction cases preserve conflict/adjudication history as first-class review state;</li>
+<li>expired/revoked keys are blocked without deleting history;</li>
+<li>Ed25519 public-key verification avoids shared federation secrets for asymmetric workflows;</li>
+<li>signed keysets and role directories require pinned signer keys;</li>
+<li>imported keysets and role directories are locally capped.</li>
+</ul>
+<p>These are architectural and engineering properties. They should not be overstated as empirical proof of improved safety or productivity.</p>
+<h2 id="evidence-currently-available">Evidence Currently Available</h2>
+<p>Current evidence comes from the implementation and test suite.</p>
+<ul>
+<li>Federation-focused tests cover release lattice, policy, scoped grants, signed bundles, quarantine, promotion, trust registry lifecycle, Ed25519 signatures, signed keysets, and signed role directories.</li>
+<li>Contradiction tests cover explicit-link case generation, case persistence in snapshots, graph diagnostic flags, query surfacing, federation inclusion/promotion, and CLI adjudication workflow.</li>
+<li>The full test suite passes.</li>
+<li>JSON artifacts are deterministic and content-hashed.</li>
+<li>CLI workflows are implemented for the major federation and role/trust operations.</li>
+</ul>
+<p>For the preprint, these tests should be summarized in a claim-to-evidence matrix and supplemented with small reproducible demonstrations.</p>
+<h2 id="diagrams-needed-for-manuscript">Diagrams Needed For Manuscript</h2>
+<p>Recommended figures:</p>
+<ol type="1">
+<li>Memory lifecycle:
+<ul>
+<li>source/artifact → observation → claim/concept/relation → review/promotion → canonical store → query/export/federation.</li>
+</ul></li>
+<li>Federation flow:
+<ul>
+<li>producer export/sign → receiver verify → quarantine → policy → promotion.</li>
+</ul></li>
+<li>Control-plane flow:
+<ul>
+<li>signed keyset and signed role directory → receiver verification → local caps → trust registry/policy.</li>
+</ul></li>
+<li>Contradiction/adjudication flow:
+<ul>
+<li>explicit contradiction links → contradiction case → review batch → adjudication → updated case status.</li>
+</ul></li>
+<li>Forgetting/lifecycle distinction:
+<ul>
+<li>expiry/supersession/retraction/confidence review vs exceptional erasure.</li>
+</ul></li>
+</ol>
+<h2 id="limitations-to-state">Limitations To State</h2>
+<p>Current limitations:</p>
+<ul>
+<li>no network transport or polling;</li>
+<li>no real-time distributed sync;</li>
+<li>no CRDT merge layer;</li>
+<li>no hosted review service;</li>
+<li>no automatic semantic contradiction detection;</li>
+<li>no production identity/IAM integration;</li>
+<li>no public/internal release-pack publishing;</li>
+<li>no complete exceptional-erasure propagation mechanism;</li>
+<li>no broad empirical evaluation yet.</li>
+</ul>
+<h2 id="preprint-use">Preprint Use</h2>
+<p>This architecture note should be used to draft:</p>
+<ul>
+<li>the system overview section;</li>
+<li>the data model section;</li>
+<li>the governance model section;</li>
+<li>the federation/control-plane section;</li>
+<li>the limitations section.</li>
+</ul>
+<p>It should be paired with:</p>
+<ul>
+<li><code>docs/implemented-features-summary.md</code>;</li>
+<li><code>docs/preprint-roadmap.md</code>;</li>
+<li>a forthcoming threat model;</li>
+<li>a forthcoming claim-to-evidence matrix;</li>
+<li>forthcoming reproducible demonstration scripts.</li>
+</ul>
+</body>
+</html>
