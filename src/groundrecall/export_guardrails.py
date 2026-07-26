@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from pydantic import BaseModel
 from epistemap import GraphBundle, epistemic_summary
 
+from .confidence import confidence_profile_for_query_payload
 from .graph_diagnostics import build_graph_diagnostics
 from .models import (
     ClaimRecord,
@@ -575,6 +576,11 @@ def _refresh_query_assessment_surfaces(payload: dict[str, Any], findings: list[G
         return
     payload["epistemic_summary"] = summary
     payload["assessment_summary"] = _query_assessment_summary(summary, payload.get("temporal_summary", {}))
+    profile_payload = {
+        "claims": payload.get("relevant_claims", []),
+        "supporting_observations": payload.get("supporting_observations", []),
+    }
+    payload["confidence_profile"] = confidence_profile_for_query_payload(profile_payload, graph_bundle=bundle)
 
 
 def _query_assessment_summary(epistemic: dict[str, Any], temporal_summary: Any) -> dict[str, Any]:

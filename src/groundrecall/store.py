@@ -15,6 +15,7 @@ from .models import (
     GroundRecallSnapshot,
     ObservationRecord,
     PromotionRecord,
+    AdjudicationRecord,
     RelationRecord,
     ReviewCandidateRecord,
     SourceRecord,
@@ -36,6 +37,7 @@ class GroundRecallStore:
         self.relations_dir = self.base_dir / "relations"
         self.review_candidates_dir = self.base_dir / "review_candidates"
         self.promotions_dir = self.base_dir / "promotions"
+        self.adjudications_dir = self.base_dir / "adjudications"
         self.snapshots_dir = self.base_dir / "snapshots"
         for path in [
             self.sources_dir,
@@ -47,6 +49,7 @@ class GroundRecallStore:
             self.relations_dir,
             self.review_candidates_dir,
             self.promotions_dir,
+            self.adjudications_dir,
             self.snapshots_dir,
         ]:
             path.mkdir(parents=True, exist_ok=True)
@@ -177,6 +180,16 @@ class GroundRecallStore:
     def list_promotions(self) -> list[PromotionRecord]:
         return self._list(self.promotions_dir, PromotionRecord)
 
+    def save_adjudication(self, record: AdjudicationRecord) -> AdjudicationRecord:
+        self._save(self.adjudications_dir, record.adjudication_id, record)
+        return record
+
+    def get_adjudication(self, adjudication_id: str) -> AdjudicationRecord | None:
+        return self._load(self.adjudications_dir, adjudication_id, AdjudicationRecord)
+
+    def list_adjudications(self) -> list[AdjudicationRecord]:
+        return self._list(self.adjudications_dir, AdjudicationRecord)
+
     def save_snapshot(self, snapshot: GroundRecallSnapshot) -> GroundRecallSnapshot:
         self._save(self.snapshots_dir, snapshot.snapshot_id, snapshot)
         return snapshot
@@ -199,5 +212,6 @@ class GroundRecallStore:
             concepts=self.list_concepts(),
             relations=self.list_relations(),
             promotions=self.list_promotions(),
+            adjudications=self.list_adjudications(),
             metadata=metadata or {},
         )

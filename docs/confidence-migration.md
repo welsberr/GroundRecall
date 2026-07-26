@@ -47,3 +47,30 @@ groundrecall confidence-readiness STORE --report confidence-readiness.json
 
 This keeps old stores usable while making confidence provenance explicit enough
 for Epistemap graph assessment, calibration, and future Bayesian policy work.
+
+## Confidence profiles
+
+Query exports include a governed `confidence_profile` block and
+`groundrecall export` writes `confidence_profile.json` for pack-ready query
+bundles.
+
+The profile separates:
+
+- extraction assessments;
+- grounding counts;
+- reviewer endorsements;
+- reconstructable Epistemap evidence ledgers and Bayesian posterior summaries;
+- temporal applicability;
+- readiness findings.
+
+Reviewer endorsements are append-only typed assessments with reviewer identity,
+scope, rationale, inspected evidence, method, and time. Multiple active
+endorsements are preserved. If an adjudicator selects between them, the
+selection is stored as an adjudication record that references considered and
+selected assessment IDs; unselected assessments remain auditable.
+
+Expiry, supersession, and retraction affect current applicability. They do not
+erase the historical evidence ledger or prior assessment record.
+
+Confidence profile data is not promotion authority. Promotion still requires the
+explicit review/promotion gates.
