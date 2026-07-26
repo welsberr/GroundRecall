@@ -146,6 +146,7 @@ class FederationTrustKey(BaseModel):
     algorithm: str = "hmac-sha256"
     active: bool = True
     created_at: str = ""
+    expires_at: str = ""
     revoked_at: str = ""
     revocation_reason: str = ""
     superseded_by_key_id: str = ""
@@ -218,6 +219,24 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def parse_federation_time(value: str | datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise FederationPolicyError(f"invalid federation timestamp: {value}") from exc
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 def load_federation_policy(path: str | Path) -> FederationLocalPolicy:
     return FederationLocalPolicy.model_validate_json(Path(path).read_text(encoding="utf-8"))
 
@@ -242,6 +261,7 @@ def add_federation_trust_key(
     trusted_actions: list[FederationAction],
     active: bool = True,
     created_at: str | None = None,
+    expires_at: str = "",
 ) -> FederationTrustRegistry:
     keys = [key for key in registry.keys if not (key.instance_id == instance_id and key.key_id == key_id)]
     keys.append(
@@ -251,6 +271,7 @@ def add_federation_trust_key(
             key_material=key_material,
             active=active,
             created_at=created_at or now_utc(),
+            expires_at=expires_at,
             release_levels=release_levels,
             trusted_actions=trusted_actions,
         )
@@ -296,6 +317,7 @@ def resolve_trust_key(
     key_id: str,
     release_level: ReleaseLevel,
     action: FederationAction,
+    as_of: str | datetime | None = None,
 ) -> bytes:
     matches = [key for key in registry.keys if key.instance_id == instance_id and key.key_id == key_id]
     if not matches:
@@ -305,6 +327,11 @@ def resolve_trust_key(
         raise FederationPolicyError(f"trusted key is revoked: {instance_id}:{key_id}")
     if not key.active:
         raise FederationPolicyError(f"trusted key is inactive: {instance_id}:{key_id}")
+    expires_at = parse_federation_time(key.expires_at)
+    if expires_at is not None:
+        check_time = parse_federation_time(as_of) or datetime.now(timezone.utc)
+        if expires_at <= check_time:
+            raise FederationPolicyError(f"trusted key is expired: {instance_id}:{key_id}")
     if key.algorithm != "hmac-sha256":
         raise FederationPolicyError(f"unsupported trusted key algorithm: {key.algorithm}")
     if release_level not in key.release_levels:
@@ -951,6 +978,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["export", "import", "promote"],
         help="Allowed action. May be repeated.",
     )
+    trust_add_parser.add_argument("--expires-at", default="", help="UTC timestamp after which this trusted key is rejected.")
     trust_add_parser.add_argument("--inactive", action="store_true")
 
     trust_revoke_parser = subparsers.add_parser("trust-revoke", help="Revoke a trusted federation key in a local registry.")
@@ -978,6 +1006,7 @@ def main() -> None:
             release_levels=args.release_level or ["public"],
             trusted_actions=args.trusted_action or ["import", "promote"],
             active=not args.inactive,
+            expires_at=args.expires_at,
         )
         save_federation_trust_registry(path, registry)
         print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))

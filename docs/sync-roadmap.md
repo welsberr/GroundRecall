@@ -250,6 +250,7 @@ levels, and trusted actions:
       "algorithm": "hmac-sha256",
       "active": true,
       "created_at": "2026-07-26T00:00:00Z",
+      "expires_at": "2026-10-24T00:00:00Z",
       "revoked_at": "",
       "revocation_reason": "",
       "superseded_by_key_id": "",
@@ -269,7 +270,8 @@ groundrecall federation trust-add ./trust.json \
   --key-file ./host-a-federation.key \
   --release-level internal \
   --trusted-action import \
-  --trusted-action promote
+  --trusted-action promote \
+  --expires-at 2026-10-24T00:00:00Z
 
 groundrecall federation trust-list ./trust.json
 
@@ -282,8 +284,8 @@ groundrecall federation trust-revoke ./trust.json \
 
 `--trust-registry` can then replace `--key-file` for export, import, and
 promotion. Registry files contain key material and must be treated as secrets;
-they are local trust roots, not public federation artifacts. Inactive or
-revoked keys are retained for audit/history but are blocked from export,
+they are local trust roots, not public federation artifacts. Expired, inactive,
+or revoked keys are retained for audit/history but are blocked from export,
 import, and promotion. A later milestone should replace this local
 symmetric-key registry with organization-managed asymmetric key publication and
 signed rotation/revocation feeds.

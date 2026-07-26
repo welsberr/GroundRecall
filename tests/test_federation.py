@@ -213,6 +213,39 @@ def test_trust_registry_revokes_key_and_preserves_revocation_metadata() -> None:
         resolve_trust_key(revoked, instance_id="host-a", key_id="old-key", release_level="internal", action="import")
 
 
+def test_trust_registry_rejects_expired_key() -> None:
+    registry = add_federation_trust_key(
+        FederationTrustRegistry(),
+        instance_id="host-a",
+        key_id="expiring-key",
+        key_material=SIGNING_KEY,
+        release_levels=["internal"],
+        trusted_actions=["import"],
+        expires_at="2026-07-27T00:00:00Z",
+    )
+
+    assert (
+        resolve_trust_key(
+            registry,
+            instance_id="host-a",
+            key_id="expiring-key",
+            release_level="internal",
+            action="import",
+            as_of="2026-07-26T23:59:59Z",
+        )
+        == SIGNING_KEY.encode("utf-8")
+    )
+    with pytest.raises(FederationPolicyError, match="expired"):
+        resolve_trust_key(
+            registry,
+            instance_id="host-a",
+            key_id="expiring-key",
+            release_level="internal",
+            action="import",
+            as_of="2026-07-27T00:00:00Z",
+        )
+
+
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     _seed_federation_store(store)
@@ -989,4 +1022,97 @@ def test_federation_cli_revoke_blocks_registry_verification(tmp_path: Path, monk
         ],
     )
     with pytest.raises(FederationPolicyError, match="revoked"):
+        federation.main()
+
+
+def test_federation_cli_expired_registry_key_blocks_import(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    key_file = tmp_path / "federation.key"
+    key_file.write_text(SIGNING_KEY, encoding="utf-8")
+    active_registry = tmp_path / "active-trust.json"
+    expired_registry = tmp_path / "expired-trust.json"
+    bundle_path = tmp_path / "bundle.json"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(active_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "dated-key",
+            "--key-file",
+            str(key_file),
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "export",
+            "--expires-at",
+            "2999-01-01T00:00:00Z",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "export",
+            str(store.base_dir),
+            str(bundle_path),
+            "--target-release-level",
+            "internal",
+            "--producer-instance-id",
+            "host-a",
+            "--trust-registry",
+            str(active_registry),
+            "--key-id",
+            "dated-key",
+        ],
+    )
+    federation.main()
+    capsys.readouterr()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "trust-add",
+            str(expired_registry),
+            "--instance-id",
+            "host-a",
+            "--key-id",
+            "dated-key",
+            "--key-file",
+            str(key_file),
+            "--release-level",
+            "internal",
+            "--trusted-action",
+            "import",
+            "--expires-at",
+            "2000-01-01T00:00:00Z",
+        ],
+    )
+    federation.main()
+    expired_output = json.loads(capsys.readouterr().out)
+    assert expired_output["keys"][0]["expires_at"] == "2000-01-01T00:00:00Z"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "import",
+            str(bundle_path),
+            str(tmp_path / "quarantine"),
+            "--trust-registry",
+            str(expired_registry),
+            "--accept-release-level",
+            "internal",
+        ],
+    )
+    with pytest.raises(FederationPolicyError, match="expired"):
         federation.main()
