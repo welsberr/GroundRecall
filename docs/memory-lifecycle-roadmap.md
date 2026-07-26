@@ -263,6 +263,12 @@ framework-specific semantics to become canonical.
 - Support reviewed shared memory and per-agent private draft scopes.
 - Merge append-only events across hosts with explicit conflict records.
 - Add team review, adjudication, and publication workflows.
+- Add federated knowledge exchange between GroundRecall instances using signed
+  bundles, quarantine import, release-level policy, and provenance visibility
+  controls.
+- Classify shareable content as `private`, `public`, `internal`,
+  `confidential`, or `privileged`, with redaction/declassification policy
+  required before any derived artifact crosses to a less restrictive level.
 
 Acceptance criteria:
 
@@ -270,10 +276,14 @@ Acceptance criteria:
   validity, and lifecycle state;
 - conflicts remain reviewable rather than being resolved by last-write-wins;
 - agents cannot read or promote another scope's drafts without authorization.
+- public/internal federation exports disclose whether supporting provenance is
+  full, partial, redacted, or hidden;
+- confidential and privileged material cannot be federated or summarized into a
+  lower release level without an explicit policy-approved derivative artifact.
 
 This phase completes the distributed portions of
-[sync-roadmap.md](sync-roadmap.md) only after R1 and R2 establish the required
-identity and authority model.
+[sync-roadmap.md](sync-roadmap.md), including the federation milestones, only
+after R1 and R2 establish the required identity and authority model.
 
 ### R6: Research Release
 
