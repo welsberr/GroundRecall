@@ -6,6 +6,7 @@ import sys
 from . import (
     assistant_export,
     claim_evaluation_export,
+    confidence,
     export,
     graph_augment,
     ingest,
@@ -32,6 +33,9 @@ COMMANDS = {
     "relation-review": relation_review.main,
     "assistant-export": assistant_export.main,
     "claim-evaluation-export": claim_evaluation_export.main,
+    "confidence-migrate": confidence.confidence_migrate_main,
+    "confidence-readiness": confidence.confidence_readiness_main,
+    "confidence-restore": confidence.confidence_restore_main,
     "inspect": inspect.main,
     "review-server": review_server.main,
 }

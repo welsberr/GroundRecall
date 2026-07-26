@@ -198,6 +198,12 @@ groundrecall claim-evaluation-export evaluations.json .groundrecall/exports/g \
 These rows evaluate an explicit learner/model claim-checking run. They are not
 derived from GroundRecall review confidence or used as source-truth scores.
 
+Confidence migration/readiness tooling is documented in
+[`docs/confidence-migration.md`](docs/confidence-migration.md). Legacy scalar
+`confidence_hint` fields remain readable, but typed Epistemap assessments are
+generated only when producer method, version, policy, basis, and rationale
+metadata are present.
+
 ## Assistant-Neutral Host Protocol
 
 GroundRecall can initialize a reusable memory pattern for a project or host:

@@ -175,8 +175,10 @@ def promote_import_to_store(
                 artifact_id=observation.get("artifact_id", ""),
                 role=observation.get("role", "summary"),
                 text=observation.get("text", ""),
+                metadata=dict(observation.get("metadata", {})),
                 provenance=_provenance_from_payload(observation),
                 confidence_hint=_optional_bounded_float(observation.get("confidence_hint")),
+                assessments=list(observation.get("assessments", [])),
                 current_status="reviewed",
             )
         )
@@ -227,6 +229,7 @@ def promote_import_to_store(
                 supersedes_claim_ids=list(claim.get("supersedes_claim_ids", [])),
                 confidence_hint=_optional_bounded_float(claim.get("confidence_hint")),
                 review_confidence=_optional_bounded_float(claim.get("review_confidence")),
+                assessments=list(claim.get("assessments", [])),
                 last_confirmed_at=claim.get("last_confirmed_at", ""),
                 provenance=_provenance_from_payload(claim),
                 current_status=current_status,  # type: ignore[arg-type]
