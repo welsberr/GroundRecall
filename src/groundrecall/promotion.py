@@ -55,6 +55,15 @@ def _review_status_map(status: str) -> str:
     }.get(status, "triaged")
 
 
+def _optional_bounded_float(value) -> float | None:
+    if value in ("", None):
+        return None
+    numeric = float(value)
+    if numeric < 0.0 or numeric > 1.0:
+        raise ValueError(f"confidence value must be between 0 and 1: {numeric}")
+    return numeric
+
+
 def _provenance_from_payload(payload: dict[str, Any]) -> ProvenanceRecord:
     return ProvenanceRecord(
         origin_artifact_id=payload.get("origin_artifact_id", ""),
@@ -167,7 +176,7 @@ def promote_import_to_store(
                 role=observation.get("role", "summary"),
                 text=observation.get("text", ""),
                 provenance=_provenance_from_payload(observation),
-                confidence_hint=float(observation.get("confidence_hint", 0.0)),
+                confidence_hint=_optional_bounded_float(observation.get("confidence_hint")),
                 current_status="reviewed",
             )
         )
@@ -216,8 +225,8 @@ def promote_import_to_store(
                 concept_ids=concept_ids,
                 contradicts_claim_ids=list(claim.get("contradicts_claim_ids", [])),
                 supersedes_claim_ids=list(claim.get("supersedes_claim_ids", [])),
-                confidence_hint=float(claim.get("confidence_hint", 0.0)),
-                review_confidence=float(claim.get("review_confidence", 0.0)),
+                confidence_hint=_optional_bounded_float(claim.get("confidence_hint")),
+                review_confidence=_optional_bounded_float(claim.get("review_confidence")),
                 last_confirmed_at=claim.get("last_confirmed_at", ""),
                 provenance=_provenance_from_payload(claim),
                 current_status=current_status,  # type: ignore[arg-type]

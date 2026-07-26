@@ -6,6 +6,12 @@ typed `Concept`, `Claim`, `Relation`, `Observation`, `Artifact`, and provenance
 records; can query concept neighborhoods; can expand search results with
 bounded graph associations; and emits import-time graph diagnostics for review.
 
+Most of the original P0–P7 path now has an initial implementation. This
+roadmap therefore serves as a focused capability and maintenance record beneath
+the primary [memory lifecycle roadmap](memory-lifecycle-roadmap.md). New graph
+work should be justified by review quality, governed retrieval, or measured
+downstream benefit rather than graph size alone.
+
 This document defines the implementation path from that substrate to full
 knowledge graph capability.
 
@@ -40,6 +46,35 @@ Full GroundRecall knowledge graph capability means:
 
 The design rule remains: extracted triples are candidates, not canonical truth,
 until reviewed or promoted.
+
+## Recommended Next Graph Work
+
+- Add temporal validity and `as_of` traversal after the canonical bitemporal
+  model is implemented.
+- Include exact record versions or hashes in exported graph bundles.
+- Record why graph expansion selected a node for an assistant context package.
+- Evaluate FTS-only, graph-expanded, and hybrid retrieval with the same model
+  and corpus.
+- Add poisoning and scope-leakage fixtures for inferred edges and graph
+  traversal.
+- Keep graph databases and embedding indexes as rebuildable projections unless
+  measured scale or latency demonstrates the need for a new canonical store.
+
+### CiteGeist Bibliography Graph Interchange
+
+Coordinate bibliography graph work with CiteGeist's
+`docs/epistemap-knowledge-graph-roadmap.md` and Epistemap's confidence
+overhaul.
+
+- Preserve CiteGeist work, relation, provenance, and assessment IDs.
+- Import metadata and abstracts as observations rather than promoted truth
+  claims.
+- Treat citation and topical relations as discovery context, not claim support.
+- Import only reviewed source-anchor relations as support/challenge candidates.
+- Keep GroundRecall claim promotion separate from CiteGeist bibliographic
+  review.
+- Retain correction, retraction, supersession, and historical availability
+  events for `as_of` queries.
 
 ## Priority Path
 

@@ -1,5 +1,12 @@
 # AI Knowledge Graph Adoption Plan
 
+> **Status: historical implementation plan.** Most GroundRecall GR tickets in
+> this document now have initial implementations. Use
+> [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md) for current graph
+> status and [memory-lifecycle-roadmap.md](memory-lifecycle-roadmap.md) for
+> forward priority. Do not treat the ticket sequence below as the active
+> GroundRecall backlog.
+
 This document translates the feature set of
 [`robert-mcdermott/ai-knowledge-graph`](https://github.com/robert-mcdermott/ai-knowledge-graph)
 into concrete implementation tickets for the current local repositories:

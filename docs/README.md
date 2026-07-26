@@ -7,12 +7,17 @@ Primary docs:
 - [quickstart.md](quickstart.md)
 - [assistant-protocol.md](assistant-protocol.md)
 - [architecture.md](architecture.md)
+- [memory-lifecycle-roadmap.md](memory-lifecycle-roadmap.md)
 - [reasoning-scaffold-operational-principles.md](reasoning-scaffold-operational-principles.md)
 - [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md)
 - [llmwiki-import.md](llmwiki-import.md)
 - [textbook-ocr-ingestion.md](textbook-ocr-ingestion.md)
 - [library-argument-ingestion.md](library-argument-ingestion.md)
 - [sync-roadmap.md](sync-roadmap.md)
+- [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md)
+
+The memory lifecycle roadmap is the primary forward-looking roadmap. The sync
+and knowledge-graph roadmaps provide focused implementation detail beneath it.
 
 Legacy extraction notes:
 
