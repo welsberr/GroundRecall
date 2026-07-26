@@ -18,7 +18,7 @@ from .store import GroundRecallStore
 ReleaseLevel = Literal["public", "internal", "confidential", "privileged", "private"]
 ProvenanceVisibility = Literal["full", "partial", "redacted", "hidden"]
 ImportDecision = Literal["quarantined", "rejected"]
-FederationAction = Literal["export", "import"]
+FederationAction = Literal["export", "import", "promote"]
 
 RELEASE_LEVELS: tuple[ReleaseLevel, ...] = (
     "public",
@@ -164,6 +164,35 @@ class FederationAuditEvent(BaseModel):
     policy_id: str = ""
     reasons: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class FederationQuarantineSummary(BaseModel):
+    bundle_id: str
+    quarantine_path: str
+    producer_instance_id: str
+    target_release_level: ReleaseLevel
+    record_count: int
+    created_at: str
+    content_hash: str
+
+
+class FederationPromotionPlan(BaseModel):
+    bundle_id: str
+    source_path: str
+    target_store_dir: str
+    target_release_level: ReleaseLevel
+    origin_instance_id: str
+    apply: bool = False
+    promotable_counts: dict[str, int] = Field(default_factory=dict)
+    unchanged_counts: dict[str, int] = Field(default_factory=dict)
+    conflict_counts: dict[str, int] = Field(default_factory=dict)
+    conflicts: list[dict[str, str]] = Field(default_factory=list)
+
+
+class FederationPromotionResult(BaseModel):
+    decision: Literal["planned", "promoted", "rejected"]
+    plan: FederationPromotionPlan
+    reasons: list[str] = Field(default_factory=list)
 
 
 def now_utc() -> str:
@@ -608,6 +637,133 @@ def import_federation_bundle_to_quarantine(
     return result
 
 
+def list_quarantine_bundles(quarantine_dir: str | Path) -> list[FederationQuarantineSummary]:
+    summaries: list[FederationQuarantineSummary] = []
+    for path in sorted(Path(quarantine_dir).glob("*.json")):
+        bundle = FederationBundle.model_validate_json(path.read_text(encoding="utf-8"))
+        summaries.append(
+            FederationQuarantineSummary(
+                bundle_id=bundle.manifest.bundle_id,
+                quarantine_path=str(path),
+                producer_instance_id=bundle.manifest.producer_instance_id,
+                target_release_level=bundle.manifest.target_release_level,
+                record_count=bundle.manifest.record_count,
+                created_at=bundle.manifest.created_at,
+                content_hash=bundle.manifest.content_hash,
+            )
+        )
+    return summaries
+
+
+def plan_quarantine_promotion(
+    bundle_path: str | Path,
+    store_dir: str | Path,
+    *,
+    signing_key: str | bytes,
+    key_id: str | None = None,
+    accepted_release_levels: Iterable[ReleaseLevel] = ("public",),
+) -> FederationPromotionPlan:
+    bundle = verify_federation_bundle(json.loads(Path(bundle_path).read_text(encoding="utf-8")), signing_key=signing_key, key_id=key_id)
+    accepted = set(accepted_release_levels)
+    store = GroundRecallStore(store_dir)
+    promotable_counts: dict[str, int] = {}
+    unchanged_counts: dict[str, int] = {}
+    conflict_counts: dict[str, int] = {}
+    conflicts: list[dict[str, str]] = []
+    if bundle.manifest.target_release_level not in accepted:
+        conflicts.append(
+            {
+                "record_kind": "bundle",
+                "record_id": bundle.manifest.bundle_id,
+                "reason": f"target_release_level_not_accepted:{bundle.manifest.target_release_level}",
+            }
+        )
+        conflict_counts["bundle"] = 1
+    for collection in _promotion_collections(bundle, store):
+        _accumulate_promotion_collection(
+            collection["record_kind"],
+            collection["incoming"],
+            collection["id_field"],
+            collection["get_existing"],
+            promotable_counts,
+            unchanged_counts,
+            conflict_counts,
+            conflicts,
+        )
+    return FederationPromotionPlan(
+        bundle_id=bundle.manifest.bundle_id,
+        source_path=str(bundle_path),
+        target_store_dir=str(store.base_dir),
+        target_release_level=bundle.manifest.target_release_level,
+        origin_instance_id=bundle.manifest.producer_instance_id,
+        promotable_counts=promotable_counts,
+        unchanged_counts=unchanged_counts,
+        conflict_counts=conflict_counts,
+        conflicts=conflicts,
+    )
+
+
+def promote_quarantined_bundle(
+    bundle_path: str | Path,
+    store_dir: str | Path,
+    *,
+    signing_key: str | bytes,
+    key_id: str | None = None,
+    accepted_release_levels: Iterable[ReleaseLevel] = ("public",),
+    policy: FederationLocalPolicy | None = None,
+    requester_id: str = "",
+    audit_log_path: str | Path | None = None,
+    apply: bool = False,
+) -> FederationPromotionResult:
+    bundle = verify_federation_bundle(json.loads(Path(bundle_path).read_text(encoding="utf-8")), signing_key=signing_key, key_id=key_id)
+    policy_decision = None
+    if policy is not None:
+        policy_decision = evaluate_federation_policy(
+            policy,
+            subject_id=requester_id,
+            action="promote",
+            release_level=bundle.manifest.target_release_level,
+            instance_id=bundle.manifest.producer_instance_id,
+        )
+        if not policy_decision.allowed:
+            plan = plan_quarantine_promotion(
+                bundle_path,
+                store_dir,
+                signing_key=signing_key,
+                key_id=key_id,
+                accepted_release_levels=accepted_release_levels,
+            )
+            result = FederationPromotionResult(decision="rejected", plan=plan, reasons=policy_decision.reasons)
+            _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+            return result
+
+    plan = plan_quarantine_promotion(
+        bundle_path,
+        store_dir,
+        signing_key=signing_key,
+        key_id=key_id,
+        accepted_release_levels=accepted_release_levels,
+    )
+    if plan.conflicts:
+        result = FederationPromotionResult(decision="rejected", plan=plan, reasons=["promotion_conflicts"])
+        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+        return result
+    if not apply:
+        result = FederationPromotionResult(decision="planned", plan=plan)
+        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+        return result
+
+    store = GroundRecallStore(store_dir)
+    for collection in _promotion_collections(bundle, store):
+        for record in collection["incoming"]:
+            existing = collection["get_existing"](getattr(record, collection["id_field"]))
+            if existing is None:
+                collection["save"](record)
+    result = FederationPromotionResult(decision="promoted", plan=plan.model_copy(update={"apply": True}))
+    _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+    return result
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Export or import GroundRecall federation bundles.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -642,11 +798,34 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["public", "internal", "confidential", "privileged"],
         help="Accepted target release level. May be repeated.",
     )
+    list_parser = subparsers.add_parser("list-quarantine", help="List quarantined federation bundles.")
+    list_parser.add_argument("quarantine_dir")
+
+    promote_parser = subparsers.add_parser("promote", help="Plan or apply promotion of a quarantined bundle into a canonical store.")
+    promote_parser.add_argument("bundle_path")
+    promote_parser.add_argument("store_dir")
+    promote_parser.add_argument("--key-file", required=True, help="Path containing the HMAC verification key.")
+    promote_parser.add_argument("--key-id", default=None)
+    promote_parser.add_argument(
+        "--accept-release-level",
+        action="append",
+        default=[],
+        choices=["public", "internal", "confidential", "privileged"],
+        help="Accepted target release level. May be repeated.",
+    )
+    promote_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
+    promote_parser.add_argument("--requester-id", default="", help="Subject/principal requesting promotion.")
+    promote_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
+    promote_parser.add_argument("--apply", action="store_true", help="Write non-conflicting records into the canonical store.")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.command == "list-quarantine":
+        summaries = list_quarantine_bundles(args.quarantine_dir)
+        print(json.dumps([item.model_dump(mode="json") for item in summaries], indent=2, sort_keys=True))
+        return
     key = Path(args.key_file).read_bytes()
     policy = load_federation_policy(args.policy_file) if getattr(args, "policy_file", None) else None
     if args.command == "export":
@@ -678,6 +857,21 @@ def main() -> None:
             policy=policy,
             requester_id=args.requester_id,
             audit_log_path=args.audit_log,
+        )
+        print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
+        return
+    if args.command == "promote":
+        accepted = args.accept_release_level or ["public"]
+        result = promote_quarantined_bundle(
+            args.bundle_path,
+            args.store_dir,
+            signing_key=key,
+            key_id=args.key_id,
+            accepted_release_levels=accepted,
+            policy=policy,
+            requester_id=args.requester_id,
+            audit_log_path=args.audit_log,
+            apply=args.apply,
         )
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
         return
@@ -840,3 +1034,128 @@ def _bundle_policy_violations(bundle: FederationBundle) -> list[str]:
             elif not is_allowed_for_target(level, bundle.manifest.target_release_level):
                 violations.append(f"{record_kind}:{record_id}:release_level_exceeds_target:{level}")
     return violations
+
+
+def _promotion_collections(bundle: FederationBundle, store: GroundRecallStore) -> list[dict[str, Any]]:
+    return [
+        {
+            "record_kind": "source",
+            "incoming": bundle.snapshot.sources,
+            "id_field": "source_id",
+            "get_existing": store.get_source,
+            "save": store.save_source,
+        },
+        {
+            "record_kind": "fragment",
+            "incoming": bundle.snapshot.fragments,
+            "id_field": "fragment_id",
+            "get_existing": store.get_fragment,
+            "save": store.save_fragment,
+        },
+        {
+            "record_kind": "artifact",
+            "incoming": bundle.snapshot.artifacts,
+            "id_field": "artifact_id",
+            "get_existing": store.get_artifact,
+            "save": store.save_artifact,
+        },
+        {
+            "record_kind": "observation",
+            "incoming": bundle.snapshot.observations,
+            "id_field": "observation_id",
+            "get_existing": store.get_observation,
+            "save": store.save_observation,
+        },
+        {
+            "record_kind": "concept",
+            "incoming": bundle.snapshot.concepts,
+            "id_field": "concept_id",
+            "get_existing": store.get_concept,
+            "save": store.save_concept,
+        },
+        {
+            "record_kind": "claim",
+            "incoming": bundle.snapshot.claims,
+            "id_field": "claim_id",
+            "get_existing": store.get_claim,
+            "save": store.save_claim,
+        },
+        {
+            "record_kind": "relation",
+            "incoming": bundle.snapshot.relations,
+            "id_field": "relation_id",
+            "get_existing": store.get_relation,
+            "save": store.save_relation,
+        },
+        {
+            "record_kind": "promotion",
+            "incoming": bundle.snapshot.promotions,
+            "id_field": "promotion_id",
+            "get_existing": store.get_promotion,
+            "save": store.save_promotion,
+        },
+        {
+            "record_kind": "adjudication",
+            "incoming": bundle.snapshot.adjudications,
+            "id_field": "adjudication_id",
+            "get_existing": store.get_adjudication,
+            "save": store.save_adjudication,
+        },
+    ]
+
+
+def _accumulate_promotion_collection(
+    record_kind: str,
+    incoming: list[Any],
+    id_field: str,
+    get_existing,
+    promotable_counts: dict[str, int],
+    unchanged_counts: dict[str, int],
+    conflict_counts: dict[str, int],
+    conflicts: list[dict[str, str]],
+) -> None:
+    for record in incoming:
+        record_id = str(getattr(record, id_field))
+        existing = get_existing(record_id)
+        if existing is None:
+            promotable_counts[record_kind] = promotable_counts.get(record_kind, 0) + 1
+            continue
+        if _record_hash(existing) == _record_hash(record):
+            unchanged_counts[record_kind] = unchanged_counts.get(record_kind, 0) + 1
+            continue
+        conflict_counts[record_kind] = conflict_counts.get(record_kind, 0) + 1
+        conflicts.append({"record_kind": record_kind, "record_id": record_id, "reason": "existing_record_differs"})
+
+
+def _record_hash(record: Any) -> str:
+    return hashlib.sha256(_canonical_json(record.model_dump(mode="json")).encode("utf-8")).hexdigest()
+
+
+def _audit_promotion(
+    audit_log_path: str | Path | None,
+    result: FederationPromotionResult,
+    requester_id: str,
+    bundle: FederationBundle,
+    policy_decision: FederationPolicyDecision | None,
+) -> None:
+    if audit_log_path is None:
+        return
+    append_federation_audit_event(
+        audit_log_path,
+        build_federation_audit_event(
+            action="promote",
+            decision=result.decision,
+            subject_id=requester_id,
+            release_level=bundle.manifest.target_release_level,
+            bundle_id=bundle.manifest.bundle_id,
+            instance_id=bundle.manifest.producer_instance_id,
+            policy_decision=policy_decision,
+            reasons=result.reasons,
+            metadata={
+                "promotable_counts": result.plan.promotable_counts,
+                "unchanged_counts": result.plan.unchanged_counts,
+                "conflict_counts": result.plan.conflict_counts,
+                "apply": result.plan.apply,
+            },
+        ),
+    )

@@ -15,6 +15,9 @@ from groundrecall.federation import (
     import_federation_bundle_to_quarantine,
     is_allowed_for_target,
     is_less_restrictive,
+    list_quarantine_bundles,
+    plan_quarantine_promotion,
+    promote_quarantined_bundle,
     verify_federation_bundle,
 )
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, SourceRecord
@@ -120,7 +123,7 @@ def test_local_policy_grants_action_release_level_and_instance() -> None:
         grants=[
             FederationPolicyGrant(
                 subject_id="alice",
-                actions=["export", "import"],
+                actions=["export", "import", "promote"],
                 release_levels=["public", "internal"],
                 instance_ids=["host-a"],
             )
@@ -138,6 +141,9 @@ def test_local_policy_grants_action_release_level_and_instance() -> None:
     missing_subject = evaluate_federation_policy(policy, subject_id="", action="import", release_level="public", instance_id="host-a")
     assert missing_subject.allowed is False
     assert missing_subject.reasons == ["missing_subject_id"]
+
+    promote = evaluate_federation_policy(policy, subject_id="alice", action="promote", release_level="internal", instance_id="host-a")
+    assert promote.allowed is True
 
 
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
@@ -291,6 +297,10 @@ def test_import_verifies_signature_and_quarantines_without_promotion(tmp_path: P
     assert Path(result.quarantine_path).exists()
     assert not (tmp_path / "receiver" / "claims").exists()
 
+    summaries = list_quarantine_bundles(tmp_path / "receiver" / "quarantine")
+    assert len(summaries) == 1
+    assert summaries[0].bundle_id == result.bundle_id
+
 
 def test_policy_rejects_unauthorized_export_and_writes_audit(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
@@ -326,6 +336,164 @@ def test_policy_rejects_unauthorized_export_and_writes_audit(tmp_path: Path) -> 
     assert audit_rows[0]["decision"] == "rejected"
     assert audit_rows[0]["subject_id"] == "alice"
     assert audit_rows[0]["release_level"] == "internal"
+
+
+def test_quarantine_promotion_plans_then_applies_without_overwriting(tmp_path: Path) -> None:
+    source_store = GroundRecallStore(tmp_path / "source")
+    _seed_federation_store(source_store)
+    receiver_store = GroundRecallStore(tmp_path / "receiver")
+    bundle_path = tmp_path / "bundle.json"
+    export_federation_bundle(
+        source_store.base_dir,
+        bundle_path,
+        target_release_level="internal",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-promote",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    plan = plan_quarantine_promotion(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+    )
+    assert plan.promotable_counts["claim"] == 2
+    assert plan.conflicts == []
+    assert receiver_store.get_claim("clm_public") is None
+
+    dry_run = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+    )
+    assert dry_run.decision == "planned"
+    assert receiver_store.get_claim("clm_public") is None
+
+    applied = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+        apply=True,
+    )
+    assert applied.decision == "promoted"
+    assert receiver_store.get_claim("clm_public") is not None
+    assert receiver_store.get_claim("clm_internal") is not None
+
+    repeat_plan = plan_quarantine_promotion(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+    )
+    assert repeat_plan.unchanged_counts["claim"] == 2
+    assert repeat_plan.promotable_counts.get("claim", 0) == 0
+
+
+def test_quarantine_promotion_rejects_conflicting_existing_record(tmp_path: Path) -> None:
+    source_store = GroundRecallStore(tmp_path / "source")
+    _seed_federation_store(source_store)
+    receiver_store = GroundRecallStore(tmp_path / "receiver")
+    receiver_store.save_claim(
+        ClaimRecord(
+            claim_id="clm_public",
+            claim_text="Different local claim.",
+            metadata={"release_level": "public"},
+            current_status="promoted",
+        )
+    )
+    bundle_path = tmp_path / "bundle.json"
+    export_federation_bundle(
+        source_store.base_dir,
+        bundle_path,
+        target_release_level="public",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-conflict",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    result = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["public"],
+        apply=True,
+    )
+
+    assert result.decision == "rejected"
+    assert result.reasons == ["promotion_conflicts"]
+    assert result.plan.conflict_counts["claim"] == 1
+    assert receiver_store.get_claim("clm_public").claim_text == "Different local claim."
+
+
+def test_policy_gates_promotion_and_writes_audit(tmp_path: Path) -> None:
+    source_store = GroundRecallStore(tmp_path / "source")
+    _seed_federation_store(source_store)
+    receiver_store = GroundRecallStore(tmp_path / "receiver")
+    bundle_path = tmp_path / "bundle.json"
+    export_federation_bundle(
+        source_store.base_dir,
+        bundle_path,
+        target_release_level="internal",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-policy-promote",
+        created_at="2026-07-26T00:00:00Z",
+    )
+    policy = FederationLocalPolicy(
+        policy_id="policy-promote",
+        grants=[
+            FederationPolicyGrant(
+                subject_id="reviewer",
+                actions=["promote"],
+                release_levels=["internal"],
+                instance_ids=["host-a"],
+            )
+        ],
+    )
+    audit_log = tmp_path / "audit.jsonl"
+
+    rejected = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+        policy=policy,
+        requester_id="observer",
+        audit_log_path=audit_log,
+        apply=True,
+    )
+    assert rejected.decision == "rejected"
+    assert rejected.reasons == ["no_matching_federation_grant"]
+
+    promoted = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+        policy=policy,
+        requester_id="reviewer",
+        audit_log_path=audit_log,
+        apply=True,
+    )
+    assert promoted.decision == "promoted"
+    rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert [row["decision"] for row in rows] == ["rejected", "promoted"]
+    assert rows[1]["action"] == "promote"
 
 
 def test_policy_allows_export_and_import_with_audit(tmp_path: Path) -> None:
@@ -463,6 +631,54 @@ def test_federation_cli_exports_and_imports_quarantine_bundle(tmp_path: Path, mo
     import_stdout = json.loads(capsys.readouterr().out)
     assert import_stdout["decision"] == "quarantined"
     assert Path(import_stdout["quarantine_path"]).exists()
+
+    monkeypatch.setattr("sys.argv", ["groundrecall federation", "list-quarantine", str(quarantine_dir)])
+    federation.main()
+    list_stdout = json.loads(capsys.readouterr().out)
+    assert len(list_stdout) == 1
+    assert list_stdout[0]["bundle_id"] == import_stdout["bundle_id"]
+
+    receiver_store = tmp_path / "receiver-store"
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "promote",
+            import_stdout["quarantine_path"],
+            str(receiver_store),
+            "--key-file",
+            str(key_file),
+            "--key-id",
+            "test-key",
+            "--accept-release-level",
+            "internal",
+        ],
+    )
+    federation.main()
+    plan_stdout = json.loads(capsys.readouterr().out)
+    assert plan_stdout["decision"] == "planned"
+    assert not (receiver_store / "claims" / "clm_public.json").exists()
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "promote",
+            import_stdout["quarantine_path"],
+            str(receiver_store),
+            "--key-file",
+            str(key_file),
+            "--key-id",
+            "test-key",
+            "--accept-release-level",
+            "internal",
+            "--apply",
+        ],
+    )
+    federation.main()
+    apply_stdout = json.loads(capsys.readouterr().out)
+    assert apply_stdout["decision"] == "promoted"
+    assert (receiver_store / "claims" / "clm_public.json").exists()
 
 
 def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

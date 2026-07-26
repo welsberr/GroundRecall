@@ -203,9 +203,12 @@ policy primitives, signed bundle export, signature/content-hash verification,
 and quarantine import helpers in `groundrecall.federation`, exposed through
 `groundrecall federation export` and `groundrecall federation import`. This is
 the F0-F3 foundation. The CLI also accepts an optional local policy file and
-JSONL audit log so hosts can require explicit requester grants before export or
-quarantine import. It does not yet provide network transport, role directory
-integration, distributed policy publication, or public release-pack publishing.
+JSONL audit log so hosts can require explicit requester grants before export,
+quarantine import, or promotion. Quarantined bundles can be listed, dry-run
+planned, and promoted into a canonical store only when signature verification,
+release-level acceptance, local policy, and conflict checks pass. It does not
+yet provide network transport, role directory integration, distributed policy
+publication, or public release-pack publishing.
 
 Local policy files use the `groundrecall.local_federation_policy.v1` shape:
 
@@ -215,7 +218,7 @@ Local policy files use the `groundrecall.local_federation_policy.v1` shape:
   "grants": [
     {
       "subject_id": "alice",
-      "actions": ["export", "import"],
+      "actions": ["export", "import", "promote"],
       "release_levels": ["public", "internal"],
       "instance_ids": ["host-a", "host-b"],
       "scopes": ["project-alpha"],
