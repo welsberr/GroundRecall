@@ -163,6 +163,9 @@ implemented.
   contradiction cases, flag explicit contradiction links that lack a case, flag
   cases that reference missing claims, and prioritize open cases involving
   promoted claims for adjudication.
+- Contradiction review now has a CLI workflow for syncing explicit links into
+  cases, listing case batches, and recording adjudications while preserving the
+  disagreement history.
 - Canonical exports can now write filtered `graph_diagnostics.json` through
   `groundrecall export --include-graph-diagnostics`.
 - Store inspection supports compact active graph diagnostics through

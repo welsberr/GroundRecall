@@ -479,6 +479,11 @@ Acceptance criteria:
   resolved state, can point to adjudication records, are included in snapshots,
   and move through signed federation bundles under the same release-level policy
   checks as other canonical records.
+- `groundrecall contradictions sync STORE` materializes missing cases from
+  explicit claim links, `groundrecall contradictions list STORE --sync` returns
+  a review batch with claim previews, and `groundrecall contradictions
+  adjudicate STORE CASE_ID ...` records the adjudication without silently
+  rewriting the underlying claims.
 
 Acceptance criteria:
 

@@ -282,7 +282,7 @@ def save_adjudication(
     adjudicator: str,
     rationale: str,
     decided_at: str | None = None,
-    subject_type: Literal["claim", "observation", "relation"] = "claim",
+    subject_type: Literal["claim", "observation", "relation", "contradiction_case"] = "claim",
 ) -> AdjudicationRecord:
     record = AdjudicationRecord(
         adjudication_id=adjudication_id,

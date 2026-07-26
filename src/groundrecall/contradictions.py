@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
+import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable, Literal
 
-from .models import ClaimRecord, ContradictionCaseRecord
+from .models import AdjudicationRecord, ClaimRecord, ContradictionCaseRecord
+
+
+ContradictionCaseStatus = Literal["open", "under_review", "resolved", "superseded", "rejected"]
 
 
 def contradiction_case_id_for_claims(claim_ids: Iterable[str]) -> str:
@@ -73,6 +78,56 @@ def contradiction_cases_for_claim_ids(
     return [case for case in cases if wanted.intersection(case.claim_ids)]
 
 
+def list_contradiction_case_batch(
+    store_dir: str | Path,
+    *,
+    status: str = "",
+    include_rejected: bool = False,
+    sync: bool = False,
+    limit: int = 50,
+) -> dict[str, Any]:
+    from .store import GroundRecallStore
+
+    store = GroundRecallStore(store_dir)
+    if sync:
+        sync_contradiction_cases_for_store(store.base_dir)
+    claims_by_id = {claim.claim_id: claim for claim in store.list_claims()}
+    adjudications_by_id = {item.adjudication_id: item for item in store.list_adjudications()}
+    cases = [
+        case
+        for case in store.list_contradiction_cases()
+        if (include_rejected or case.current_status != "rejected")
+        and (not status or case.status == status)
+    ]
+    cases = sorted(cases, key=lambda item: (_status_sort_key(item.status), -_severity_sort_key(item.severity), item.case_id))
+    rows = [
+        _case_payload(case, claims_by_id=claims_by_id, adjudications_by_id=adjudications_by_id)
+        for case in cases[: max(0, limit)]
+    ]
+    return {
+        "workflow_kind": "groundrecall_contradiction_case_review",
+        "schema_version": "groundrecall.contradiction_cases.v1",
+        "store_dir": str(Path(store_dir)),
+        "case_count": len(cases),
+        "returned_count": len(rows),
+        "filters": {
+            "status": status,
+            "include_rejected": include_rejected,
+            "synced_before_listing": sync,
+            "limit": limit,
+        },
+        "cases": rows,
+        "adjudication_schema": {
+            "case_id": "contradiction case id",
+            "status": "open|under_review|resolved|superseded|rejected",
+            "adjudicator": "reviewer id or name",
+            "rationale": "decision rationale",
+            "resolution": "optional short resolution category",
+            "selected_claim_ids": ["optional claim ids treated as best current account"],
+        },
+    }
+
+
 def sync_contradiction_cases_for_store(store_dir: str | Path) -> list[ContradictionCaseRecord]:
     from .store import GroundRecallStore
 
@@ -84,6 +139,134 @@ def sync_contradiction_cases_for_store(store_dir: str | Path) -> list[Contradict
     for case in cases:
         store.save_contradiction_case(case)
     return cases
+
+
+def adjudicate_contradiction_case(
+    store_dir: str | Path,
+    *,
+    case_id: str,
+    status: ContradictionCaseStatus,
+    adjudicator: str,
+    rationale: str,
+    resolution: str = "",
+    selected_claim_ids: list[str] | None = None,
+    decided_at: str | None = None,
+    adjudication_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    from .store import GroundRecallStore
+
+    store = GroundRecallStore(store_dir)
+    case = store.get_contradiction_case(case_id)
+    if case is None:
+        raise KeyError(f"Unknown GroundRecall contradiction case: {case_id}")
+    selected = [claim_id for claim_id in selected_claim_ids or [] if claim_id]
+    missing_selected = [claim_id for claim_id in selected if claim_id not in set(case.claim_ids)]
+    if missing_selected:
+        raise ValueError(f"selected claim ids are not in contradiction case {case_id}: {missing_selected}")
+    timestamp = decided_at or _now_utc()
+    actual_adjudication_id = adjudication_id or _adjudication_id_for_case(case_id, timestamp)
+    adjudication_metadata = {
+        "selection_policy": "explicit_contradiction_case_adjudication_no_silent_averaging",
+        "disagreement_preserved": True,
+        "resolution": resolution,
+        "selected_claim_ids": selected,
+        **(metadata or {}),
+    }
+    adjudication = AdjudicationRecord(
+        adjudication_id=actual_adjudication_id,
+        subject_id=case.case_id,
+        subject_type="contradiction_case",
+        adjudicator=adjudicator,
+        rationale=rationale,
+        decided_at=timestamp,
+        metadata=adjudication_metadata,
+    )
+    store.save_adjudication(adjudication)
+    updated_metadata = {
+        **case.metadata,
+        "last_adjudicated_at": timestamp,
+        "last_adjudicator": adjudicator,
+    }
+    if resolution:
+        updated_metadata["resolution"] = resolution
+    if selected:
+        updated_metadata["selected_claim_ids"] = selected
+    updated_case = case.model_copy(
+        update={
+            "status": status,
+            "resolved_at": timestamp if status in {"resolved", "superseded", "rejected"} else case.resolved_at,
+            "adjudication_id": actual_adjudication_id,
+            "rationale": rationale,
+            "metadata": updated_metadata,
+            "current_status": _lifecycle_for_case_status(status),
+        }
+    )
+    store.save_contradiction_case(updated_case)
+    return {
+        "decision": "adjudicated",
+        "case": updated_case.model_dump(mode="json"),
+        "adjudication": adjudication.model_dump(mode="json"),
+    }
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="List, sync, and adjudicate GroundRecall contradiction cases.")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    sync_parser = subparsers.add_parser("sync", help="Generate first-class cases from explicit contradiction links")
+    sync_parser.add_argument("store_dir")
+
+    list_parser = subparsers.add_parser("list", help="List contradiction cases for review")
+    list_parser.add_argument("store_dir")
+    list_parser.add_argument("--status", default="")
+    list_parser.add_argument("--include-rejected", action="store_true")
+    list_parser.add_argument("--sync", action="store_true", help="Generate missing cases before listing")
+    list_parser.add_argument("--limit", type=int, default=50)
+
+    adjudicate_parser = subparsers.add_parser("adjudicate", help="Record an adjudication against a contradiction case")
+    adjudicate_parser.add_argument("store_dir")
+    adjudicate_parser.add_argument("case_id")
+    adjudicate_parser.add_argument("--status", choices=["open", "under_review", "resolved", "superseded", "rejected"], required=True)
+    adjudicate_parser.add_argument("--adjudicator", required=True)
+    adjudicate_parser.add_argument("--rationale", required=True)
+    adjudicate_parser.add_argument("--resolution", default="")
+    adjudicate_parser.add_argument("--selected-claim-id", action="append", default=[])
+    adjudicate_parser.add_argument("--decided-at", default=None)
+    adjudicate_parser.add_argument("--adjudication-id", default=None)
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    if args.command == "sync":
+        cases = sync_contradiction_cases_for_store(args.store_dir)
+        payload = {
+            "decision": "synced",
+            "case_count": len(cases),
+            "case_ids": [case.case_id for case in cases],
+        }
+    elif args.command == "list":
+        payload = list_contradiction_case_batch(
+            args.store_dir,
+            status=args.status,
+            include_rejected=args.include_rejected,
+            sync=args.sync,
+            limit=args.limit,
+        )
+    else:
+        payload = adjudicate_contradiction_case(
+            args.store_dir,
+            case_id=args.case_id,
+            status=args.status,
+            adjudicator=args.adjudicator,
+            rationale=args.rationale,
+            resolution=args.resolution,
+            selected_claim_ids=list(args.selected_claim_id or []),
+            decided_at=args.decided_at,
+            adjudication_id=args.adjudication_id,
+        )
+    print(json.dumps(payload, indent=2))
 
 
 def _severity_for_claim_pair(left: ClaimRecord, right: ClaimRecord) -> str:
@@ -100,5 +283,64 @@ def _safe_id_part(value: str) -> str:
     return text[:48] or "claim"
 
 
+def _status_sort_key(status: str) -> int:
+    order = {"open": 0, "under_review": 1, "resolved": 2, "superseded": 3, "rejected": 4}
+    return order.get(status, 99)
+
+
+def _severity_sort_key(severity: str) -> int:
+    order = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+    return order.get(severity, 0)
+
+
+def _case_payload(
+    case: ContradictionCaseRecord,
+    *,
+    claims_by_id: dict[str, ClaimRecord],
+    adjudications_by_id: dict[str, AdjudicationRecord],
+) -> dict[str, Any]:
+    adjudication = adjudications_by_id.get(case.adjudication_id) if case.adjudication_id else None
+    return {
+        "case_id": case.case_id,
+        "case_kind": case.case_kind,
+        "status": case.status,
+        "severity": case.severity,
+        "claim_ids": list(case.claim_ids),
+        "opened_at": case.opened_at,
+        "resolved_at": case.resolved_at,
+        "adjudication_id": case.adjudication_id,
+        "rationale": case.rationale,
+        "claims": [
+            {
+                "claim_id": claim_id,
+                "claim_text": claims_by_id[claim_id].claim_text if claim_id in claims_by_id else "",
+                "current_status": claims_by_id[claim_id].current_status if claim_id in claims_by_id else "missing",
+                "concept_ids": list(claims_by_id[claim_id].concept_ids) if claim_id in claims_by_id else [],
+            }
+            for claim_id in case.claim_ids
+        ],
+        "adjudication": adjudication.model_dump(mode="json") if adjudication is not None else None,
+        "metadata": dict(case.metadata),
+        "current_status": case.current_status,
+    }
+
+
+def _adjudication_id_for_case(case_id: str, timestamp: str) -> str:
+    digest = hashlib.sha256(f"{case_id}\n{timestamp}".encode("utf-8")).hexdigest()[:12]
+    return f"adj_contradiction_case_{_safe_id_part(case_id)}_{digest}"
+
+
+def _lifecycle_for_case_status(status: str) -> str:
+    if status == "rejected":
+        return "rejected"
+    if status in {"resolved", "superseded"}:
+        return "reviewed"
+    return "triaged"
+
+
 def _now_utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+if __name__ == "__main__":
+    main()
