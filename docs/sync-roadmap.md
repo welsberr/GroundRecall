@@ -198,6 +198,13 @@ local policy acceptance and, for shared scopes, review authority.
 
 ## Federation Implementation Milestones
 
+Initial implementation status, 2026-07-26: GroundRecall now has federation
+policy primitives, signed bundle export, signature/content-hash verification,
+and quarantine import helpers in `groundrecall.federation`, exposed through
+`groundrecall federation export` and `groundrecall federation import`. This is
+the F0-F3 foundation; it does not yet provide network transport, role
+directory integration, policy distribution, or public release-pack publishing.
+
 ### F0: Instance Identity And Trust Roots
 
 - Define stable `instance_id`, local user/entity IDs, project IDs, and signing

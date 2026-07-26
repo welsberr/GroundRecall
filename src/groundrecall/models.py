@@ -96,6 +96,7 @@ class ConceptRecord(BaseModel):
     aliases: list[str] = Field(default_factory=list)
     description: str = ""
     source_artifact_ids: list[str] = Field(default_factory=list)
+    metadata: dict = Field(default_factory=dict)
     current_status: LifecycleStatus = "draft"
 
 

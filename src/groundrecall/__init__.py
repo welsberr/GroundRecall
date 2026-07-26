@@ -16,6 +16,16 @@ from .query import (
     search_claims,
 )
 from .export import export_graph_bundle, export_groundrecall_graph_bundle, export_groundrecall_query_bundle
+from .federation import (
+    FederationBundle,
+    FederationImportResult,
+    FederationPolicyError,
+    ReleaseLevel,
+    export_federation_bundle,
+    filter_snapshot_for_federation,
+    import_federation_bundle_to_quarantine,
+    verify_federation_bundle,
+)
 from .store import GroundRecallStore
 
 __all__ = [
@@ -38,6 +48,14 @@ __all__ = [
     "export_graph_bundle",
     "export_groundrecall_query_bundle",
     "export_groundrecall_graph_bundle",
+    "FederationBundle",
+    "FederationImportResult",
+    "FederationPolicyError",
+    "ReleaseLevel",
+    "export_federation_bundle",
+    "filter_snapshot_for_federation",
+    "import_federation_bundle_to_quarantine",
+    "verify_federation_bundle",
     "build_query_parser",
     "query_main",
     "summarize_store",
