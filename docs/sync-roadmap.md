@@ -202,8 +202,32 @@ Initial implementation status, 2026-07-26: GroundRecall now has federation
 policy primitives, signed bundle export, signature/content-hash verification,
 and quarantine import helpers in `groundrecall.federation`, exposed through
 `groundrecall federation export` and `groundrecall federation import`. This is
-the F0-F3 foundation; it does not yet provide network transport, role
-directory integration, policy distribution, or public release-pack publishing.
+the F0-F3 foundation. The CLI also accepts an optional local policy file and
+JSONL audit log so hosts can require explicit requester grants before export or
+quarantine import. It does not yet provide network transport, role directory
+integration, distributed policy publication, or public release-pack publishing.
+
+Local policy files use the `groundrecall.local_federation_policy.v1` shape:
+
+```json
+{
+  "policy_id": "example-project-federation-policy",
+  "grants": [
+    {
+      "subject_id": "alice",
+      "actions": ["export", "import"],
+      "release_levels": ["public", "internal"],
+      "instance_ids": ["host-a", "host-b"],
+      "scopes": ["project-alpha"],
+      "allow_privileged": false
+    }
+  ]
+}
+```
+
+Audit events use `groundrecall.federation_audit.v1` JSONL records and capture
+the requester, action, decision, release level, bundle ID, instance ID, policy
+ID, reasons, and decision metadata.
 
 ### F0: Instance Identity And Trust Roots
 

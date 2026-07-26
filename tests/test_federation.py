@@ -7,7 +7,10 @@ import pytest
 
 from groundrecall import federation
 from groundrecall.federation import (
+    FederationLocalPolicy,
     FederationPolicyError,
+    FederationPolicyGrant,
+    evaluate_federation_policy,
     export_federation_bundle,
     import_federation_bundle_to_quarantine,
     is_allowed_for_target,
@@ -109,6 +112,32 @@ def test_release_lattice_blocks_broadening() -> None:
     assert not is_allowed_for_target("private", "privileged")
     assert is_less_restrictive("public", "confidential")
     assert not is_less_restrictive("confidential", "public")
+
+
+def test_local_policy_grants_action_release_level_and_instance() -> None:
+    policy = FederationLocalPolicy(
+        policy_id="policy-test",
+        grants=[
+            FederationPolicyGrant(
+                subject_id="alice",
+                actions=["export", "import"],
+                release_levels=["public", "internal"],
+                instance_ids=["host-a"],
+            )
+        ],
+    )
+
+    allowed = evaluate_federation_policy(policy, subject_id="alice", action="export", release_level="internal", instance_id="host-a")
+    assert allowed.allowed is True
+    assert allowed.grant_index == 0
+
+    wrong_instance = evaluate_federation_policy(policy, subject_id="alice", action="export", release_level="internal", instance_id="host-b")
+    assert wrong_instance.allowed is False
+    assert wrong_instance.reasons == ["no_matching_federation_grant"]
+
+    missing_subject = evaluate_federation_policy(policy, subject_id="", action="import", release_level="public", instance_id="host-a")
+    assert missing_subject.allowed is False
+    assert missing_subject.reasons == ["missing_subject_id"]
 
 
 def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp_path: Path) -> None:
@@ -263,6 +292,97 @@ def test_import_verifies_signature_and_quarantines_without_promotion(tmp_path: P
     assert not (tmp_path / "receiver" / "claims").exists()
 
 
+def test_policy_rejects_unauthorized_export_and_writes_audit(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    policy = FederationLocalPolicy(
+        policy_id="policy-test",
+        grants=[
+            FederationPolicyGrant(
+                subject_id="alice",
+                actions=["export"],
+                release_levels=["public"],
+                instance_ids=["host-a"],
+            )
+        ],
+    )
+    audit_log = tmp_path / "audit.jsonl"
+
+    with pytest.raises(FederationPolicyError, match="no_matching_federation_grant"):
+        export_federation_bundle(
+            store.base_dir,
+            tmp_path / "blocked.json",
+            target_release_level="internal",
+            producer_instance_id="host-a",
+            signing_key=SIGNING_KEY,
+            key_id="test-key",
+            requester_id="alice",
+            policy=policy,
+            audit_log_path=audit_log,
+        )
+
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["action"] == "export"
+    assert audit_rows[0]["decision"] == "rejected"
+    assert audit_rows[0]["subject_id"] == "alice"
+    assert audit_rows[0]["release_level"] == "internal"
+
+
+def test_policy_allows_export_and_import_with_audit(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    policy = FederationLocalPolicy(
+        policy_id="policy-test",
+        grants=[
+            FederationPolicyGrant(
+                subject_id="alice",
+                actions=["export"],
+                release_levels=["internal"],
+                instance_ids=["host-a"],
+            ),
+            FederationPolicyGrant(
+                subject_id="bob",
+                actions=["import"],
+                release_levels=["internal"],
+                instance_ids=["host-a"],
+            ),
+        ],
+    )
+    audit_log = tmp_path / "audit.jsonl"
+    bundle_path = tmp_path / "bundle.json"
+
+    bundle = export_federation_bundle(
+        store.base_dir,
+        bundle_path,
+        target_release_level="internal",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        requester_id="alice",
+        policy=policy,
+        audit_log_path=audit_log,
+        snapshot_id="snap-policy",
+        created_at="2026-07-26T00:00:00Z",
+    )
+    result = import_federation_bundle_to_quarantine(
+        bundle_path,
+        tmp_path / "quarantine",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["internal"],
+        requester_id="bob",
+        policy=policy,
+        audit_log_path=audit_log,
+    )
+
+    assert bundle.manifest.target_release_level == "internal"
+    assert result.decision == "quarantined"
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert [row["decision"] for row in audit_rows] == ["exported", "quarantined"]
+    assert audit_rows[0]["policy_id"] == "policy-test"
+    assert audit_rows[1]["bundle_id"] == bundle.manifest.bundle_id
+
+
 def test_import_rejects_tampered_bundle(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     _seed_federation_store(store)
@@ -343,3 +463,56 @@ def test_federation_cli_exports_and_imports_quarantine_bundle(tmp_path: Path, mo
     import_stdout = json.loads(capsys.readouterr().out)
     assert import_stdout["decision"] == "quarantined"
     assert Path(import_stdout["quarantine_path"]).exists()
+
+
+def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    key_file = tmp_path / "federation.key"
+    key_file.write_text(SIGNING_KEY, encoding="utf-8")
+    policy_file = tmp_path / "policy.json"
+    policy_file.write_text(
+        FederationLocalPolicy(
+            policy_id="cli-policy",
+            grants=[
+                FederationPolicyGrant(
+                    subject_id="alice",
+                    actions=["export"],
+                    release_levels=["internal"],
+                    instance_ids=["host-a"],
+                )
+            ],
+        ).model_dump_json(indent=2),
+        encoding="utf-8",
+    )
+    audit_log = tmp_path / "audit.jsonl"
+    bundle_path = tmp_path / "bundle.json"
+
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "groundrecall federation",
+            "export",
+            str(store.base_dir),
+            str(bundle_path),
+            "--target-release-level",
+            "internal",
+            "--producer-instance-id",
+            "host-a",
+            "--key-file",
+            str(key_file),
+            "--key-id",
+            "test-key",
+            "--policy-file",
+            str(policy_file),
+            "--requester-id",
+            "alice",
+            "--audit-log",
+            str(audit_log),
+        ],
+    )
+    federation.main()
+    output = json.loads(capsys.readouterr().out)
+    assert output["manifest"]["target_release_level"] == "internal"
+    assert bundle_path.exists()
+    assert json.loads(audit_log.read_text(encoding="utf-8").splitlines()[0])["policy_id"] == "cli-policy"

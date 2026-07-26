@@ -18,6 +18,7 @@ from .store import GroundRecallStore
 ReleaseLevel = Literal["public", "internal", "confidential", "privileged", "private"]
 ProvenanceVisibility = Literal["full", "partial", "redacted", "hidden"]
 ImportDecision = Literal["quarantined", "rejected"]
+FederationAction = Literal["export", "import"]
 
 RELEASE_LEVELS: tuple[ReleaseLevel, ...] = (
     "public",
@@ -124,8 +125,137 @@ class FederationImportResult(BaseModel):
     target_release_level: ReleaseLevel
 
 
+class FederationPolicyGrant(BaseModel):
+    subject_id: str
+    actions: list[FederationAction] = Field(default_factory=list)
+    release_levels: list[ReleaseLevel] = Field(default_factory=list)
+    instance_ids: list[str] = Field(default_factory=lambda: ["*"])
+    scopes: list[str] = Field(default_factory=list)
+    allow_privileged: bool = False
+
+
+class FederationLocalPolicy(BaseModel):
+    policy_id: str = "groundrecall.local_federation_policy.v1"
+    grants: list[FederationPolicyGrant] = Field(default_factory=list)
+
+
+class FederationPolicyDecision(BaseModel):
+    allowed: bool
+    policy_id: str
+    subject_id: str
+    action: FederationAction
+    release_level: ReleaseLevel
+    instance_id: str = ""
+    reasons: list[str] = Field(default_factory=list)
+    grant_index: int | None = None
+
+
+class FederationAuditEvent(BaseModel):
+    event_kind: str = "groundrecall_federation_audit_event"
+    schema_version: str = "groundrecall.federation_audit.v1"
+    event_id: str
+    recorded_at: str
+    action: FederationAction
+    decision: str
+    subject_id: str
+    release_level: ReleaseLevel
+    bundle_id: str = ""
+    instance_id: str = ""
+    policy_id: str = ""
+    reasons: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 def now_utc() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def load_federation_policy(path: str | Path) -> FederationLocalPolicy:
+    return FederationLocalPolicy.model_validate_json(Path(path).read_text(encoding="utf-8"))
+
+
+def evaluate_federation_policy(
+    policy: FederationLocalPolicy,
+    *,
+    subject_id: str,
+    action: FederationAction,
+    release_level: ReleaseLevel,
+    instance_id: str = "",
+) -> FederationPolicyDecision:
+    if not subject_id:
+        return FederationPolicyDecision(
+            allowed=False,
+            policy_id=policy.policy_id,
+            subject_id=subject_id,
+            action=action,
+            release_level=release_level,
+            instance_id=instance_id,
+            reasons=["missing_subject_id"],
+        )
+    for index, grant in enumerate(policy.grants):
+        if grant.subject_id != subject_id:
+            continue
+        if action not in grant.actions:
+            continue
+        if release_level not in grant.release_levels:
+            continue
+        if release_level == "privileged" and not grant.allow_privileged:
+            continue
+        if "*" not in grant.instance_ids and instance_id and instance_id not in grant.instance_ids:
+            continue
+        return FederationPolicyDecision(
+            allowed=True,
+            policy_id=policy.policy_id,
+            subject_id=subject_id,
+            action=action,
+            release_level=release_level,
+            instance_id=instance_id,
+            grant_index=index,
+        )
+    return FederationPolicyDecision(
+        allowed=False,
+        policy_id=policy.policy_id,
+        subject_id=subject_id,
+        action=action,
+        release_level=release_level,
+        instance_id=instance_id,
+        reasons=["no_matching_federation_grant"],
+    )
+
+
+def append_federation_audit_event(path: str | Path, event: FederationAuditEvent) -> None:
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event.model_dump(mode="json"), sort_keys=True) + "\n")
+
+
+def build_federation_audit_event(
+    *,
+    action: FederationAction,
+    decision: str,
+    subject_id: str,
+    release_level: ReleaseLevel,
+    bundle_id: str = "",
+    instance_id: str = "",
+    policy_decision: FederationPolicyDecision | None = None,
+    reasons: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> FederationAuditEvent:
+    basis = f"{action}:{decision}:{subject_id}:{release_level}:{bundle_id}:{instance_id}:{now_utc()}"
+    return FederationAuditEvent(
+        event_id=f"federation-audit::{hashlib.sha256(basis.encode('utf-8')).hexdigest()[:16]}",
+        recorded_at=now_utc(),
+        action=action,
+        decision=decision,
+        subject_id=subject_id,
+        release_level=release_level,
+        bundle_id=bundle_id,
+        instance_id=instance_id,
+        policy_id=policy_decision.policy_id if policy_decision is not None else "",
+        reasons=list(reasons if reasons is not None else (policy_decision.reasons if policy_decision is not None else [])),
+        metadata=metadata or {},
+    )
 
 
 def release_level_from_metadata(metadata: dict[str, Any]) -> ReleaseLevel | None:
@@ -168,11 +298,37 @@ def export_federation_bundle(
     created_at: str | None = None,
     allow_unclassified_public: bool = False,
     allow_privileged: bool = False,
+    policy: FederationLocalPolicy | None = None,
+    requester_id: str = "",
+    audit_log_path: str | Path | None = None,
 ) -> FederationBundle:
     if target_release_level == "private":
         raise FederationPolicyError("private is local-only and cannot be used as a federation target")
     if target_release_level == "privileged" and not allow_privileged:
         raise FederationPolicyError("privileged federation requires allow_privileged=True")
+    policy_decision = None
+    if policy is not None:
+        policy_decision = evaluate_federation_policy(
+            policy,
+            subject_id=requester_id,
+            action="export",
+            release_level=target_release_level,
+            instance_id=producer_instance_id,
+        )
+        if not policy_decision.allowed:
+            if audit_log_path is not None:
+                append_federation_audit_event(
+                    audit_log_path,
+                    build_federation_audit_event(
+                        action="export",
+                        decision="rejected",
+                        subject_id=requester_id,
+                        release_level=target_release_level,
+                        instance_id=producer_instance_id,
+                        policy_decision=policy_decision,
+                    ),
+                )
+            raise FederationPolicyError(";".join(policy_decision.reasons))
 
     store = GroundRecallStore(store_dir)
     timestamp = created_at or now_utc()
@@ -210,6 +366,20 @@ def export_federation_bundle(
     path = Path(out_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(bundle.model_dump(mode="json"), indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    if audit_log_path is not None:
+        append_federation_audit_event(
+            audit_log_path,
+            build_federation_audit_event(
+                action="export",
+                decision="exported",
+                subject_id=requester_id,
+                release_level=target_release_level,
+                bundle_id=bundle.manifest.bundle_id,
+                instance_id=producer_instance_id,
+                policy_decision=policy_decision,
+                metadata={"record_count": bundle.manifest.record_count, "excluded_total": bundle.policy_report.excluded_total},
+            ),
+        )
     return bundle
 
 
@@ -361,17 +531,31 @@ def import_federation_bundle_to_quarantine(
     signing_key: str | bytes,
     accepted_release_levels: Iterable[ReleaseLevel],
     key_id: str | None = None,
+    policy: FederationLocalPolicy | None = None,
+    requester_id: str = "",
+    audit_log_path: str | Path | None = None,
 ) -> FederationImportResult:
     payload = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
     bundle = verify_federation_bundle(payload, signing_key=signing_key, key_id=key_id)
     accepted = set(accepted_release_levels)
     reasons: list[str] = []
+    policy_decision = None
+    if policy is not None:
+        policy_decision = evaluate_federation_policy(
+            policy,
+            subject_id=requester_id,
+            action="import",
+            release_level=bundle.manifest.target_release_level,
+            instance_id=bundle.manifest.producer_instance_id,
+        )
+        if not policy_decision.allowed:
+            reasons.extend(policy_decision.reasons)
     if bundle.manifest.target_release_level not in accepted:
         reasons.append(f"target_release_level_not_accepted:{bundle.manifest.target_release_level}")
     for finding in _bundle_policy_violations(bundle):
         reasons.append(finding)
     if reasons:
-        return FederationImportResult(
+        result = FederationImportResult(
             decision="rejected",
             bundle_id=bundle.manifest.bundle_id,
             reasons=reasons,
@@ -379,11 +563,27 @@ def import_federation_bundle_to_quarantine(
             origin_instance_id=bundle.manifest.producer_instance_id,
             target_release_level=bundle.manifest.target_release_level,
         )
+        if audit_log_path is not None:
+            append_federation_audit_event(
+                audit_log_path,
+                build_federation_audit_event(
+                    action="import",
+                    decision="rejected",
+                    subject_id=requester_id,
+                    release_level=bundle.manifest.target_release_level,
+                    bundle_id=bundle.manifest.bundle_id,
+                    instance_id=bundle.manifest.producer_instance_id,
+                    policy_decision=policy_decision,
+                    reasons=reasons,
+                    metadata={"record_count": bundle.manifest.record_count},
+                ),
+            )
+        return result
 
     target = Path(quarantine_dir) / f"{bundle.manifest.bundle_id}.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(bundle.model_dump(mode="json"), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return FederationImportResult(
+    result = FederationImportResult(
         decision="quarantined",
         bundle_id=bundle.manifest.bundle_id,
         quarantine_path=str(target),
@@ -391,6 +591,21 @@ def import_federation_bundle_to_quarantine(
         origin_instance_id=bundle.manifest.producer_instance_id,
         target_release_level=bundle.manifest.target_release_level,
     )
+    if audit_log_path is not None:
+        append_federation_audit_event(
+            audit_log_path,
+            build_federation_audit_event(
+                action="import",
+                decision="quarantined",
+                subject_id=requester_id,
+                release_level=bundle.manifest.target_release_level,
+                bundle_id=bundle.manifest.bundle_id,
+                instance_id=bundle.manifest.producer_instance_id,
+                policy_decision=policy_decision,
+                metadata={"record_count": bundle.manifest.record_count, "quarantine_path": str(target)},
+            ),
+        )
+    return result
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -408,12 +623,18 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--snapshot-id", default=None)
     export_parser.add_argument("--allow-unclassified-public", action="store_true")
     export_parser.add_argument("--allow-privileged", action="store_true")
+    export_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
+    export_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the export.")
+    export_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
 
     import_parser = subparsers.add_parser("import", help="Verify a federation bundle and place it in quarantine.")
     import_parser.add_argument("bundle_path")
     import_parser.add_argument("quarantine_dir")
     import_parser.add_argument("--key-file", required=True, help="Path containing the HMAC verification key.")
     import_parser.add_argument("--key-id", default=None)
+    import_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
+    import_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the import.")
+    import_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
     import_parser.add_argument(
         "--accept-release-level",
         action="append",
@@ -427,6 +648,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     key = Path(args.key_file).read_bytes()
+    policy = load_federation_policy(args.policy_file) if getattr(args, "policy_file", None) else None
     if args.command == "export":
         bundle = export_federation_bundle(
             store_dir=args.store_dir,
@@ -439,6 +661,9 @@ def main() -> None:
             snapshot_id=args.snapshot_id,
             allow_unclassified_public=args.allow_unclassified_public,
             allow_privileged=args.allow_privileged,
+            policy=policy,
+            requester_id=args.requester_id,
+            audit_log_path=args.audit_log,
         )
         print(json.dumps(bundle.model_dump(mode="json"), indent=2, sort_keys=True))
         return
@@ -450,6 +675,9 @@ def main() -> None:
             signing_key=key,
             accepted_release_levels=accepted,
             key_id=args.key_id,
+            policy=policy,
+            requester_id=args.requester_id,
+            audit_log_path=args.audit_log,
         )
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
         return
