@@ -41,7 +41,16 @@ from groundrecall.federation import (
     verify_federation_public_keyset,
     verify_federation_role_directory_publication,
 )
-from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, SourceRecord
+from groundrecall.models import (
+    AdjudicationRecord,
+    ArtifactRecord,
+    ClaimRecord,
+    ConceptRecord,
+    ContradictionCaseRecord,
+    ObservationRecord,
+    ProvenanceRecord,
+    SourceRecord,
+)
 from groundrecall.store import GroundRecallStore
 
 
@@ -669,6 +678,73 @@ def test_public_federation_bundle_filters_nonpublic_and_unclassified_records(tmp
     assert "private_never_federated" in reasons
     assert "missing_release_level" in reasons
     verify_federation_bundle(json.loads(bundle_path.read_text(encoding="utf-8")), signing_key=SIGNING_KEY, key_id="test-key")
+
+
+def test_public_federation_bundle_includes_contradiction_cases_and_adjudications(tmp_path: Path) -> None:
+    source_store = GroundRecallStore(tmp_path / "source")
+    _seed_federation_store(source_store)
+    source_store.save_claim(
+        ClaimRecord(
+            claim_id="clm_public_peer",
+            claim_text="Public peer claim.",
+            concept_ids=["concept::public"],
+            contradicts_claim_ids=["clm_public"],
+            metadata={"release_level": "public"},
+            current_status="reviewed",
+        )
+    )
+    source_store.save_contradiction_case(
+        ContradictionCaseRecord(
+            case_id="case_public",
+            claim_ids=["clm_public", "clm_public_peer"],
+            status="under_review",
+            adjudication_id="adj_case_public",
+            metadata={"release_level": "public"},
+            current_status="triaged",
+        )
+    )
+    source_store.save_adjudication(
+        AdjudicationRecord(
+            adjudication_id="adj_case_public",
+            subject_id="case_public",
+            subject_type="contradiction_case",
+            rationale="Case is under review.",
+            metadata={"release_level": "public"},
+            decided_at="2026-07-26T00:00:00Z",
+        )
+    )
+    receiver_store = GroundRecallStore(tmp_path / "receiver")
+    bundle_path = tmp_path / "public-cases.json"
+
+    bundle = export_federation_bundle(
+        source_store.base_dir,
+        bundle_path,
+        target_release_level="public",
+        producer_instance_id="host-a",
+        owner_instance_id="owner-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-public-cases",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    assert [case.case_id for case in bundle.snapshot.contradiction_cases] == ["case_public"]
+    assert [item.adjudication_id for item in bundle.snapshot.adjudications] == ["adj_case_public"]
+    assert bundle.policy_report.included_counts["contradiction_cases"] == 1
+    assert bundle.manifest.record_count >= 1
+
+    result = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store.base_dir,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["public"],
+        apply=True,
+    )
+
+    assert result.decision == "promoted"
+    assert receiver_store.get_contradiction_case("case_public") is not None
+    assert receiver_store.get_adjudication("adj_case_public") is not None
 
 
 def test_confidential_derivative_requires_redaction_policy_for_public_export(tmp_path: Path) -> None:

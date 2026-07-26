@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+from .contradictions import (
+    contradiction_case_id_for_claims,
+    contradiction_cases_for_claim_ids,
+    generate_contradiction_cases_from_claims,
+    sync_contradiction_cases_for_store,
+)
 from .inspect import inspect_store, summarize_store
 from .graph_augment import augment_store_relations_from_claims
 from .ingest import ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
@@ -75,6 +81,10 @@ from .store import GroundRecallStore
 
 __all__ = [
     "GroundRecallStore",
+    "contradiction_case_id_for_claims",
+    "contradiction_cases_for_claim_ids",
+    "generate_contradiction_cases_from_claims",
+    "sync_contradiction_cases_for_store",
     "ImportResult",
     "run_groundrecall_import",
     "augment_store_relations_from_claims",

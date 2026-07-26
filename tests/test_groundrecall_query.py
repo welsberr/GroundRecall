@@ -417,6 +417,8 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     contradiction_ids = {item["claim_id"] for item in payload["contradictions"]}
     supersession_ids = {item["claim_id"] for item in payload["supersessions"]}
     assert "clm_004" in contradiction_ids
+    assert payload["contradiction_cases"][0]["claim_ids"] == ["clm_001", "clm_004"]
+    assert payload["contradiction_cases"][0]["status"] == "open"
     assert "clm_005" in supersession_ids
     assert "challenged" in payload["epistemic_summary"]["flags"]
     assert "low_trust_source_signal" in payload["epistemic_summary"]["flags"]

@@ -23,9 +23,11 @@ def build_graph_diagnostics(
     relations: list[dict[str, Any]],
     claims: list[dict[str, Any]] | None = None,
     observations: list[dict[str, Any]] | None = None,
+    contradiction_cases: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     claims = claims or []
     observations = observations or []
+    contradiction_cases = contradiction_cases or []
     concept_ids = {str(item["concept_id"]) for item in concepts}
     relation_partitions = _partition_relations(relations)
     semantic_relations = relation_partitions["semantic_relations"]
@@ -83,12 +85,12 @@ def build_graph_diagnostics(
         ],
         "bridge_concepts": bridges,
         "top_connected_concepts": degree_ranked[:10],
-        "quality_summary": _quality_summary(concepts, semantic_relations, claims, observations, degree_ranked),
+        "quality_summary": _quality_summary(concepts, semantic_relations, claims, observations, degree_ranked, contradiction_cases),
         "relation_quality": _relation_quality(semantic_relations),
         "provenance_relation_quality": _relation_quality(provenance_relations),
-        "claim_quality": _claim_quality(claims, observations),
+        "claim_quality": _claim_quality(claims, observations, contradiction_cases),
         "concept_quality": _concept_quality(degree_ranked, claims),
-        "quality_controls": _quality_controls(concepts, semantic_relations, claims, observations, degree_ranked),
+        "quality_controls": _quality_controls(concepts, semantic_relations, claims, observations, degree_ranked, contradiction_cases),
     }
 
 
@@ -98,7 +100,14 @@ def build_graph_diagnostics_from_import(import_dir: str | Path) -> dict[str, Any
     relations = _read_jsonl(base / "relations.jsonl")
     claims = _read_jsonl(base / "claims.jsonl")
     observations = _read_jsonl(base / "observations.jsonl")
-    diagnostics = build_graph_diagnostics(concepts, relations, claims=claims, observations=observations)
+    contradiction_cases = _read_jsonl(base / "contradiction_cases.jsonl")
+    diagnostics = build_graph_diagnostics(
+        concepts,
+        relations,
+        claims=claims,
+        observations=observations,
+        contradiction_cases=contradiction_cases,
+    )
     manifest_path = base / "manifest.json"
     if manifest_path.exists():
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -127,6 +136,11 @@ def compact_graph_diagnostics(diagnostics: dict[str, Any]) -> dict[str, Any]:
             for key in [
                 "unsupported_claim_count",
                 "contradiction_link_count",
+                "contradiction_case_count",
+                "open_contradiction_case_count",
+                "contradiction_links_without_case_count",
+                "contradiction_cases_with_missing_claim_count",
+                "open_promoted_contradiction_case_count",
                 "supersession_link_count",
                 "unresolved_conflict_link_count",
             ]
@@ -174,9 +188,10 @@ def _quality_summary(
     claims: list[dict[str, Any]],
     observations: list[dict[str, Any]],
     degree_ranked: list[dict[str, Any]],
+    contradiction_cases: list[dict[str, Any]],
 ) -> dict[str, Any]:
     relation_quality = _relation_quality(relations)
-    claim_quality = _claim_quality(claims, observations)
+    claim_quality = _claim_quality(claims, observations, contradiction_cases)
     concept_quality = _concept_quality(degree_ranked, claims)
     relation_count = len(relations)
     inferred_relation_count = relation_quality["inferred_relation_count"]
@@ -190,6 +205,8 @@ def _quality_summary(
         "weakly_grounded_relation_count": weakly_grounded_relation_count,
         "unsupported_claim_count": claim_quality["unsupported_claim_count"],
         "contradiction_link_count": claim_quality["contradiction_link_count"],
+        "contradiction_case_count": claim_quality["contradiction_case_count"],
+        "open_contradiction_case_count": claim_quality["open_contradiction_case_count"],
         "supersession_link_count": claim_quality["supersession_link_count"],
         "high_fanout_concept_count": concept_quality["high_fanout_concept_count"],
     }
@@ -231,9 +248,11 @@ def _relation_quality(relations: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _claim_quality(claims: list[dict[str, Any]], observations: list[dict[str, Any]]) -> dict[str, Any]:
+def _claim_quality(claims: list[dict[str, Any]], observations: list[dict[str, Any]], contradiction_cases: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    contradiction_cases = contradiction_cases or []
     observations_by_id = {str(item.get("observation_id", "")): item for item in observations}
     claim_ids = {str(item.get("claim_id", "")) for item in claims}
+    claims_by_id = {str(item.get("claim_id", "")): item for item in claims}
     unsupported_claims = []
     contradiction_links = []
     supersession_links = []
@@ -290,6 +309,33 @@ def _claim_quality(claims: list[dict[str, Any]], observations: list[dict[str, An
                 superseding_by_concept[str(concept_id)].add(claim_id)
                 superseded_by_concept[str(concept_id)].add(target_claim_id)
 
+    contradiction_case_pairs = {
+        tuple(sorted(str(claim_id) for claim_id in item.get("claim_ids", []) if str(claim_id)))
+        for item in contradiction_cases
+        if str(item.get("case_kind", "contradiction")) == "contradiction"
+    }
+    links_without_cases = [
+        item
+        for item in contradiction_links
+        if item["target_exists"] and tuple(sorted((item["claim_id"], item["target_claim_id"]))) not in contradiction_case_pairs
+    ]
+    cases_with_missing_claims = [
+        {
+            "case_id": str(item.get("case_id", "")),
+            "missing_claim_ids": [str(claim_id) for claim_id in item.get("claim_ids", []) if str(claim_id) not in claim_ids],
+        }
+        for item in contradiction_cases
+        if any(str(claim_id) not in claim_ids for claim_id in item.get("claim_ids", []))
+    ]
+    open_cases = [item for item in contradiction_cases if str(item.get("status", "open")) in {"open", "under_review"}]
+    open_promoted_cases = [
+        {
+            "case_id": str(item.get("case_id", "")),
+            "claim_ids": [str(claim_id) for claim_id in item.get("claim_ids", [])],
+        }
+        for item in open_cases
+        if any(claims_by_id.get(str(claim_id), {}).get("current_status") == "promoted" for claim_id in item.get("claim_ids", []))
+    ]
     superseded_neighborhoods = [
         {
             "concept_id": concept_id,
@@ -303,6 +349,14 @@ def _claim_quality(claims: list[dict[str, Any]], observations: list[dict[str, An
         "unsupported_claims": unsupported_claims[:25],
         "contradiction_link_count": len(contradiction_links),
         "contradiction_links": contradiction_links[:25],
+        "contradiction_case_count": len(contradiction_cases),
+        "open_contradiction_case_count": len(open_cases),
+        "contradiction_links_without_cases": links_without_cases[:25],
+        "contradiction_links_without_case_count": len(links_without_cases),
+        "contradiction_cases_with_missing_claims": cases_with_missing_claims[:25],
+        "contradiction_cases_with_missing_claim_count": len(cases_with_missing_claims),
+        "open_promoted_contradiction_cases": open_promoted_cases[:25],
+        "open_promoted_contradiction_case_count": len(open_promoted_cases),
         "supersession_link_count": len(supersession_links),
         "supersession_links": supersession_links[:25],
         "superseded_neighborhoods": superseded_neighborhoods[:25],
@@ -344,8 +398,10 @@ def _quality_controls(
     claims: list[dict[str, Any]],
     observations: list[dict[str, Any]],
     degree_ranked: list[dict[str, Any]],
+    contradiction_cases: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    summary = _quality_summary(concepts, relations, claims, observations, degree_ranked)
+    contradiction_cases = contradiction_cases or []
+    summary = _quality_summary(concepts, relations, claims, observations, degree_ranked, contradiction_cases)
     flags: list[dict[str, Any]] = []
     if summary["relation_count"] and summary["inferred_relation_ratio"] >= 0.5:
         flags.append(
@@ -383,7 +439,8 @@ def _quality_controls(
                 "value": summary["high_fanout_concept_count"],
             }
         )
-    unresolved = _claim_quality(claims, observations)["unresolved_conflict_link_count"]
+    claim_quality = _claim_quality(claims, observations, contradiction_cases)
+    unresolved = claim_quality["unresolved_conflict_link_count"]
     if unresolved:
         flags.append(
             {
@@ -391,6 +448,33 @@ def _quality_controls(
                 "severity": "warning",
                 "message": "Contradiction or supersession links point to missing claim ids.",
                 "value": unresolved,
+            }
+        )
+    if claim_quality["contradiction_links_without_case_count"]:
+        flags.append(
+            {
+                "code": "contradiction_links_without_cases",
+                "severity": "warning",
+                "message": "One or more contradiction links have no first-class contradiction case.",
+                "value": claim_quality["contradiction_links_without_case_count"],
+            }
+        )
+    if claim_quality["contradiction_cases_with_missing_claim_count"]:
+        flags.append(
+            {
+                "code": "contradiction_cases_with_missing_claims",
+                "severity": "warning",
+                "message": "One or more contradiction cases reference missing claim ids.",
+                "value": claim_quality["contradiction_cases_with_missing_claim_count"],
+            }
+        )
+    if claim_quality["open_promoted_contradiction_case_count"]:
+        flags.append(
+            {
+                "code": "open_promoted_contradiction_cases",
+                "severity": "warning",
+                "message": "One or more open contradiction cases involve promoted claims and should be adjudicated.",
+                "value": claim_quality["open_promoted_contradiction_case_count"],
             }
         )
     return {

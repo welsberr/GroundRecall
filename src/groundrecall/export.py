@@ -141,6 +141,7 @@ def export_canonical_snapshot(
         [item.model_dump() for item in snapshot.relations],
         claims=[item.model_dump() for item in snapshot.claims],
         observations=[item.model_dump() for item in snapshot.observations],
+        contradiction_cases=[item.model_dump() for item in snapshot.contradiction_cases],
     )
     if include_graph_diagnostics:
         _write_json(graph_diagnostics_path, graph_diagnostics)

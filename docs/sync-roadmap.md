@@ -474,6 +474,11 @@ Acceptance criteria:
 - Evaluate local policy before promotion.
 - Preserve conflicts, contradictions, supersession, and hidden-provenance
   warnings as reviewable state.
+- Current implementation adds first-class contradiction case records generated
+  from explicit `contradicts_claim_ids` links. Cases preserve open/reviewed/
+  resolved state, can point to adjudication records, are included in snapshots,
+  and move through signed federation bundles under the same release-level policy
+  checks as other canonical records.
 
 Acceptance criteria:
 
@@ -481,6 +486,8 @@ Acceptance criteria:
 - unauthorized release levels remain quarantined or rejected;
 - reviewers see source instance, release level, provenance visibility, and
   affected downstream records before promotion.
+- contradiction cases are promoted only when all referenced claims are included
+  and the case itself is exportable at the target release level.
 
 ### F4: Project And Entity Federation
 

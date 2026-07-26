@@ -159,6 +159,10 @@ implemented.
   `claim_quality`, `concept_quality`, and `quality_controls` sections.
   Import, inspect, query, review, and public graph export paths recompute these
   diagnostics with the available filtered claims and observations.
+- Claim diagnostics now distinguish raw contradiction links from first-class
+  contradiction cases, flag explicit contradiction links that lack a case, flag
+  cases that reference missing claims, and prioritize open cases involving
+  promoted claims for adjudication.
 - Canonical exports can now write filtered `graph_diagnostics.json` through
   `groundrecall export --include-graph-diagnostics`.
 - Store inspection supports compact active graph diagnostics through

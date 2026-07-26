@@ -90,6 +90,20 @@ class ClaimRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
+class ContradictionCaseRecord(BaseModel):
+    case_id: str
+    claim_ids: list[str] = Field(default_factory=list)
+    case_kind: Literal["contradiction", "disagreement", "supersession_question", "scope_mismatch", "ambiguity"] = "contradiction"
+    status: Literal["open", "under_review", "resolved", "superseded", "rejected"] = "open"
+    severity: Literal["low", "medium", "high", "critical"] = "medium"
+    opened_at: str = ""
+    resolved_at: str = ""
+    adjudication_id: str = ""
+    rationale: str = ""
+    metadata: dict = Field(default_factory=dict)
+    current_status: LifecycleStatus = "draft"
+
+
 class ConceptRecord(BaseModel):
     concept_id: str
     title: str
@@ -137,7 +151,7 @@ class PromotionRecord(BaseModel):
 class AdjudicationRecord(BaseModel):
     adjudication_id: str
     subject_id: str
-    subject_type: Literal["claim", "observation", "relation"] = "claim"
+    subject_type: Literal["claim", "observation", "relation", "contradiction_case"] = "claim"
     selected_assessment_ids: list[str] = Field(default_factory=list)
     considered_assessment_ids: list[str] = Field(default_factory=list)
     adjudicator: str = ""
@@ -155,6 +169,7 @@ class GroundRecallSnapshot(BaseModel):
     artifacts: list[ArtifactRecord] = Field(default_factory=list)
     observations: list[ObservationRecord] = Field(default_factory=list)
     claims: list[ClaimRecord] = Field(default_factory=list)
+    contradiction_cases: list[ContradictionCaseRecord] = Field(default_factory=list)
     concepts: list[ConceptRecord] = Field(default_factory=list)
     relations: list[RelationRecord] = Field(default_factory=list)
     promotions: list[PromotionRecord] = Field(default_factory=list)

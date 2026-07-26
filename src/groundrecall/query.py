@@ -17,6 +17,7 @@ from epistemap import (
 
 from .epistemap_adapter import graph_bundle_from_query_payload
 from .confidence import confidence_profile_for_query_payload
+from .contradictions import contradiction_cases_for_claim_ids, generate_contradiction_cases_from_claims
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
 from .search_index import search_index
 from .store import GroundRecallStore
@@ -390,10 +391,21 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     epistemic = epistemic_summary(graph_bundle, concept_id) if concept_id else {}
     temporal_summary = _temporal_summary(graph_bundle, claims)
     claim_ids = {str(item.get("claim_id", "")) for item in claims}
+    store = GroundRecallStore(store_dir)
+    generated_cases = generate_contradiction_cases_from_claims(
+        store.list_claims(),
+        existing_cases=store.list_contradiction_cases(),
+    )
+    contradiction_cases = [
+        case.model_dump(mode="json")
+        for case in contradiction_cases_for_claim_ids(generated_cases, claim_ids)
+        if case.current_status != "rejected"
+    ]
+    contradiction_case_ids = {case["case_id"] for case in contradiction_cases}
     adjudications = [
         item
-        for item in GroundRecallStore(store_dir).list_adjudications()
-        if item.subject_id in claim_ids
+        for item in store.list_adjudications()
+        if item.subject_id in claim_ids or item.subject_id in contradiction_case_ids
     ]
     confidence_profile = confidence_profile_for_query_payload(
         payload,
@@ -413,6 +425,7 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "related_concepts": payload["related_concepts"],
         "review_candidates": payload["review_candidates"],
         "contradictions": contradictions,
+        "contradiction_cases": contradiction_cases,
         "supersessions": supersessions,
         "epistemap_graph": graph_bundle.model_dump_legacy(),
         "epistemic_summary": epistemic,
@@ -544,6 +557,13 @@ def build_graph_bundle_for_concept(
         for observation in store.list_observations()
         if observation.observation_id in observation_ids and (include_rejected or observation.current_status != "rejected")
     ]
+    contradiction_cases = contradiction_cases_for_claim_ids(
+        generate_contradiction_cases_from_claims(
+            store.list_claims(),
+            existing_cases=store.list_contradiction_cases(),
+        ),
+        [claim.claim_id for claim in selected_claims],
+    )
     artifacts = {item.artifact_id: item for item in store.list_artifacts()}
     source_artifact_ids = sorted(
         {
@@ -613,6 +633,7 @@ def build_graph_bundle_for_concept(
             relation_rows,
             claims=[claim.model_dump() for claim in selected_claims],
             observations=[observation.model_dump() for observation in observations],
+            contradiction_cases=[case.model_dump(mode="json") for case in contradiction_cases],
         ),
         "suggested_next_actions": [
             "Inspect inferred or weakly grounded edges before relying on graph structure.",

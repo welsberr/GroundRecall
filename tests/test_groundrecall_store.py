@@ -6,6 +6,7 @@ from pathlib import Path
 from groundrecall.models import (
     ClaimRecord,
     ConceptRecord,
+    ContradictionCaseRecord,
     GroundRecallSnapshot,
     PromotionRecord,
     ProvenanceRecord,
@@ -81,9 +82,18 @@ def test_groundrecall_store_round_trips_canonical_objects(tmp_path: Path) -> Non
             promoted_at="2026-04-17T12:00:00Z",
         )
     )
+    contradiction_case = store.save_contradiction_case(
+        ContradictionCaseRecord(
+            case_id="case_001",
+            claim_ids=["clm_001", "clm_002"],
+            status="open",
+            current_status="triaged",
+        )
+    )
 
     assert store.get_source(source.source_id) is not None
     assert store.get_claim(claim.claim_id) is not None
+    assert store.get_contradiction_case(contradiction_case.case_id) is not None
     assert store.get_concept(concept.concept_id) is not None
     assert store.get_relation(relation.relation_id) is not None
     assert store.get_review_candidate(review_candidate.review_candidate_id) is not None
@@ -98,7 +108,24 @@ def test_groundrecall_store_builds_and_persists_snapshot(tmp_path: Path) -> None
             claim_id="clm_001",
             claim_text="A grounded claim.",
             concept_ids=["concept::c1"],
+            contradicts_claim_ids=["clm_002"],
             current_status="promoted",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_002",
+            claim_text="A contradictory claim.",
+            concept_ids=["concept::c1"],
+            current_status="reviewed",
+        )
+    )
+    store.save_contradiction_case(
+        ContradictionCaseRecord(
+            case_id="case_001",
+            claim_ids=["clm_001", "clm_002"],
+            status="open",
+            current_status="triaged",
         )
     )
     store.save_concept(ConceptRecord(concept_id="concept::c1", title="C1", current_status="promoted"))
@@ -115,7 +142,8 @@ def test_groundrecall_store_builds_and_persists_snapshot(tmp_path: Path) -> None
     assert isinstance(loaded, GroundRecallSnapshot)
     assert loaded.metadata["export_kind"] == "canonical"
     assert len(loaded.sources) == 1
-    assert len(loaded.claims) == 1
+    assert len(loaded.claims) == 2
+    assert len(loaded.contradiction_cases) == 1
     assert len(loaded.concepts) == 1
 
 

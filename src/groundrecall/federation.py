@@ -1125,6 +1125,22 @@ def filter_snapshot_for_federation(
         for item in claims
     ]
 
+    contradiction_cases = []
+    for item in _filter_records(
+        snapshot.contradiction_cases,
+        "contradiction_case",
+        "case_id",
+        target_release_level,
+        findings,
+        allow_unclassified_public,
+    ):
+        missing_claim_ids = [claim_id for claim_id in item.claim_ids if claim_id not in allowed_claim_ids]
+        if missing_claim_ids:
+            findings.append(_finding("contradiction_case", item.case_id, "non_exportable_contradiction_case_claim", item))
+            continue
+        contradiction_cases.append(item)
+    allowed_contradiction_case_ids = {item.case_id for item in contradiction_cases}
+
     relations = []
     for item in _filter_records(snapshot.relations, "relation", "relation_id", target_release_level, findings, allow_unclassified_public):
         if item.source_id not in allowed_concept_ids or item.target_id not in allowed_concept_ids:
@@ -1137,6 +1153,15 @@ def filter_snapshot_for_federation(
         for item in snapshot.promotions
         if item.candidate_id in allowed_claim_ids or item.candidate_id in allowed_concept_ids or item.candidate_id in {rel.relation_id for rel in relations}
     ]
+    allowed_relation_ids = {item.relation_id for item in relations}
+    adjudications = [
+        item
+        for item in snapshot.adjudications
+        if (item.subject_type == "claim" and item.subject_id in allowed_claim_ids)
+        or (item.subject_type == "observation" and item.subject_id in allowed_observation_ids)
+        or (item.subject_type == "relation" and item.subject_id in allowed_relation_ids)
+        or (item.subject_type == "contradiction_case" and item.subject_id in allowed_contradiction_case_ids)
+    ]
 
     filtered = snapshot.model_copy(
         update={
@@ -1145,9 +1170,11 @@ def filter_snapshot_for_federation(
             "artifacts": artifacts,
             "observations": observations,
             "claims": claims,
+            "contradiction_cases": contradiction_cases,
             "concepts": concepts,
             "relations": relations,
             "promotions": promotions,
+            "adjudications": adjudications,
         }
     )
     counts = {
@@ -1156,9 +1183,11 @@ def filter_snapshot_for_federation(
         "artifacts": len(artifacts),
         "observations": len(observations),
         "claims": len(claims),
+        "contradiction_cases": len(contradiction_cases),
         "concepts": len(concepts),
         "relations": len(relations),
         "promotions": len(promotions),
+        "adjudications": len(adjudications),
     }
     return filtered, FederationPolicyReport(
         target_release_level=target_release_level,
@@ -1912,6 +1941,7 @@ def _manifest_for_snapshot(
             snapshot.artifacts,
             snapshot.observations,
             snapshot.claims,
+            snapshot.contradiction_cases,
             snapshot.concepts,
             snapshot.relations,
             snapshot.promotions,
@@ -2000,6 +2030,7 @@ def _bundle_policy_violations(bundle: FederationBundle) -> list[str]:
         ("artifact", bundle.snapshot.artifacts, "artifact_id"),
         ("observation", bundle.snapshot.observations, "observation_id"),
         ("claim", bundle.snapshot.claims, "claim_id"),
+        ("contradiction_case", bundle.snapshot.contradiction_cases, "case_id"),
         ("concept", bundle.snapshot.concepts, "concept_id"),
         ("relation", bundle.snapshot.relations, "relation_id"),
     ):
@@ -2056,6 +2087,13 @@ def _promotion_collections(bundle: FederationBundle, store: GroundRecallStore) -
             "id_field": "claim_id",
             "get_existing": store.get_claim,
             "save": store.save_claim,
+        },
+        {
+            "record_kind": "contradiction_case",
+            "incoming": bundle.snapshot.contradiction_cases,
+            "id_field": "case_id",
+            "get_existing": store.get_contradiction_case,
+            "save": store.save_contradiction_case,
         },
         {
             "record_kind": "relation",

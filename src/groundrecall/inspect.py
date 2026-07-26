@@ -41,6 +41,7 @@ def summarize_store(
             [item.model_dump() for item in active_relations],
             claims=[item.model_dump() for item in active_claims],
             observations=[item.model_dump() for item in active_observations],
+            contradiction_cases=[item.model_dump() for item in store.list_contradiction_cases() if item.current_status != "rejected"],
         )
         payload["graph_diagnostics"] = compact_graph_diagnostics(diagnostics) if compact_graph else diagnostics
     return payload

@@ -11,6 +11,7 @@ from .models import (
     ArtifactRecord,
     ClaimRecord,
     ConceptRecord,
+    ContradictionCaseRecord,
     FragmentRecord,
     GroundRecallSnapshot,
     ObservationRecord,
@@ -33,6 +34,7 @@ class GroundRecallStore:
         self.artifacts_dir = self.base_dir / "artifacts"
         self.observations_dir = self.base_dir / "observations"
         self.claims_dir = self.base_dir / "claims"
+        self.contradiction_cases_dir = self.base_dir / "contradiction_cases"
         self.concepts_dir = self.base_dir / "concepts"
         self.relations_dir = self.base_dir / "relations"
         self.review_candidates_dir = self.base_dir / "review_candidates"
@@ -45,6 +47,7 @@ class GroundRecallStore:
             self.artifacts_dir,
             self.observations_dir,
             self.claims_dir,
+            self.contradiction_cases_dir,
             self.concepts_dir,
             self.relations_dir,
             self.review_candidates_dir,
@@ -140,6 +143,16 @@ class GroundRecallStore:
     def list_claims(self) -> list[ClaimRecord]:
         return self._list(self.claims_dir, ClaimRecord)
 
+    def save_contradiction_case(self, record: ContradictionCaseRecord) -> ContradictionCaseRecord:
+        self._save(self.contradiction_cases_dir, record.case_id, record)
+        return record
+
+    def get_contradiction_case(self, case_id: str) -> ContradictionCaseRecord | None:
+        return self._load(self.contradiction_cases_dir, case_id, ContradictionCaseRecord)
+
+    def list_contradiction_cases(self) -> list[ContradictionCaseRecord]:
+        return self._list(self.contradiction_cases_dir, ContradictionCaseRecord)
+
     def save_concept(self, record: ConceptRecord) -> ConceptRecord:
         self._save(self.concepts_dir, record.concept_id.replace("::", "__"), record)
         return record
@@ -209,6 +222,7 @@ class GroundRecallStore:
             artifacts=self.list_artifacts(),
             observations=self.list_observations(),
             claims=self.list_claims(),
+            contradiction_cases=self.list_contradiction_cases(),
             concepts=self.list_concepts(),
             relations=self.list_relations(),
             promotions=self.list_promotions(),
