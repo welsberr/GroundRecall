@@ -65,6 +65,7 @@ class ObservationRecord(BaseModel):
     artifact_id: str = ""
     role: str
     text: str
+    metadata: dict = Field(default_factory=dict)
     provenance: ProvenanceRecord = Field(default_factory=ProvenanceRecord)
     confidence_hint: float | None = Field(default=None, ge=0.0, le=1.0)
     assessments: list[ConfidenceAssessment] = Field(default_factory=list)

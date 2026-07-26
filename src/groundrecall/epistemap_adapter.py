@@ -18,6 +18,7 @@ from epistemap import (
     write_g_experiment_summary_markdown,
     write_g_rows_csv,
 )
+from .confidence import assessment_from_legacy_hint, confidence_band, existing_assessments
 
 _SOURCE_SIGNAL_KEYS = (
     "source_quality",
@@ -235,9 +236,9 @@ def _legacy_confidence_value(row: dict[str, Any]) -> float | None:
 
 
 def _claim_assessments(row: dict[str, Any], subject_id: str) -> list[ConfidenceAssessment]:
-    assessments: list[ConfidenceAssessment] = []
+    assessments: list[ConfidenceAssessment] = existing_assessments(row)
     review_confidence = _optional_bounded_float(row.get("review_confidence"))
-    if review_confidence is not None:
+    if review_confidence is not None and _review_confidence_is_explicit(row):
         assessments.append(
             _assessment(
                 assessment_id=f"{subject_id}::reviewer_endorsement",
@@ -248,35 +249,18 @@ def _claim_assessments(row: dict[str, Any], subject_id: str) -> list[ConfidenceA
                 rationale="Mapped from GroundRecall reviewed claim confidence; not promotion authority.",
             )
         )
-    confidence_hint = _optional_bounded_float(row.get("confidence_hint"))
-    if confidence_hint is not None:
-        assessments.append(
-            _assessment(
-                assessment_id=f"{subject_id}::extraction_fidelity",
-                subject_id=subject_id,
-                dimension="extraction_fidelity",
-                value=confidence_hint,
-                basis_record_ids=[subject_id, *[str(value) for value in row.get("source_observation_ids", [])]],
-                rationale="Mapped from GroundRecall adapter confidence_hint as extraction fidelity.",
-            )
-        )
+    migrated = assessment_from_legacy_hint(row, row_kind="claim", subject_id=subject_id)
+    if migrated is not None and migrated.assessment_id not in {item.assessment_id for item in assessments}:
+        assessments.append(migrated)
     return assessments
 
 
 def _observation_assessments(row: dict[str, Any], subject_id: str) -> list[ConfidenceAssessment]:
-    confidence_hint = _optional_bounded_float(row.get("confidence_hint"))
-    if confidence_hint is None:
-        return []
-    return [
-        _assessment(
-            assessment_id=f"{subject_id}::extraction_fidelity",
-            subject_id=subject_id,
-            dimension="extraction_fidelity",
-            value=confidence_hint,
-            basis_record_ids=[subject_id],
-            rationale="Mapped from GroundRecall observation confidence_hint as extraction fidelity.",
-        )
-    ]
+    assessments: list[ConfidenceAssessment] = existing_assessments(row)
+    migrated = assessment_from_legacy_hint(row, row_kind="observation", subject_id=subject_id)
+    if migrated is not None and migrated.assessment_id not in {item.assessment_id for item in assessments}:
+        assessments.append(migrated)
+    return assessments
 
 
 def _assessment(
@@ -293,7 +277,7 @@ def _assessment(
         subject_id=subject_id,
         dimension=dimension,
         value=value,
-        band=_confidence_band(value),
+        band=confidence_band(value),
         method=_GROUNDRECALL_ADAPTER_METHOD,
         basis_record_ids=basis_record_ids,
         rationale=rationale,
@@ -301,16 +285,11 @@ def _assessment(
     )
 
 
-def _confidence_band(value: float) -> str:
-    if value < 0.2:
-        return "very_low"
-    if value < 0.4:
-        return "low"
-    if value < 0.7:
-        return "moderate"
-    if value < 0.9:
-        return "high"
-    return "very_high"
+def _review_confidence_is_explicit(row: dict[str, Any]) -> bool:
+    metadata = row.get("metadata", {})
+    if not isinstance(metadata, dict):
+        return False
+    return bool(metadata.get("review_confidence_explicit") or metadata.get("reviewer_id") or metadata.get("review_session_id"))
 
 
 def _optional_bounded_float(value: Any) -> float | None:

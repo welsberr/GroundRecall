@@ -84,6 +84,17 @@ def test_graph_bundle_preserves_explicit_zero_review_confidence() -> None:
                     "concept_ids": ["concept::channel-capacity"],
                     "confidence_hint": 0.8,
                     "review_confidence": 0.0,
+                    "metadata": {
+                        "review_confidence_explicit": True,
+                        "confidence_method": {
+                            "name": "groundrecall.test.claim.confidence_hint",
+                            "version": "1.0",
+                            "policy_id": "groundrecall_adapter_confidence.test.v1",
+                        },
+                        "confidence_basis_record_ids": ["clm_zero"],
+                        "confidence_basis_hash": "test-basis-hash",
+                        "confidence_rationale": "Test confidence hint is explicit extraction fidelity.",
+                    },
                     "provenance": {"support_kind": "derived_from_page", "grounding_status": "grounded"},
                 },
                 {
@@ -102,6 +113,27 @@ def test_graph_bundle_preserves_explicit_zero_review_confidence() -> None:
     assert {assessment.dimension for assessment in zero.assessments} == {"reviewer_endorsement", "extraction_fidelity"}
     assert missing.confidence is None
     assert missing.assessments == []
+
+
+def test_graph_bundle_does_not_turn_legacy_hint_into_assessment_without_method() -> None:
+    bundle = graph_bundle_from_query_payload(
+        {
+            "concept": {"concept_id": "concept::channel-capacity", "title": "Channel capacity"},
+            "claims": [
+                {
+                    "claim_id": "clm_legacy",
+                    "claim_text": "Legacy scalar remains readable but not assessment-ready.",
+                    "concept_ids": ["concept::channel-capacity"],
+                    "confidence_hint": 0.8,
+                    "provenance": {"support_kind": "derived_from_page", "grounding_status": "grounded"},
+                }
+            ],
+        }
+    )
+
+    legacy = next(node for node in bundle.nodes if node.id == "clm_legacy")
+    assert legacy.confidence == 0.8
+    assert legacy.assessments == []
 
 
 def test_export_claim_evaluation_g_package_writes_rows_manifest_and_summary(tmp_path) -> None:

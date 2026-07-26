@@ -16,6 +16,7 @@ from .groundrecall_discovery import DiscoveredArtifact
 from .graph_diagnostics import build_graph_diagnostics
 from .graph_extraction import extract_heuristic_graph_relations
 from .groundrecall_lint import lint_import_directory
+from .confidence import apply_adapter_confidence_policy
 from .groundrecall_normalizer import (
     ImportContext,
     build_artifact_record,
@@ -234,6 +235,18 @@ def run_groundrecall_import(
     artifact_rows = _dedupe_by_key(artifact_rows, "artifact_id")
     observation_rows = _dedupe_by_key(observation_rows, "observation_id")
     claim_rows = _dedupe_by_key(claim_rows, "claim_id")
+    apply_adapter_confidence_policy(
+        observation_rows,
+        adapter_name=adapter.name,
+        row_kind="observation",
+        recorded_at=context.imported_at,
+    )
+    apply_adapter_confidence_policy(
+        claim_rows,
+        adapter_name=adapter.name,
+        row_kind="claim",
+        recorded_at=context.imported_at,
+    )
     graph_extraction_summary: dict[str, Any] = {
         "mode": graph_extraction_mode,
         "candidate_relation_count": 0,
