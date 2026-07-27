@@ -447,13 +447,14 @@ Contents:
 
 Deliverable:
 
-- `docs/preprint-draft.md` or a paper source directory.
+- `docs/preprint/preprint-draft.md` or a paper source directory.
 
 Exit criteria:
 
 - all figures/tables referenced;
 - limitations explicit;
 - implementation claims align with committed code.
+- current first draft exists and should be revised toward venue formatting, citation style, figures, and reproducible demonstrations.
 
 ## Stop Rule For Feature Expansion
 
