@@ -189,6 +189,18 @@ decide what is trusted or shared.
 - Implement exceptional erasure with minimal non-sensitive tombstones and
   verified cleanup of derived indexes, caches, and exports.
 - Add poisoning, authority-escalation, and cross-scope leakage tests.
+- Add a first-party Model Context Protocol (MCP) adapter that exposes
+  GroundRecall as a governed memory server for assistants and agents.
+- Keep MCP writes proposal-only by default: tools may create
+  `MemoryWriteProposal` records, query reviewed context, request review
+  bundles, and export scoped context packages, but may not promote, publish,
+  redact, or delete without separately configured authority.
+- Require MCP tool responses to carry provenance, release level, confidence
+  profile, contradiction/adjudication state, and temporal applicability where
+  available.
+- Add MCP authorization tests for read scope, proposal scope, no access
+  broadening, private/local-only records, privileged federation restrictions,
+  and explicit denial of unauthorized lifecycle transitions.
 
 Acceptance criteria:
 
@@ -199,6 +211,48 @@ Acceptance criteria:
 - exceptional-erasure tests verify that prohibited content is absent from
   canonical, indexed, cached, and exported representations while a minimal
   audit event prevents silent disappearance and re-import.
+- MCP smoke tests show that an assistant can read scoped governed context and
+  submit draft proposals without bypassing review, release, or authority gates.
+
+### R2-MCP: Assistant And Agent Adapter Surface
+
+**Outcome:** GroundRecall can be connected to MCP-capable assistants without
+turning a convenience integration into an implicit trust or publication channel.
+
+Initial tools should be small and policy-gated:
+
+- `groundrecall.search`: scoped search over reviewed records and source notes;
+- `groundrecall.query_context`: task/concept query bundle export with
+  provenance, confidence, contradictions, and release metadata;
+- `groundrecall.propose_memory`: draft-only proposal creation for observations,
+  claims, concepts, relations, lifecycle changes, or source notes;
+- `groundrecall.review_queue`: list pending proposals, contradiction cases, and
+  stale/supersession candidates visible to the caller;
+- `groundrecall.export_bundle`: produce release-filtered, signed export bundles
+  when the caller has export authority.
+
+Design constraints:
+
+- MCP is an adapter, not the canonical API. The canonical store and CLI remain
+  usable without MCP.
+- Tool names and schemas must be versioned and deterministic.
+- Tool outputs must never flatten confidence into one unqualified scalar.
+- Tool outputs must not leak higher-release supporting records through snippets,
+  basis IDs, diagnostics, or error messages.
+- Prompt-injection text retrieved from memory must be marked as untrusted
+  content and never interpreted as adapter instructions.
+- Every MCP write attempt must leave an audit event even when denied.
+
+Implementation order:
+
+1. Define versioned MCP tool schemas and fixtures.
+2. Wrap existing query/export/proposal functions without changing canonical
+   storage semantics.
+3. Add local-only server launch documentation and a minimal smoke-test client.
+4. Add authorization, release-filtering, contradiction-state, and prompt
+   injection regression tests.
+5. Document how MCP adapters interact with federation quarantine and local
+   authority.
 
 ### R3: Review-Gated Consolidation And Lifecycle Maintenance
 
