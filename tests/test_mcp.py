@@ -7,8 +7,12 @@ from groundrecall.mcp import handle_request
 
 def test_mcp_lists_tools() -> None:
     response = handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
-    names = {tool["name"] for tool in response["result"]["tools"]}
+    tools = response["result"]["tools"]
+    names = {tool["name"] for tool in tools}
     assert {"inspect_store", "query_concept", "search_store", "export_snapshot", "evaluate_policy"} <= names
+    search_schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "search_store")
+    assert "policy_config" in search_schema["properties"]
+    assert "policy_request" in search_schema["properties"]
 
 
 def test_mcp_initializes() -> None:
@@ -96,3 +100,41 @@ def test_mcp_evaluates_policy_plugin_config(tmp_path: Path) -> None:
     text = response["result"]["content"][0]["text"]
     assert '"decision": "hard_gate"' in text
     assert "claim_state_not_public_allowed:private_only_speculation" in text
+
+
+def test_mcp_policy_hard_gate_blocks_operation_before_store_access(tmp_path: Path) -> None:
+    config = tmp_path / "policy-plugins.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "policy_id: mcp.blocking.policy",
+                "providers:",
+                "  - type: static",
+                "    policy_id: test.hard_gate",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    response = handle_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "tools/call",
+            "params": {
+                "name": "search_store",
+                "arguments": {
+                    "store_dir": str(tmp_path / "missing-store"),
+                    "query": "memory",
+                    "policy_config": str(config),
+                    "subject_id": "agent-1",
+                },
+            },
+        }
+    )
+
+    text = response["result"]["content"][0]["text"]
+    assert '"blocked_by_policy": true' in text
+    assert '"decision": "hard_gate"' in text
+    assert "test.hard_gate" in text

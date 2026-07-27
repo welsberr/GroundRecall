@@ -7,59 +7,136 @@ from typing import Any, Callable
 
 from .export import export_canonical_snapshot
 from .inspect import inspect_store
-from .policy import PolicyRequest, load_policy_plugins
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .query import query_concept
 from .search_index import search_index
 
 
 SERVER_INFO = {"name": "groundrecall-mcp", "version": "0.1.0a1"}
 
+POLICY_ARGUMENT_PROPERTIES: dict[str, Any] = {
+    "policy_config": {"type": "string"},
+    "policy_request": {"type": "object"},
+    "subject_id": {"type": "string"},
+}
+
 
 def _json_text(payload: Any) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": json.dumps(payload, indent=2)}]}
 
 
+def _evaluate_optional_policy(arguments: dict[str, Any], default_request: dict[str, Any]) -> PolicyDecision | None:
+    policy_config = arguments.get("policy_config")
+    if not policy_config:
+        return None
+    request_payload = dict(default_request)
+    request_payload.update(dict(arguments.get("policy_request") or {}))
+    provider = load_policy_plugins(policy_config)
+    return provider.evaluate(PolicyRequest(**request_payload))
+
+
+def _blocked_policy_result(decision: PolicyDecision) -> dict[str, Any] | None:
+    if decision.decision not in {"deny", "hard_gate"}:
+        return None
+    return _json_text({"ok": False, "blocked_by_policy": True, "policy_decision": decision.model_dump(mode="json")})
+
+
+def _attach_policy(payload: Any, decision: PolicyDecision | None) -> Any:
+    if decision is None:
+        return payload
+    if isinstance(payload, dict):
+        result = dict(payload)
+        result["policy_decision"] = decision.model_dump(mode="json")
+        return result
+    return {"ok": True, "payload": payload, "policy_decision": decision.model_dump(mode="json")}
+
+
 def _inspect_store(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _json_text(
-        inspect_store(
-            arguments["store_dir"],
-            include_graph=bool(arguments.get("include_graph", False)),
-            compact_graph=bool(arguments.get("compact_graph", False)),
-        )
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "read",
+            "action": "inspect_store",
+            "subject_id": str(arguments.get("subject_id", "")),
+        },
     )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = inspect_store(
+        arguments["store_dir"],
+        include_graph=bool(arguments.get("include_graph", False)),
+        compact_graph=bool(arguments.get("compact_graph", False)),
+    )
+    return _json_text(_attach_policy(payload, decision))
 
 
 def _query_concept(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "query_concept",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "record_kind": "concept",
+            "record_id": str(arguments.get("concept", "")),
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
     payload = query_concept(arguments["store_dir"], arguments["concept"])
     if payload is None:
         payload = {"ok": False, "error": "concept not found", "concept": arguments["concept"]}
-    return _json_text(payload)
+    return _json_text(_attach_policy(payload, decision))
 
 
 def _search_store(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _json_text(
-        search_index(
-            arguments["store_dir"],
-            arguments["query"],
-            limit=int(arguments.get("limit", 20)),
-            kinds=list(arguments.get("kinds", []) or []),
-            corpora=list(arguments.get("corpora", []) or []),
-            rebuild=bool(arguments.get("rebuild", False)),
-            expand=bool(arguments.get("expand", False)),
-        )
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "search_store",
+            "subject_id": str(arguments.get("subject_id", "")),
+        },
     )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = search_index(
+        arguments["store_dir"],
+        arguments["query"],
+        limit=int(arguments.get("limit", 20)),
+        kinds=list(arguments.get("kinds", []) or []),
+        corpora=list(arguments.get("corpora", []) or []),
+        rebuild=bool(arguments.get("rebuild", False)),
+        expand=bool(arguments.get("expand", False)),
+    )
+    return _json_text(_attach_policy(payload, decision))
 
 
 def _export_snapshot(arguments: dict[str, Any]) -> dict[str, Any]:
-    return _json_text(
-        export_canonical_snapshot(
-            arguments["store_dir"],
-            arguments["out_dir"],
-            snapshot_id=arguments.get("snapshot_id"),
-            include_graph_diagnostics=bool(arguments.get("include_graph_diagnostics", False)),
-            include_graph_interchange=bool(arguments.get("include_graph_interchange", False)),
-        )
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "publish",
+            "action": "export_snapshot",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "target_release_level": "public",
+            "public_facing": True,
+        },
     )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = export_canonical_snapshot(
+        arguments["store_dir"],
+        arguments["out_dir"],
+        snapshot_id=arguments.get("snapshot_id"),
+        include_graph_diagnostics=bool(arguments.get("include_graph_diagnostics", False)),
+        include_graph_interchange=bool(arguments.get("include_graph_interchange", False)),
+    )
+    return _json_text(_attach_policy(payload, decision))
 
 
 def _evaluate_policy(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -78,6 +155,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "store_dir": {"type": "string"},
                 "include_graph": {"type": "boolean", "default": False},
                 "compact_graph": {"type": "boolean", "default": False},
+                **POLICY_ARGUMENT_PROPERTIES,
             },
             "required": ["store_dir"],
         },
@@ -87,7 +165,11 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Fetch a concept-centered GroundRecall query bundle.",
         "inputSchema": {
             "type": "object",
-            "properties": {"store_dir": {"type": "string"}, "concept": {"type": "string"}},
+            "properties": {
+                "store_dir": {"type": "string"},
+                "concept": {"type": "string"},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
             "required": ["store_dir", "concept"],
         },
         "handler": _query_concept,
@@ -104,6 +186,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "corpora": {"type": "array", "items": {"type": "string"}},
                 "rebuild": {"type": "boolean", "default": False},
                 "expand": {"type": "boolean", "default": False},
+                **POLICY_ARGUMENT_PROPERTIES,
             },
             "required": ["store_dir", "query"],
         },
@@ -119,6 +202,7 @@ TOOLS: dict[str, dict[str, Any]] = {
                 "snapshot_id": {"type": "string"},
                 "include_graph_diagnostics": {"type": "boolean", "default": False},
                 "include_graph_interchange": {"type": "boolean", "default": False},
+                **POLICY_ARGUMENT_PROPERTIES,
             },
             "required": ["store_dir", "out_dir"],
         },

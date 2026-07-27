@@ -60,6 +60,10 @@ Initial implementation status:
 - `groundrecall-mcp` exposes `evaluate_policy` so MCP-capable assistants can
   ask for a structured policy-plugin decision without receiving memory mutation
   authority.
+- MCP read/query/search/export tools accept optional `policy_config`,
+  `policy_request`, and `subject_id` arguments. When configured, hard-gate and
+  deny decisions block the operation before store access or export side effects;
+  softer decisions are returned with the tool payload as review context.
 - `tests/test_policy_plugins.py` covers structured decisions, conservative
   composition, ClaimWright-style hard gates, conditional public claim review,
   and plugin loading.
