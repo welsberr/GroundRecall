@@ -31,11 +31,68 @@ def demote_headings(text: str) -> str:
     return "\n".join(lines).strip()
 
 
+def split_table_row(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def is_table_separator(line: str) -> bool:
+    stripped = line.strip()
+    if not stripped.startswith("|") or not stripped.endswith("|"):
+        return False
+    cells = split_table_row(stripped)
+    return bool(cells) and all(re.fullmatch(r":?-{3,}:?", cell.strip()) for cell in cells)
+
+
+def table_to_pdf_list(table_lines: list[str]) -> list[str]:
+    if len(table_lines) < 2 or not is_table_separator(table_lines[1]):
+        return table_lines
+    headers = split_table_row(table_lines[0])
+    rows = [split_table_row(line) for line in table_lines[2:] if line.strip()]
+    rendered: list[str] = []
+    for row in rows:
+        padded = row + [""] * max(0, len(headers) - len(row))
+        if not padded:
+            continue
+        title = padded[0].strip() or "Item"
+        if len(headers) == 2:
+            value = padded[1].strip() if len(padded) > 1 else ""
+            rendered.append(f"- **{title}:** {value}")
+            continue
+        rendered.append(f"- **{title}**")
+        for header, value in zip(headers[1:], padded[1:]):
+            if value.strip():
+                rendered.append(f"  - **{header.strip()}:** {value.strip()}")
+    return rendered or table_lines
+
+
+def convert_tables_for_pdf(text: str) -> str:
+    lines = text.splitlines()
+    converted: list[str] = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.strip().startswith("|") and index + 1 < len(lines) and is_table_separator(lines[index + 1]):
+            table_lines = [line, lines[index + 1]]
+            index += 2
+            while index < len(lines) and lines[index].strip().startswith("|"):
+                table_lines.append(lines[index])
+                index += 1
+            if converted and converted[-1].strip():
+                converted.append("")
+            converted.extend(table_to_pdf_list(table_lines))
+            converted.append("")
+            continue
+        converted.append(line)
+        index += 1
+    return "\n".join(converted).strip()
+
+
 def build_combined_markdown() -> None:
-    parts = [MAIN_DRAFT.read_text(encoding="utf-8").strip()]
+    parts = [convert_tables_for_pdf(MAIN_DRAFT.read_text(encoding="utf-8")).strip()]
     for heading, path in APPENDICES:
         appendix = strip_yaml_front_matter(path.read_text(encoding="utf-8"))
-        parts.append(f"{heading}\n\n{demote_headings(appendix)}")
+        appendix = convert_tables_for_pdf(demote_headings(appendix))
+        parts.append(f"{heading}\n\n{appendix}")
     COMBINED_DRAFT.write_text("\n\n\\newpage\n\n".join(parts) + "\n", encoding="utf-8")
 
 
