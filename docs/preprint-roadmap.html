@@ -29,6 +29,7 @@
 <li>therefore memory layers should have specific governance properties;</li>
 <li>GroundRecall, ClaimWright, CiteGeist, and Epistemap demonstrate partial implementations of those properties;</li>
 <li>the prototypes are evidence that governed memory is practical, not a claim that any one repo is a complete platform.</li>
+<li>ClaimWright is one suitable policy framework, not the universal policy stance; the paper should distinguish configurable policy choices from broadly applicable policy elements.</li>
 </ol>
 <p>This moves the paper from “GroundRecall has these features” to “AI memory layers should have these properties; here are working examples.”</p>
 <h2 id="scope-freeze-for-the-preprint">Scope Freeze For The Preprint</h2>
@@ -68,7 +69,7 @@
 </ul>
 <h2 id="core-paper-claim">Core Paper Claim</h2>
 <p>AI assistants and agents do not merely need more memory. They need governed memory layers whose durable context is constrained by provenance, confidence, temporal validity, contradiction review, release level, local authority, policy, and auditability.</p>
-<p>GroundRecall demonstrates that such memory can be structured as a review-gated, provenance-first control plane. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, bibliography, and confidence/graph layers that support the same governed-memory stance.</p>
+<p>GroundRecall demonstrates that such memory can be structured as a review-gated, provenance-first control plane. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, bibliography, and confidence/graph layers that support the same governed-memory stance. ClaimWright should be framed as an example of a suitable policy framework; other people or entities may adopt different policy stances while retaining common evidence, review, uncertainty, privacy, and publication-safety elements.</p>
 <p>The central distinction should be:</p>
 <ul>
 <li>ordinary epistemic maintenance is usually non-destructive: expiry, supersession, retraction, temporal validity, confidence review, and retrieval-priority changes preserve evidence and decision history;</li>
@@ -95,7 +96,7 @@
 <li>integrate explicit claim/publication policy frameworks;</li>
 <li>support signed public-key and role-directory distribution with receiver-side authority caps where federation is needed.</li>
 </ul>
-<p>The abstract can then state that GroundRecall implements a local prototype for many of these properties, with ClaimWright, CiteGeist, and Epistemap serving as companion policy/source/confidence examples.</p>
+<p>The abstract can then state that GroundRecall implements a local prototype for many of these properties, with ClaimWright, CiteGeist, and Epistemap serving as companion policy/source/confidence examples. It should avoid implying that ClaimWright is mandatory or singular; the claim is that governed memory needs an explicit policy framework with broadly applicable elements.</p>
 <p>The abstract should not claim:</p>
 <ul>
 <li>production-grade distributed sync;</li>
@@ -155,17 +156,29 @@
 <li>local authority;</li>
 <li>auditability;</li>
 <li>policy integration.</li>
+<li>policy pluralism with common minimum elements for reliable, evidence-driven work.</li>
 </ul>
 <p>Needed work:</p>
 <ul>
 <li>convert <code>docs/preprint/manifesto-first-outline.md</code> into manuscript prose;</li>
 <li>add a property-to-implementation matrix.</li>
 </ul>
-<h3 id="example-implementations">4. Example Implementations</h3>
+<h3 id="policy-pluralism-and-common-elements">4. Policy Pluralism And Common Elements</h3>
+<p>Cover:</p>
+<ul>
+<li>ClaimWright as one suitable policy framework;</li>
+<li>the expectation that different users/entities will set different thresholds;</li>
+<li>broadly applicable policy elements: claim lifecycle, evidence traceability, citation review, uncertainty visibility, contradiction/staleness review, public/private gates, role boundaries, pre-action checks, and post-action checks.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>add a concise table of common policy elements to the manuscript draft.</li>
+</ul>
+<h3 id="example-implementations">5. Example Implementations</h3>
 <p>Cover:</p>
 <ul>
 <li>GroundRecall as memory substrate;</li>
-<li>ClaimWright as policy/publication-safety operating stance;</li>
+<li>ClaimWright as an example policy/publication-safety operating stance;</li>
 <li>CiteGeist as bibliography/source-review workbench;</li>
 <li>Epistemap as confidence/knowledge-graph layer.</li>
 </ul>
@@ -173,7 +186,7 @@
 <ul>
 <li>write a short integration note explaining that these are companion prototypes, not a single completed platform.</li>
 </ul>
-<h3 id="data-model-and-memory-lifecycle">5. Data Model And Memory Lifecycle</h3>
+<h3 id="data-model-and-memory-lifecycle">6. Data Model And Memory Lifecycle</h3>
 <p>Cover:</p>
 <ul>
 <li>source, artifact, observation, claim, concept, relation, contradiction case, promotion, adjudication, snapshot;</li>
@@ -188,7 +201,7 @@
 <li>create one diagram: ingest → observation/claim/concept/relation → review/promotion → export/federation;</li>
 <li>add a compact schema table.</li>
 </ul>
-<h3 id="confidence-and-temporal-validity">6. Confidence And Temporal Validity</h3>
+<h3 id="confidence-and-temporal-validity">7. Confidence And Temporal Validity</h3>
 <p>Cover:</p>
 <ul>
 <li>confidence as structured assessment rather than a single scalar;</li>
@@ -202,7 +215,7 @@
 <li>summarize implemented confidence fields and migration status;</li>
 <li>avoid implying full Bayesian updating unless implemented and tested.</li>
 </ul>
-<h3 id="release-level-and-governance-controls">7. Release-Level And Governance Controls</h3>
+<h3 id="release-level-and-governance-controls">8. Release-Level And Governance Controls</h3>
 <p>Cover:</p>
 <ul>
 <li>release lattice: public, internal, confidential, privileged, private;</li>
@@ -215,7 +228,7 @@
 <li>provide a small example where public export excludes internal/private records;</li>
 <li>provide a small example where a redacted public derivative is allowed with policy metadata.</li>
 </ul>
-<h3 id="federation-architecture">8. Federation Architecture</h3>
+<h3 id="federation-architecture">9. Federation Architecture</h3>
 <p>Cover:</p>
 <ul>
 <li>signed federation bundle;</li>
@@ -229,7 +242,7 @@
 <li>create one diagram: producer → signed bundle → receiver verification → quarantine → local policy → promotion.</li>
 <li>include contradiction cases in the bundle contents and promotion discussion, noting that cases only promote when their referenced claims are also exportable.</li>
 </ul>
-<h3 id="trust-keys-and-role-distribution">9. Trust, Keys, And Role Distribution</h3>
+<h3 id="trust-keys-and-role-distribution">10. Trust, Keys, And Role Distribution</h3>
 <p>Cover:</p>
 <ul>
 <li>HMAC local/shared-secret mode;</li>
@@ -244,7 +257,7 @@
 <li>create one table contrasting HMAC, Ed25519 bundle signatures, signed keysets, and signed role directories;</li>
 <li>include local-cap enforcement as a key design feature.</li>
 </ul>
-<h3 id="implementation">10. Implementation</h3>
+<h3 id="implementation">11. Implementation</h3>
 <p>Cover:</p>
 <ul>
 <li>Python package and CLI;</li>
@@ -260,7 +273,7 @@
 <li>generate a current CLI command inventory;</li>
 <li>include current validation count from a fresh run before paper submission.</li>
 </ul>
-<h3 id="demonstrations">11. Demonstrations</h3>
+<h3 id="demonstrations">12. Demonstrations</h3>
 <p>Minimum demonstrations to prepare:</p>
 <ol type="1">
 <li>Release-lattice export:
@@ -303,7 +316,7 @@
 <li>capture generated JSON snippets and expected outputs;</li>
 <li>decide which outputs become paper figures/tables.</li>
 </ul>
-<h3 id="evaluation-plan">12. Evaluation Plan</h3>
+<h3 id="evaluation-plan">13. Evaluation Plan</h3>
 <p>For the initial preprint, use engineering evidence rather than broad empirical claims.</p>
 <p>Evidence already available:</p>
 <ul>
@@ -324,7 +337,7 @@
 <li>broad benchmark comparisons;</li>
 <li>claims of superior safety without empirical data.</li>
 </ul>
-<h3 id="limitations-and-future-work">13. Limitations And Future Work</h3>
+<h3 id="limitations-and-future-work">14. Limitations And Future Work</h3>
 <p>State plainly:</p>
 <ul>
 <li>no network transport yet;</li>

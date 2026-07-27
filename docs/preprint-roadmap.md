@@ -14,6 +14,7 @@ Recommended stance:
 2. therefore memory layers should have specific governance properties;
 3. GroundRecall, ClaimWright, CiteGeist, and Epistemap demonstrate partial implementations of those properties;
 4. the prototypes are evidence that governed memory is practical, not a claim that any one repo is a complete platform.
+5. ClaimWright is one suitable policy framework, not the universal policy stance; the paper should distinguish configurable policy choices from broadly applicable policy elements.
 
 This moves the paper from “GroundRecall has these features” to “AI memory layers should have these properties; here are working examples.”
 
@@ -60,7 +61,7 @@ The paper should explicitly treat these as limitations or future work:
 
 AI assistants and agents do not merely need more memory. They need governed memory layers whose durable context is constrained by provenance, confidence, temporal validity, contradiction review, release level, local authority, policy, and auditability.
 
-GroundRecall demonstrates that such memory can be structured as a review-gated, provenance-first control plane. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, bibliography, and confidence/graph layers that support the same governed-memory stance.
+GroundRecall demonstrates that such memory can be structured as a review-gated, provenance-first control plane. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, bibliography, and confidence/graph layers that support the same governed-memory stance. ClaimWright should be framed as an example of a suitable policy framework; other people or entities may adopt different policy stances while retaining common evidence, review, uncertainty, privacy, and publication-safety elements.
 
 The central distinction should be:
 
@@ -92,7 +93,7 @@ The abstract should claim that governed memory layers should:
 - integrate explicit claim/publication policy frameworks;
 - support signed public-key and role-directory distribution with receiver-side authority caps where federation is needed.
 
-The abstract can then state that GroundRecall implements a local prototype for many of these properties, with ClaimWright, CiteGeist, and Epistemap serving as companion policy/source/confidence examples.
+The abstract can then state that GroundRecall implements a local prototype for many of these properties, with ClaimWright, CiteGeist, and Epistemap serving as companion policy/source/confidence examples. It should avoid implying that ClaimWright is mandatory or singular; the claim is that governed memory needs an explicit policy framework with broadly applicable elements.
 
 The abstract should not claim:
 
@@ -157,18 +158,31 @@ Cover:
 - local authority;
 - auditability;
 - policy integration.
+- policy pluralism with common minimum elements for reliable, evidence-driven work.
 
 Needed work:
 
 - convert `docs/preprint/manifesto-first-outline.md` into manuscript prose;
 - add a property-to-implementation matrix.
 
-### 4. Example Implementations
+### 4. Policy Pluralism And Common Elements
+
+Cover:
+
+- ClaimWright as one suitable policy framework;
+- the expectation that different users/entities will set different thresholds;
+- broadly applicable policy elements: claim lifecycle, evidence traceability, citation review, uncertainty visibility, contradiction/staleness review, public/private gates, role boundaries, pre-action checks, and post-action checks.
+
+Needed work:
+
+- add a concise table of common policy elements to the manuscript draft.
+
+### 5. Example Implementations
 
 Cover:
 
 - GroundRecall as memory substrate;
-- ClaimWright as policy/publication-safety operating stance;
+- ClaimWright as an example policy/publication-safety operating stance;
 - CiteGeist as bibliography/source-review workbench;
 - Epistemap as confidence/knowledge-graph layer.
 
@@ -176,7 +190,7 @@ Needed work:
 
 - write a short integration note explaining that these are companion prototypes, not a single completed platform.
 
-### 5. Data Model And Memory Lifecycle
+### 6. Data Model And Memory Lifecycle
 
 Cover:
 
@@ -192,7 +206,7 @@ Needed work:
 - create one diagram: ingest → observation/claim/concept/relation → review/promotion → export/federation;
 - add a compact schema table.
 
-### 6. Confidence And Temporal Validity
+### 7. Confidence And Temporal Validity
 
 Cover:
 
@@ -207,7 +221,7 @@ Needed work:
 - summarize implemented confidence fields and migration status;
 - avoid implying full Bayesian updating unless implemented and tested.
 
-### 7. Release-Level And Governance Controls
+### 8. Release-Level And Governance Controls
 
 Cover:
 
@@ -221,7 +235,7 @@ Needed work:
 - provide a small example where public export excludes internal/private records;
 - provide a small example where a redacted public derivative is allowed with policy metadata.
 
-### 8. Federation Architecture
+### 9. Federation Architecture
 
 Cover:
 
@@ -236,7 +250,7 @@ Needed work:
 - create one diagram: producer → signed bundle → receiver verification → quarantine → local policy → promotion.
 - include contradiction cases in the bundle contents and promotion discussion, noting that cases only promote when their referenced claims are also exportable.
 
-### 9. Trust, Keys, And Role Distribution
+### 10. Trust, Keys, And Role Distribution
 
 Cover:
 
@@ -252,7 +266,7 @@ Needed work:
 - create one table contrasting HMAC, Ed25519 bundle signatures, signed keysets, and signed role directories;
 - include local-cap enforcement as a key design feature.
 
-### 10. Implementation
+### 11. Implementation
 
 Cover:
 
@@ -269,7 +283,7 @@ Needed work:
 - generate a current CLI command inventory;
 - include current validation count from a fresh run before paper submission.
 
-### 11. Demonstrations
+### 12. Demonstrations
 
 Minimum demonstrations to prepare:
 
@@ -301,7 +315,7 @@ Needed work:
 - capture generated JSON snippets and expected outputs;
 - decide which outputs become paper figures/tables.
 
-### 12. Evaluation Plan
+### 13. Evaluation Plan
 
 For the initial preprint, use engineering evidence rather than broad empirical claims.
 
@@ -324,7 +338,7 @@ Defer:
 - broad benchmark comparisons;
 - claims of superior safety without empirical data.
 
-### 13. Limitations And Future Work
+### 14. Limitations And Future Work
 
 State plainly:
 

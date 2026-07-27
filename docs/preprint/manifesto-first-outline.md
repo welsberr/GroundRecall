@@ -21,7 +21,7 @@ AI assistants and agents do not merely need more memory. They need memory layers
 The paper should state the desired properties first, then show that these properties are implementable through working prototype components:
 
 - GroundRecall as a provenance-preserving, review-gated, federated memory substrate;
-- ClaimWright as a claim-policy and publication-safety operating stance;
+- ClaimWright as one suitable claim-policy and publication-safety operating stance;
 - CiteGeist as a bibliography/provenance workbench for source review;
 - Epistemap as a confidence and knowledge-graph operation layer.
 
@@ -33,7 +33,7 @@ Current AI memory systems increasingly support long-term recall, graph retrieval
 
 We argue that memory layers for AI assistants and agents should be governed systems, not only retrieval systems. A governed memory layer should preserve provenance, distinguish historical support from current applicability, expose confidence and uncertainty, track contradiction and adjudication, enforce release boundaries, quarantine imported memory, retain audit history, and integrate policy frameworks for public-safe claim use.
 
-We present these requirements as a manifesto for governed AI memory. We then describe prototype implementations across GroundRecall, ClaimWright, CiteGeist, and Epistemap that demonstrate many of the required properties in local-first form. We position these prototypes as evidence that governed memory is practical, while identifying retrieval benchmarks, semantic contradiction detection, hosted review, production IAM, and distributed synchronization as future work.
+We present these requirements as a manifesto for governed AI memory. We then describe prototype implementations across GroundRecall, ClaimWright, CiteGeist, and Epistemap that demonstrate many of the required properties in local-first form. ClaimWright is treated as an example of a suitable policy framework, not as the only acceptable policy stance. Different users, projects, institutions, and jurisdictions should be expected to adopt different policies, while still sharing a core set of broadly applicable requirements for evidence-driven AI work. We position the prototypes as evidence that governed memory is practical, while identifying retrieval benchmarks, semantic contradiction detection, hosted review, production IAM, and distributed synchronization as future work.
 
 ## Paper Structure
 
@@ -86,20 +86,41 @@ This should be the normative core of the paper.
 | Auditability | Export, import, promotion, and policy decisions should leave reviewable records. |
 | Policy integration | Memory should be governed by explicit claim/publication/action policies. |
 
-### 4. Example Implementations
+### 4. Policy Pluralism And Common Policy Elements
+
+ClaimWright should be presented as one policy framework that is suitable for evidence-driven assistant work, not as the universal policy. Different teams may reasonably choose different thresholds for publication, citation depth, adversarial review, privacy classification, model/tool risk, cost tolerance, and human sign-off.
+
+The manifesto claim is narrower and more defensible: reliable AI-assisted work needs some explicit policy stance, and many policy elements are broadly applicable even when the exact thresholds differ.
+
+Broadly applicable elements include:
+
+| Policy element | Broadly applicable requirement |
+| --- | --- |
+| Claim lifecycle | Claims should have states such as exploratory, supported, contested, stale, contradicted, private-only, and public-safe or equivalent. |
+| Evidence traceability | Public or durable claims should identify their source basis and review status. |
+| Citation review | Accepted, rejected, and unresolved citation candidates should remain inspectable. |
+| Uncertainty visibility | Confidence, ambiguity, and limits of applicability should not be hidden by polished prose. |
+| Contradiction review | Contradicted claims should trigger review/adjudication rather than silent selection. |
+| Staleness review | New evidence should be able to mark related claims stale or superseded. |
+| Public/private boundary | Movement from private exploration to public artifact should require stricter gates. |
+| Role/authority boundaries | Agents should know whether they are auditing, drafting, publishing, maintaining memory, or escalating to a human. |
+| Pre-action checks | Costly, durable, public, destructive, or privacy-relevant actions should check reversibility, evidence, assumptions, and authorization. |
+| Post-action checks | Outputs should be checked for unsupported claims, citation drift, unresolved risks, and downstream memory effects. |
+
+### 5. Example Implementations
 
 Use the repos as implementation examples rather than the main argumentative starting point.
 
 | Prototype | Demonstrated properties |
 | --- | --- |
 | GroundRecall | Provenance records, review-gated promotion, contradiction cases, release levels, federation quarantine, local policy, audit, trust/role distribution. |
-| ClaimWright | Claim lifecycle, adversarial review, citation review, public/private gates, role cards, pre/post action checks, scientific-virtue policy stance. |
+| ClaimWright | One suitable policy framework: claim lifecycle, adversarial review, citation review, public/private gates, role cards, pre/post action checks, scientific-virtue policy stance. |
 | CiteGeist | Bibliographic extraction, verification, enrichment, citation graph expansion, source review, BibTeX export, memory-layer bibliography seeding. |
 | Epistemap | Confidence measures, Bayesian-style evidence representation where implemented, knowledge-graph operations, contradiction/confidence interaction targets. |
 
 This section should be explicit that integration is partial. GroundRecall has not yet imported ClaimWright policies as enforcement rules. CiteGeist and Epistemap are companion tools, not hidden GroundRecall subsystems.
 
-### 5. Relation To Memory-Layer Systems
+### 6. Relation To Memory-Layer Systems
 
 Use `docs/preprint/memory-layer-comparative-analysis.md`.
 
@@ -107,7 +128,7 @@ Argument:
 
 Current memory-layer systems are strong on recall, personalization, graph retrieval, memory scheduling, and production performance. GroundRecall-style governed memory is complementary: it supplies review, provenance, contradiction, release-policy, federation, and local-authority controls.
 
-### 6. Demonstrations
+### 7. Demonstrations
 
 Demonstrations should be property-driven:
 
@@ -132,7 +153,7 @@ Demonstrations should be property-driven:
    - seed and export a bibliography;
    - preserve accepted/rejected/unresolved source review state where available.
 
-### 7. Limitations
+### 8. Limitations
 
 State explicitly:
 
@@ -145,7 +166,7 @@ State explicitly:
 - no full ClaimWright-to-GroundRecall enforcement bridge yet;
 - no comprehensive security proof.
 
-### 8. Design Implications
+### 9. Design Implications
 
 The paper should close with design implications:
 
@@ -153,7 +174,8 @@ The paper should close with design implications:
 - public-facing agent work needs publication gates, not just source retrieval;
 - contradiction and stale-claim handling should be ordinary workflows;
 - signed exchange is insufficient without local authority and quarantine;
-- policy frameworks and memory substrates should be designed together.
+- policy frameworks and memory substrates should be designed together;
+- policy frameworks should be configurable, but not optional, for high-stakes or public-facing memory use.
 
 ## Recommended Claim Boundary
 
