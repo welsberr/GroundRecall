@@ -1,5 +1,6 @@
 ---
 title: "Memory Layers Should Be Governed: Properties for Durable AI Assistant and Agent Memory"
+author: "welsberr"
 date: 2026-07-26
 bibliography: memory-layer-citegeist-export.bib
 ---
@@ -236,6 +237,10 @@ This paper has argued for a property-first view of governed memory layers. A sui
 GroundRecall, ClaimWright, CiteGeist, and Epistemap provide partial local-first examples of these properties. They are not a complete governed-agent platform. They are evidence that governed memory can be built, inspected, tested, and improved.
 
 The practical recommendation is direct: when building memory for AI assistants and agents, do not ask only how much the system can remember or how well it retrieves. Ask what the memory is allowed to mean, who reviewed it, where it came from, whether it is current, what it contradicts, who may see it, who may promote it, and what policy governs its use.
+
+## Acknowledgments
+
+The author acknowledges assistance from OpenAI Codex in drafting, editing, source organization, bibliography preparation, demonstration generation, and ClaimWright-style review of this manuscript. The author remains responsible for the claims, judgment, and final publication decisions.
 
 ## References
 
