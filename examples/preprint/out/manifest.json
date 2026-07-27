@@ -1,0 +1,19 @@
+{
+  "demo_count": 5,
+  "demo_suite": "groundrecall_preprint_governed_memory_demos",
+  "generated_at": "2026-07-27T00:00:00Z",
+  "outputs": [
+    "provenance_promotion.json",
+    "contradiction_adjudication.json",
+    "release_filtering.json",
+    "federation_quarantine.json",
+    "local_authority.json"
+  ],
+  "results": {
+    "contradiction_adjudication": "pass",
+    "federation_quarantine": "pass",
+    "local_authority": "pass",
+    "provenance_promotion": "pass",
+    "release_filtering": "pass"
+  }
+}

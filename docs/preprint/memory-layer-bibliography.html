@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>GroundRecall Memory Layer Bibliography</title>
+  <title>Memory-Layer Technology Seed Bibliography</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -16,11 +16,11 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">GroundRecall Memory Layer Bibliography</h1>
+<h1 class="title">Memory-Layer Technology Seed Bibliography</h1>
 </header>
 <h1 id="memory-layer-technology-seed-bibliography">Memory-Layer Technology Seed Bibliography</h1>
-<p>Date: 2026-07-26</p>
-<p>This is the initial CiteGeist-seeded bibliography for the GroundRecall preprint. It focuses on memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals.</p>
+<p>Date: 2026-07-27</p>
+<p>This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The 2026-07-27 expansion adds adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources.</p>
 <p>The bibliography was started as a BibTeX seed file at <code>docs/preprint/memory-layer-seed.bib</code> and ingested into a dedicated CiteGeist database at <code>docs/preprint/citegeist-memory-layer.sqlite3</code>.</p>
 <h2 id="how-to-use-this-bibliography-in-the-preprint">How To Use This Bibliography In The Preprint</h2>
 <p>GroundRecall should position itself relative to this literature as a governance-oriented memory control plane:</p>
@@ -95,6 +95,51 @@
 <td>Tian et al., 2025, <em>Knowledge Graph Alignment with LLMs in RAG</em></td>
 <td>Supports the point that KG representation/linearization choices matter for downstream LLM use.</td>
 </tr>
+<tr class="odd">
+<td><code>tabassi2023airmf</code></td>
+<td>NIST AI RMF 1.0</td>
+<td>Supports the governance/risk-management framing, especially govern/map/measure/manage and trustworthy-system characteristics.</td>
+</tr>
+<tr class="even">
+<td><code>jointtaskforce2020sp80053r5</code></td>
+<td>NIST SP 800-53 Rev. 5</td>
+<td>Provides security and privacy control context for access control, audit/accountability, identification/authentication, privacy, and supply-chain risk management.</td>
+</tr>
+<tr class="odd">
+<td><code>rose2020zerotrust</code></td>
+<td>NIST SP 800-207, <em>Zero Trust Architecture</em></td>
+<td>Supports the local-authority/no-implicit-trust framing for federation and role/key distribution.</td>
+</tr>
+<tr class="even">
+<td><code>groth2013provoverview</code></td>
+<td>W3C PROV Overview</td>
+<td>Provides provenance terminology and interoperability framing for entities, activities, agents, and trustworthiness assessment.</td>
+</tr>
+<tr class="odd">
+<td><code>moreau2013provdm</code></td>
+<td>W3C PROV-DM</td>
+<td>Supports the claim that provenance can be modeled as structured entities, activities, agents, derivations, and bundles.</td>
+</tr>
+<tr class="even">
+<td><code>slsa2026provenance</code></td>
+<td>SLSA v1.2 Provenance</td>
+<td>Provides a supply-chain provenance analogue: verifiable information about where, when, and how artifacts were produced.</td>
+</tr>
+<tr class="odd">
+<td><code>sigstore2026overview</code></td>
+<td>Sigstore overview</td>
+<td>Supports comparison to signing, transparency logs, provenance, integrity, and explicit trust decisions.</td>
+</tr>
+<tr class="even">
+<td><code>theupdateframework2026spec</code></td>
+<td>The Update Framework specification</td>
+<td>Supports role/key/signature and key-compromise-resilience analogies for federation trust metadata.</td>
+</tr>
+<tr class="odd">
+<td><code>golightly2023accesscontrolsurvey</code></td>
+<td>Golightly et al., 2023, distributed access-control survey</td>
+<td>Provides current distributed-systems access-control context for protected-resource access and organizational security.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="source-links-used-for-verification">Source Links Used For Verification</h2>
@@ -110,13 +155,23 @@
 <li>IJCAI AriGraph page: https://www.ijcai.org/proceedings/2025/0002</li>
 <li>ACM TOIS memory survey DOI: https://doi.org/10.1145/3748302</li>
 <li>AAAI KG alignment paper: https://ojs.aaai.org/index.php/AAAI/article/view/34716</li>
+<li>NIST AI RMF 1.0: https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10</li>
+<li>NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final</li>
+<li>NIST SP 800-207 Zero Trust Architecture: https://www.nist.gov/publications/zero-trust-architecture-0</li>
+<li>W3C PROV Overview: https://www.w3.org/TR/prov-overview/</li>
+<li>W3C PROV-DM: https://www.w3.org/TR/prov-dm/</li>
+<li>SLSA v1.2 provenance: https://slsa.dev/spec/v1.2/provenance</li>
+<li>Sigstore overview: https://www.sigstore.dev/docs/what_is_sigstore</li>
+<li>The Update Framework specification: https://theupdateframework.github.io/specification/</li>
+<li>Golightly et al. access-control survey: https://www.sciencedirect.com/science/article/pii/S2772918423000036</li>
 </ul>
 <h2 id="next-bibliography-expansion-targets">Next Bibliography Expansion Targets</h2>
 <ul>
 <li>LongMemEval and LoCoMo benchmark papers/datasets.</li>
 <li>GraphRAG and agentic GraphRAG surveys.</li>
-<li>Security/governance papers on persistent AI memory, privacy leakage, and retrieval authorization.</li>
-<li>Systems literature on append-only logs, capability-based access control, and provenance-aware data governance.</li>
+<li>Persistent AI memory privacy leakage and retrieval authorization.</li>
+<li>Capability-based access control, information-flow control, append-only audit logs, provenance-aware data governance, and distributed revocation.</li>
+<li>Formal publication venues and source access checks for the governance/security additions.</li>
 </ul>
 </body>
 </html>

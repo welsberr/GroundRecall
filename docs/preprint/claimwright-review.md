@@ -63,7 +63,7 @@ Applied ClaimWright materials:
 | ACM TOIS memory-mechanism survey | A | Accepted | Supports general framing that LLM-agent memory is an identifiable technical subsystem with sources, forms, operations, and evaluation concerns. |
 | ClaimWright local policy substrate | A for example-policy claim | Accepted with access caveat | Supports the existence and contents of the example policy framework, not external validation of ClaimWright. |
 | CiteGeist local bibliography artifacts | A for seed-bibliography claim | Accepted with completeness caveat | Supports that bibliography seeding exists; does not support systematic-review completeness. |
-| Privacy, provenance governance, distributed systems, IAM, and security literature | Unresolved | Needed for later draft | The current paper acknowledges production identity/security limits but does not yet cite a broader governance/security literature. |
+| Privacy, provenance governance, distributed systems, IAM, and security literature | B | Initial expansion accepted | Added NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, and a distributed access-control survey. This supports adjacent-literature framing but remains short of a systematic review. |
 
 ## Adversarial Review Memo
 
@@ -88,7 +88,7 @@ The strongest objections are predictable and should remain visible:
 | Destructive irreversible action | Pass | Documentation-only changes; git revertable. |
 | Contradicted or stale claims | Pass with caveats | No known contradicted/stale claims relied on for public argument; future literature expansion may create revision duties. |
 
-Release status: conditionally suitable for internal/public draft review, pending human publication approval. The draft is not final-public-safe because bibliography expansion, reproducible demonstrations, and external governance/security citations remain open.
+Release status: conditionally suitable for internal/public draft review, pending human publication approval. The draft is closer to final-public-safe after initial bibliography expansion and reproducible demonstrations, but it is not final-public-safe because the bibliography is still not systematic and final human publication approval remains open.
 
 ## Review Results Applied
 
@@ -100,20 +100,22 @@ Release status: conditionally suitable for internal/public draft review, pending
 | Keep ClaimWright integration scoped. | Existing wording that ClaimWright is not yet enforced inside GroundRecall was retained; the limitations section keeps it explicit. |
 | Avoid Bayesian confidence overclaim. | Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added. |
 | Keep semantic contradiction detection as future work. | Existing contradiction caveats were retained in the abstract and limitations. |
-| Expose final-public-safety status. | The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe before broader bibliography, demonstrations, and human approval. |
+| Expose final-public-safety status. | The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved. |
 | Resolve public/private path issue. | Repository-level references remain in the appendix; no absolute local paths are used for public evidence references. |
+| Broaden bibliography. | Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references. |
+| Add empirical demonstrations. | Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, and local authority. |
 
 ## Post-Action Check
 
 | Check | Result |
 | --- | --- |
-| Files changed | Added this review record; updated the draft and claim-evidence matrix; regenerated HTML outputs. |
-| Claims introduced/modified | Test-suite claim changed from "latest implementation pass" to a dated concrete result: 171 tests passed on 2026-07-27. Appendix support references were changed from absolute local paths to repository-level descriptions. |
-| Citations recorded | No new external citations were added in this pass. Citation-review status was recorded for existing source sets. |
+| Files changed | Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs. |
+| Claims introduced/modified | Test-suite claim changed from "latest implementation pass" to a dated concrete result: 171 tests passed on 2026-07-27. Appendix support references were changed from absolute local paths to repository-level descriptions. Demonstration claims are now backed by generated JSON outputs. |
+| Citations recorded | Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, and Golightly et al. distributed access-control survey. |
 | Assumptions visible | The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright. |
-| Unresolved risks | Bibliography is not systematic; reproducible demonstration artifacts remain missing; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work. |
-| Tasks opened | Demonstration and bibliography gaps remain in `docs/preprint/claim-evidence-matrix.md`. |
-| Capacity used | Local inspection, Pandoc rendering, and pytest; no network or GPU use in this pass. |
+| Unresolved risks | Bibliography is broader but not systematic; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work; human publication approval remains open. |
+| Tasks opened | Remaining gaps are now bibliography completeness/systematic-review scope, final publication approval, and future feature work, not absence of initial demonstrations. |
+| Capacity used | Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use. |
 | Branch outcome | Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims. |
 | Broader review trigger | Yes. Before submission, run a broader literature/security/governance review and add reproducible demonstrations. |
 | Scientific virtues | The pass preserved veracity, skepticism, humility to evidence, public defensibility, and provenance fairness by weakening unsupported implications and making gaps explicit. |

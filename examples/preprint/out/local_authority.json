@@ -1,0 +1,12 @@
+{
+  "authorized_promotion_decision": "promoted",
+  "demo": "local_authority",
+  "import_only_promotion_decision": "rejected",
+  "import_only_reasons": [
+    "no_matching_federation_grant"
+  ],
+  "local_policy_allows_promotion": true,
+  "receiver_claim_count_after_authorized_promotion": 1,
+  "result": "pass",
+  "signature_verified_to_quarantine": true
+}

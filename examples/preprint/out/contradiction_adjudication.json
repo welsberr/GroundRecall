@@ -1,0 +1,15 @@
+{
+  "adjudication_id": "adj_contradiction_case_contradiction_case-claim_delete_stale__claim_kee_eec144023b7a",
+  "case_id": "contradiction_case::claim_delete_stale__claim_keep_history::0a2686f293b16667",
+  "case_status": "resolved",
+  "claim_ids_preserved": [
+    "claim_delete_stale",
+    "claim_keep_history"
+  ],
+  "demo": "contradiction_adjudication",
+  "disagreement_preserved": true,
+  "result": "pass",
+  "selected_claim_ids": [
+    "claim_keep_history"
+  ]
+}

@@ -1,8 +1,8 @@
 # Memory-Layer Technology Seed Bibliography
 
-Date: 2026-07-26
+Date: 2026-07-27
 
-This is the initial CiteGeist-seeded bibliography for the GroundRecall preprint. It focuses on memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals.
+This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The 2026-07-27 expansion adds adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources.
 
 The bibliography was started as a BibTeX seed file at `docs/preprint/memory-layer-seed.bib` and ingested into a dedicated CiteGeist database at `docs/preprint/citegeist-memory-layer.sqlite3`.
 
@@ -29,6 +29,15 @@ GroundRecall should position itself relative to this literature as a governance-
 | `anokhin2025arigraph` | Anokhin et al., 2025, *AriGraph* | Uses semantic and episodic knowledge graph memory for agent planning. Useful for graph-memory comparison. |
 | `zhang2025memorysurvey` | Zhang et al., 2025, *A Survey on the Memory Mechanism of LLM-based Agents* | Provides survey/taxonomy support for the claim that memory mechanisms are a defined LLM-agent subsystem. |
 | `tian2025kgalignment` | Tian et al., 2025, *Knowledge Graph Alignment with LLMs in RAG* | Supports the point that KG representation/linearization choices matter for downstream LLM use. |
+| `tabassi2023airmf` | NIST AI RMF 1.0 | Supports the governance/risk-management framing, especially govern/map/measure/manage and trustworthy-system characteristics. |
+| `jointtaskforce2020sp80053r5` | NIST SP 800-53 Rev. 5 | Provides security and privacy control context for access control, audit/accountability, identification/authentication, privacy, and supply-chain risk management. |
+| `rose2020zerotrust` | NIST SP 800-207, *Zero Trust Architecture* | Supports the local-authority/no-implicit-trust framing for federation and role/key distribution. |
+| `groth2013provoverview` | W3C PROV Overview | Provides provenance terminology and interoperability framing for entities, activities, agents, and trustworthiness assessment. |
+| `moreau2013provdm` | W3C PROV-DM | Supports the claim that provenance can be modeled as structured entities, activities, agents, derivations, and bundles. |
+| `slsa2026provenance` | SLSA v1.2 Provenance | Provides a supply-chain provenance analogue: verifiable information about where, when, and how artifacts were produced. |
+| `sigstore2026overview` | Sigstore overview | Supports comparison to signing, transparency logs, provenance, integrity, and explicit trust decisions. |
+| `theupdateframework2026spec` | The Update Framework specification | Supports role/key/signature and key-compromise-resilience analogies for federation trust metadata. |
+| `golightly2023accesscontrolsurvey` | Golightly et al., 2023, distributed access-control survey | Provides current distributed-systems access-control context for protected-resource access and organizational security. |
 
 ## Source Links Used For Verification
 
@@ -43,10 +52,20 @@ GroundRecall should position itself relative to this literature as a governance-
 - IJCAI AriGraph page: https://www.ijcai.org/proceedings/2025/0002
 - ACM TOIS memory survey DOI: https://doi.org/10.1145/3748302
 - AAAI KG alignment paper: https://ojs.aaai.org/index.php/AAAI/article/view/34716
+- NIST AI RMF 1.0: https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10
+- NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final
+- NIST SP 800-207 Zero Trust Architecture: https://www.nist.gov/publications/zero-trust-architecture-0
+- W3C PROV Overview: https://www.w3.org/TR/prov-overview/
+- W3C PROV-DM: https://www.w3.org/TR/prov-dm/
+- SLSA v1.2 provenance: https://slsa.dev/spec/v1.2/provenance
+- Sigstore overview: https://www.sigstore.dev/docs/what_is_sigstore
+- The Update Framework specification: https://theupdateframework.github.io/specification/
+- Golightly et al. access-control survey: https://www.sciencedirect.com/science/article/pii/S2772918423000036
 
 ## Next Bibliography Expansion Targets
 
 - LongMemEval and LoCoMo benchmark papers/datasets.
 - GraphRAG and agentic GraphRAG surveys.
-- Security/governance papers on persistent AI memory, privacy leakage, and retrieval authorization.
-- Systems literature on append-only logs, capability-based access control, and provenance-aware data governance.
+- Persistent AI memory privacy leakage and retrieval authorization.
+- Capability-based access control, information-flow control, append-only audit logs, provenance-aware data governance, and distributed revocation.
+- Formal publication venues and source access checks for the governance/security additions.

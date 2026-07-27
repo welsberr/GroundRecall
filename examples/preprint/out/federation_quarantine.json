@@ -1,0 +1,15 @@
+{
+  "bundle_id": "federation::host-a::federation-demo-snapshot::1a13eb3ec88a",
+  "demo": "federation_quarantine",
+  "import_decision": "quarantined",
+  "planned_promotable_counts": {
+    "artifact": 1,
+    "claim": 1,
+    "concept": 1,
+    "observation": 1,
+    "source": 1
+  },
+  "promotion_required_for_canonical_store": true,
+  "receiver_claim_count_before_promotion": 0,
+  "result": "pass"
+}

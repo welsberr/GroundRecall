@@ -1,0 +1,14 @@
+{
+  "demo": "release_filtering",
+  "excluded_total": 2,
+  "finding_reasons": [
+    "private_never_federated",
+    "release_level_exceeds_target:internal"
+  ],
+  "included_claim_ids": [
+    "release_claim_public"
+  ],
+  "internal_claim_excluded": true,
+  "private_claim_excluded": true,
+  "result": "pass"
+}

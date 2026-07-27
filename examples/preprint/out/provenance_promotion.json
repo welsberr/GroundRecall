@@ -1,0 +1,12 @@
+{
+  "claim_id": "provenance_claim_public",
+  "claim_status": "promoted",
+  "demo": "provenance_promotion",
+  "observation_grounding_status": "grounded",
+  "observation_source_url_present": true,
+  "promotion_count": 1,
+  "result": "pass",
+  "supporting_observation_ids": [
+    "provenance_observation_public"
+  ]
+}

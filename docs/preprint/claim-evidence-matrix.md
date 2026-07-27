@@ -28,7 +28,8 @@ The matrix is also a restraint mechanism. Claims with only normative support are
 | Manuscript claim | Evidence class | Supporting artifacts | Current status | Caveat / restraint |
 | --- | --- | --- | --- | --- |
 | Durable AI memory needs governance, not only retrieval. | Bibliography/source analysis; design argument | `docs/preprint/preprint-draft.md`; `docs/preprint/memory-layer-comparative-analysis.md`; `docs/preprint/memory-layer-bibliography.md`; `docs/preprint/memory-layer-citegeist-export.bib` | Supported as a normative/design thesis. | Not an empirical proof that governed memory improves productivity or safety outcomes. |
-| Current memory-layer systems foreground persistence, retrieval, graph organization, personalization, and memory-OS abstractions. | Bibliography/source analysis | References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in `docs/preprint/preprint-draft.md` | Supported for related-work framing. | Bibliography is seeded, not exhaustive. Privacy, provenance, and AI-governance literature still needs expansion. |
+| Current memory-layer systems foreground persistence, retrieval, graph organization, personalization, and memory-OS abstractions. | Bibliography/source analysis | References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in `docs/preprint/preprint-draft.md` | Supported for related-work framing. | Bibliography is seeded, not exhaustive. |
+| Governed memory draws on adjacent governance, provenance, access-control, zero-trust, and supply-chain-security patterns. | Bibliography/source analysis | NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, and distributed access-control survey entries in `docs/preprint/memory-layer-citegeist-export.bib` | Supported for initial adjacent-literature framing. | Still not a systematic review of all governance/security literature. |
 | GroundRecall is complementary to performance-oriented memory layers. | Bibliography/source analysis; implemented code | `docs/preprint/preprint-draft.md`; `docs/preprint/memory-layer-comparative-analysis.md`; GroundRecall governance features listed below | Supported as comparative positioning. | No benchmark comparison against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS. |
 | ClaimWright is one suitable policy framework, not a universal stance. | Implemented code; design argument | ClaimWright repository policy substrate; `docs/preprint/preprint-draft.md` policy-pluralism section | Supported as an example policy stance. | ClaimWright policy files are not yet enforced directly inside GroundRecall. |
 | CiteGeist provides a source-review and bibliography workbench relevant to governed memory. | Implemented code; reproducible artifact; bibliography/source analysis | CiteGeist repository; `docs/preprint/citegeist-memory-layer.sqlite3`; `docs/preprint/memory-layer-citegeist-export.bib`; `docs/preprint/memory-layer-bibliography.md` | Supported for bibliography seeding and source-review framing. | The current bibliography is not comprehensive and does not yet include a formal systematic-review protocol. |
@@ -72,18 +73,18 @@ The matrix is also a restraint mechanism. Claims with only normative support are
 | ClaimWright is the only acceptable policy framework. | Not claimed. | The manuscript treats ClaimWright as one suitable operational stance under policy pluralism. |
 | GroundRecall confidence measures are fully Bayesian or empirically calibrated. | Not claimed. | Current implementation supports structured confidence profiles and Epistemap-compatible exports; validated Bayesian updating remains outside current evidence. |
 
-## Demonstration Gap Register
+## Demonstration Register
 
-The current manuscript can cite implementation and tests. It still needs stable demonstration artifacts for readers who want to reproduce the main governance behaviors without reading the whole test suite.
+The current manuscript can cite implementation, tests, and a stable demonstration runner. The runner lives at `examples/preprint/run_preprint_demos.py` and writes JSON summaries under `examples/preprint/out/`.
 
-| Needed demonstration | Evidence class it would add | Proposed artifact | Claim supported |
+| Demonstration | Evidence class | Artifact | Claim supported |
 | --- | --- | --- | --- |
-| Provenance and promotion walkthrough | Reproducible demonstration | `examples/preprint/provenance_promotion/` | Candidate observations and claims can be reviewed, promoted, and queried with provenance. |
-| Contradiction adjudication walkthrough | Reproducible demonstration | `examples/preprint/contradiction_adjudication/` | Contradictions become explicit cases and can be adjudicated without rewriting claims. |
-| Release filtering walkthrough | Reproducible demonstration | `examples/preprint/release_filtering/` | Public export excludes internal/confidential/privileged/private records and reports findings. |
-| Federation quarantine walkthrough | Reproducible demonstration | `examples/preprint/federation_quarantine/` | Signed import verifies origin/integrity but still lands in quarantine before local promotion. |
-| Local authority walkthrough | Reproducible demonstration | `examples/preprint/local_authority/` | Signed keysets and role directories are capped by receiver policy. |
-| CiteGeist bibliography walkthrough | Reproducible demonstration | `examples/preprint/citegeist_bibliography/` | Source review and BibTeX export remain inspectable. |
+| Provenance and promotion walkthrough | Reproducible demonstration | `examples/preprint/out/provenance_promotion.json` | Candidate observations and claims can be reviewed, promoted, and queried with provenance. |
+| Contradiction adjudication walkthrough | Reproducible demonstration | `examples/preprint/out/contradiction_adjudication.json` | Contradictions become explicit cases and can be adjudicated without rewriting claims. |
+| Release filtering walkthrough | Reproducible demonstration | `examples/preprint/out/release_filtering.json` | Public export excludes internal/private records and reports findings. |
+| Federation quarantine walkthrough | Reproducible demonstration | `examples/preprint/out/federation_quarantine.json` | Signed import verifies origin/integrity but still lands in quarantine before local promotion. |
+| Local authority walkthrough | Reproducible demonstration | `examples/preprint/out/local_authority.json` | A valid signed bundle is insufficient for promotion without receiver-side local policy. |
+| CiteGeist bibliography expansion | Reproducible artifact | `docs/preprint/citegeist-memory-layer.sqlite3`; `docs/preprint/memory-layer-citegeist-export.bib` | Source review and BibTeX export remain inspectable. |
 
 ## Appendix Use in the Manuscript
 
