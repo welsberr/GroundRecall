@@ -79,6 +79,19 @@ from .federation import (
     verify_federation_public_keyset,
     verify_federation_role_directory_publication,
 )
+from .policy import (
+    ClaimWrightPolicyProvider,
+    CompositePolicyProvider,
+    PolicyDecision,
+    PolicyDecisionPoint,
+    PolicyDecisionProvider,
+    PolicyDecisionValue,
+    PolicyRequest,
+    StaticPolicyProvider,
+    compose_policy_decisions,
+    load_policy_plugins,
+    load_policy_provider,
+)
 from .store import GroundRecallStore
 
 __all__ = [
@@ -160,6 +173,17 @@ __all__ = [
     "verify_federation_bundle",
     "verify_federation_public_keyset",
     "verify_federation_role_directory_publication",
+    "ClaimWrightPolicyProvider",
+    "CompositePolicyProvider",
+    "PolicyDecision",
+    "PolicyDecisionPoint",
+    "PolicyDecisionProvider",
+    "PolicyDecisionValue",
+    "PolicyRequest",
+    "StaticPolicyProvider",
+    "compose_policy_decisions",
+    "load_policy_plugins",
+    "load_policy_provider",
     "build_query_parser",
     "query_main",
     "summarize_store",

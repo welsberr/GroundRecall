@@ -19,6 +19,51 @@ complete.
 GroundRecall's primary product direction is a review-gated,
 provenance-first memory substrate for long-lived AI work.
 
+## Top Roadmap Priority: Policy Plugin Boundary
+
+GroundRecall should not hardwire ClaimWright or any other single policy
+framework into the memory substrate. It should expose a bounded policy-plugin
+interface with stable decision points and structured decision results.
+
+This is the highest-priority architectural dependency for MCP, federation,
+publication gates, contradiction adjudication, and future ClaimWright
+integration. Arbitrary policy content can vary without bound, but GroundRecall
+should require policy adapters to answer a finite set of questions:
+
+- may this actor read, query, propose, review, promote, revise, supersede, or
+  adjudicate this memory?
+- may this content be exported, published, federated, redacted, deleted, cited
+  publicly, or used to authorize an action?
+- what obligations, review roles, redactions, confidence effects, release caps,
+  and audit tags follow from the answer?
+
+Priority implementation:
+
+1. Maintain a generic `PolicyDecisionProvider` contract in GroundRecall.
+2. Keep decision values bounded: `allow`, `require_review`, `soft_gate`,
+   `hard_gate`, and `deny`.
+3. Compose multiple policy plugins conservatively: deny/hard-gate dominates,
+   obligations accumulate, the most restrictive release level wins, required
+   reviewers union together, and conflicts become explicit review state.
+4. Treat ClaimWright as the first adapter over the generic contract, not as a
+   privileged dependency.
+5. Route MCP adapters, federation promotion, public export, contradiction
+   adjudication, and exceptional erasure through this policy boundary as those
+   surfaces mature.
+
+Initial implementation status:
+
+- `src/groundrecall/policy.py` defines the bounded decision vocabulary,
+  `PolicyRequest`, `PolicyDecision`, provider protocol, static provider,
+  conservative composition, plugin-config loading, and a ClaimWright directory
+  adapter.
+- `groundrecall-mcp` exposes `evaluate_policy` so MCP-capable assistants can
+  ask for a structured policy-plugin decision without receiving memory mutation
+  authority.
+- `tests/test_policy_plugins.py` covers structured decisions, conservative
+  composition, ClaimWright-style hard gates, conditional public claim review,
+  and plugin loading.
+
 The goal is not to maximize how much an assistant remembers. The goal is to
 make durable memory warranted, attributable, revisable, appropriately scoped,
 and safe to reuse.

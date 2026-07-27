@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 from .export import export_canonical_snapshot
 from .inspect import inspect_store
+from .policy import PolicyRequest, load_policy_plugins
 from .query import query_concept
 from .search_index import search_index
 
@@ -59,6 +60,13 @@ def _export_snapshot(arguments: dict[str, Any]) -> dict[str, Any]:
             include_graph_interchange=bool(arguments.get("include_graph_interchange", False)),
         )
     )
+
+
+def _evaluate_policy(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"])
+    request_payload = dict(arguments.get("request") or {})
+    decision = provider.evaluate(PolicyRequest(**request_payload))
+    return _json_text(decision.model_dump(mode="json"))
 
 
 TOOLS: dict[str, dict[str, Any]] = {
@@ -115,6 +123,40 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["store_dir", "out_dir"],
         },
         "handler": _export_snapshot,
+    },
+    "evaluate_policy": {
+        "description": "Evaluate a GroundRecall policy-plugin config against a bounded policy request.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "policy_config": {"type": "string"},
+                "request": {
+                    "type": "object",
+                    "properties": {
+                        "decision_point": {"type": "string"},
+                        "subject_id": {"type": "string"},
+                        "action": {"type": "string"},
+                        "record_kind": {"type": "string"},
+                        "record_id": {"type": "string"},
+                        "release_level": {"type": "string"},
+                        "target_release_level": {"type": "string"},
+                        "scope_id": {"type": "string"},
+                        "claim_state": {"type": "string"},
+                        "evidence_state": {"type": "string"},
+                        "citation_state": {"type": "string"},
+                        "contradiction_state": {"type": "string"},
+                        "stale": {"type": "boolean"},
+                        "destructive": {"type": "boolean"},
+                        "public_facing": {"type": "boolean"},
+                        "durable_memory_change": {"type": "boolean"},
+                        "metadata": {"type": "object"},
+                    },
+                    "required": ["decision_point"],
+                },
+            },
+            "required": ["policy_config", "request"],
+        },
+        "handler": _evaluate_policy,
     },
 }
 
