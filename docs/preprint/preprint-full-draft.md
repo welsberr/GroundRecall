@@ -1,6 +1,6 @@
 ---
 title: "Memory Layers Should Be Governed: Properties for Durable AI Assistant and Agent Memory"
-author: "welsberr"
+author: "Wesley R. Elsberry, Ph.D. (elsberry@msu.edu)"
 date: 2026-07-26
 bibliography: memory-layer-citegeist-export.bib
 ---
