@@ -291,6 +291,7 @@ Deliverables:
 - one threat-model table at `docs/preprint/threat-model.md`;
 - one claim-to-evidence matrix at `docs/preprint/claim-evidence-matrix.md`;
 - one memory-layer seed bibliography at `docs/preprint/memory-layer-bibliography.md`;
+- one memory-layer comparative analysis at `docs/preprint/memory-layer-comparative-analysis.md`;
 - one CiteGeist-backed BibTeX seed/export pair under `docs/preprint/`.
 
 Exit criteria:
@@ -356,6 +357,7 @@ Contents:
 Deliverables:
 
 - `docs/preprint/memory-layer-bibliography.md`
+- `docs/preprint/memory-layer-comparative-analysis.md`
 - `docs/preprint/memory-layer-seed.bib`
 - `docs/preprint/memory-layer-citegeist-export.bib`
 - `docs/preprint/citegeist-memory-layer.sqlite3`
@@ -364,6 +366,7 @@ Contents:
 
 - seeded bibliography for agent memory and memory-layer technology;
 - annotation of how each source positions GroundRecall;
+- comparative analysis of GroundRecall against memory streams, virtual context, graph memory, production memory services, and memory-OS systems;
 - source URLs used for verification;
 - expansion targets for benchmarks, privacy/security, provenance, and governance literature.
 

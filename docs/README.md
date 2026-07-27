@@ -25,6 +25,7 @@ Preprint preparation:
 - [preprint/threat-model.md](preprint/threat-model.md)
 - [preprint/claim-evidence-matrix.md](preprint/claim-evidence-matrix.md)
 - [preprint/memory-layer-bibliography.md](preprint/memory-layer-bibliography.md)
+- [preprint/memory-layer-comparative-analysis.md](preprint/memory-layer-comparative-analysis.md)
 
 The memory lifecycle roadmap is the primary forward-looking roadmap. The sync
 and knowledge-graph roadmaps provide focused implementation detail beneath it.

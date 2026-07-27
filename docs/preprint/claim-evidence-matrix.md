@@ -23,5 +23,5 @@ This matrix maps paper claims to current implementation evidence and known cavea
 
 - Reproducible demonstration scripts under `examples/preprint/`.
 - A generated paper table mapping tests to claims.
-- A short comparative table against MemGPT, Generative Agents, HippoRAG, A-MEM, Mem0, MemoryOS, and MemOS.
+- A manuscript-ready comparative table distilled from `docs/preprint/memory-layer-comparative-analysis.md`.
 - Bibliography expansion into privacy/security/provenance governance literature.
