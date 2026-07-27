@@ -20,7 +20,17 @@
 </header>
 <h1 id="groundrecall-preprint-roadmap">GroundRecall Preprint Roadmap</h1>
 <p>Date: 2026-07-26</p>
-<p>This roadmap begins the paper-preparation phase for GroundRecall. It freezes the current implementation scope for preprint purposes, identifies defensible claims, and defines the remaining documentation, evidence, and drafting work needed before writing the manuscript.</p>
+<p>This roadmap begins the paper-preparation phase for a manifesto-first paper on governed AI memory layers. It freezes the current implementation scope for preprint purposes, identifies defensible claims, and defines the remaining documentation, evidence, and drafting work needed before writing the manuscript.</p>
+<h2 id="recommended-paper-mode">Recommended Paper Mode</h2>
+<p>The paper should start from general principles, not from the repositories.</p>
+<p>Recommended stance:</p>
+<ol type="1">
+<li>durable AI memory creates foreseeable failure modes;</li>
+<li>therefore memory layers should have specific governance properties;</li>
+<li>GroundRecall, ClaimWright, CiteGeist, and Epistemap demonstrate partial implementations of those properties;</li>
+<li>the prototypes are evidence that governed memory is practical, not a claim that any one repo is a complete platform.</li>
+</ol>
+<p>This moves the paper from “GroundRecall has these features” to “AI memory layers should have these properties; here are working examples.”</p>
 <h2 id="scope-freeze-for-the-preprint">Scope Freeze For The Preprint</h2>
 <p>The preprint should present GroundRecall as a working prototype and architecture for governed AI memory, not as a completed distributed platform.</p>
 <h3 id="in-scope">In Scope</h3>
@@ -57,7 +67,8 @@
 <li>empirical claims of improved safety, recall, or productivity beyond what the current tests and examples directly demonstrate.</li>
 </ul>
 <h2 id="core-paper-claim">Core Paper Claim</h2>
-<p>GroundRecall demonstrates that long-lived AI memory can be structured as a review-gated, provenance-first control plane where current-context use is governed by evidence, confidence, temporal validity, release level, local authority, and auditability.</p>
+<p>AI assistants and agents do not merely need more memory. They need governed memory layers whose durable context is constrained by provenance, confidence, temporal validity, contradiction review, release level, local authority, policy, and auditability.</p>
+<p>GroundRecall demonstrates that such memory can be structured as a review-gated, provenance-first control plane. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, bibliography, and confidence/graph layers that support the same governed-memory stance.</p>
 <p>The central distinction should be:</p>
 <ul>
 <li>ordinary epistemic maintenance is usually non-destructive: expiry, supersession, retraction, temporal validity, confidence review, and retrieval-priority changes preserve evidence and decision history;</li>
@@ -65,19 +76,26 @@
 </ul>
 <p>This framing directly addresses the “forgetting” issue without weakening provenance.</p>
 <h2 id="candidate-title">Candidate Title</h2>
-<p>GroundRecall: Review-Gated, Provenance-First Memory for Long-Lived AI Agents</p>
-<h2 id="proposed-abstract-claim-boundaries">Proposed Abstract Claim Boundaries</h2>
-<p>The abstract should claim that GroundRecall:</p>
+<p>Memory Layers Should Be Governed: Properties For Durable AI Assistant And Agent Memory</p>
+<p>Alternate:</p>
 <ul>
-<li>implements a local prototype for governed memory;</li>
-<li>preserves provenance across import, review, export, federation, and promotion;</li>
-<li>models confidence and temporal validity explicitly;</li>
-<li>surfaces contradiction cases as reviewable and adjudicable objects;</li>
-<li>enforces release-level controls during federation export;</li>
-<li>verifies signed exchanged knowledge artifacts before quarantine;</li>
-<li>requires local policy before promotion;</li>
-<li>supports signed public-key and role-directory distribution with receiver-side authority caps.</li>
+<li>A Manifesto For Governed AI Memory Layers</li>
+<li>Durable AI Memory Needs Provenance, Policy, And Review</li>
+<li>GroundRecall And The Case For Governed AI Memory</li>
 </ul>
+<h2 id="proposed-abstract-claim-boundaries">Proposed Abstract Claim Boundaries</h2>
+<p>The abstract should claim that governed memory layers should:</p>
+<ul>
+<li>preserve provenance across import, review, export, federation, and promotion;</li>
+<li>model confidence and temporal validity explicitly;</li>
+<li>surface contradiction cases as reviewable and adjudicable objects;</li>
+<li>enforce release-level controls during export and sharing;</li>
+<li>verify exchanged knowledge artifacts before quarantine;</li>
+<li>require local policy before promotion;</li>
+<li>integrate explicit claim/publication policy frameworks;</li>
+<li>support signed public-key and role-directory distribution with receiver-side authority caps where federation is needed.</li>
+</ul>
+<p>The abstract can then state that GroundRecall implements a local prototype for many of these properties, with ClaimWright, CiteGeist, and Epistemap serving as companion policy/source/confidence examples.</p>
 <p>The abstract should not claim:</p>
 <ul>
 <li>production-grade distributed sync;</li>
@@ -87,19 +105,19 @@
 <li>complete deletion/erasure propagation.</li>
 </ul>
 <h2 id="paper-structure">Paper Structure</h2>
-<h3 id="introduction">1. Introduction</h3>
+<h3 id="manifesto-memory-is-not-just-recall">1. Manifesto: Memory Is Not Just Recall</h3>
 <p>Purpose:</p>
 <ul>
 <li>explain why durable AI memory is useful and dangerous;</li>
 <li>motivate provenance-preserving memory instead of opaque summaries;</li>
-<li>introduce review-gated promotion and local authority as the control model.</li>
+<li>introduce governed memory properties before introducing specific repositories.</li>
 </ul>
 <p>Needed work:</p>
 <ul>
 <li>write a concise motivating example;</li>
 <li>define the target setting: long-lived agents, software/research workflows, multi-host collaboration.</li>
 </ul>
-<h3 id="problem-and-threat-model">2. Problem And Threat Model</h3>
+<h3 id="foreseeable-failure-modes-and-threat-model">2. Foreseeable Failure Modes And Threat Model</h3>
 <p>Cover risks from:</p>
 <ul>
 <li>stale facts treated as current;</li>
@@ -121,7 +139,41 @@
 <ul>
 <li>write the threat model as a table: threat, mitigation implemented, remaining limitation.</li>
 </ul>
-<h3 id="data-model-and-memory-lifecycle">3. Data Model And Memory Lifecycle</h3>
+<h3 id="required-properties-of-governed-memory-layers">3. Required Properties Of Governed Memory Layers</h3>
+<p>Cover:</p>
+<ul>
+<li>provenance preservation;</li>
+<li>review-gated promotion;</li>
+<li>structured confidence;</li>
+<li>temporal validity;</li>
+<li>non-destructive forgetting;</li>
+<li>contradiction tracking;</li>
+<li>adjudication history;</li>
+<li>release classification;</li>
+<li>no access broadening;</li>
+<li>quarantine before promotion;</li>
+<li>local authority;</li>
+<li>auditability;</li>
+<li>policy integration.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>convert <code>docs/preprint/manifesto-first-outline.md</code> into manuscript prose;</li>
+<li>add a property-to-implementation matrix.</li>
+</ul>
+<h3 id="example-implementations">4. Example Implementations</h3>
+<p>Cover:</p>
+<ul>
+<li>GroundRecall as memory substrate;</li>
+<li>ClaimWright as policy/publication-safety operating stance;</li>
+<li>CiteGeist as bibliography/source-review workbench;</li>
+<li>Epistemap as confidence/knowledge-graph layer.</li>
+</ul>
+<p>Needed work:</p>
+<ul>
+<li>write a short integration note explaining that these are companion prototypes, not a single completed platform.</li>
+</ul>
+<h3 id="data-model-and-memory-lifecycle">5. Data Model And Memory Lifecycle</h3>
 <p>Cover:</p>
 <ul>
 <li>source, artifact, observation, claim, concept, relation, contradiction case, promotion, adjudication, snapshot;</li>
@@ -136,7 +188,7 @@
 <li>create one diagram: ingest → observation/claim/concept/relation → review/promotion → export/federation;</li>
 <li>add a compact schema table.</li>
 </ul>
-<h3 id="confidence-and-temporal-validity">4. Confidence And Temporal Validity</h3>
+<h3 id="confidence-and-temporal-validity">6. Confidence And Temporal Validity</h3>
 <p>Cover:</p>
 <ul>
 <li>confidence as structured assessment rather than a single scalar;</li>
@@ -150,7 +202,7 @@
 <li>summarize implemented confidence fields and migration status;</li>
 <li>avoid implying full Bayesian updating unless implemented and tested.</li>
 </ul>
-<h3 id="release-level-and-governance-controls">5. Release-Level And Governance Controls</h3>
+<h3 id="release-level-and-governance-controls">7. Release-Level And Governance Controls</h3>
 <p>Cover:</p>
 <ul>
 <li>release lattice: public, internal, confidential, privileged, private;</li>
@@ -163,7 +215,7 @@
 <li>provide a small example where public export excludes internal/private records;</li>
 <li>provide a small example where a redacted public derivative is allowed with policy metadata.</li>
 </ul>
-<h3 id="federation-architecture">6. Federation Architecture</h3>
+<h3 id="federation-architecture">8. Federation Architecture</h3>
 <p>Cover:</p>
 <ul>
 <li>signed federation bundle;</li>
@@ -177,7 +229,7 @@
 <li>create one diagram: producer → signed bundle → receiver verification → quarantine → local policy → promotion.</li>
 <li>include contradiction cases in the bundle contents and promotion discussion, noting that cases only promote when their referenced claims are also exportable.</li>
 </ul>
-<h3 id="trust-keys-and-role-distribution">7. Trust, Keys, And Role Distribution</h3>
+<h3 id="trust-keys-and-role-distribution">9. Trust, Keys, And Role Distribution</h3>
 <p>Cover:</p>
 <ul>
 <li>HMAC local/shared-secret mode;</li>
@@ -192,7 +244,7 @@
 <li>create one table contrasting HMAC, Ed25519 bundle signatures, signed keysets, and signed role directories;</li>
 <li>include local-cap enforcement as a key design feature.</li>
 </ul>
-<h3 id="implementation">8. Implementation</h3>
+<h3 id="implementation">10. Implementation</h3>
 <p>Cover:</p>
 <ul>
 <li>Python package and CLI;</li>
@@ -208,7 +260,7 @@
 <li>generate a current CLI command inventory;</li>
 <li>include current validation count from a fresh run before paper submission.</li>
 </ul>
-<h3 id="demonstrations">9. Demonstrations</h3>
+<h3 id="demonstrations">11. Demonstrations</h3>
 <p>Minimum demonstrations to prepare:</p>
 <ol type="1">
 <li>Release-lattice export:
@@ -251,7 +303,7 @@
 <li>capture generated JSON snippets and expected outputs;</li>
 <li>decide which outputs become paper figures/tables.</li>
 </ul>
-<h3 id="evaluation-plan">10. Evaluation Plan</h3>
+<h3 id="evaluation-plan">12. Evaluation Plan</h3>
 <p>For the initial preprint, use engineering evidence rather than broad empirical claims.</p>
 <p>Evidence already available:</p>
 <ul>
@@ -272,7 +324,7 @@
 <li>broad benchmark comparisons;</li>
 <li>claims of superior safety without empirical data.</li>
 </ul>
-<h3 id="limitations-and-future-work">11. Limitations And Future Work</h3>
+<h3 id="limitations-and-future-work">13. Limitations And Future Work</h3>
 <p>State plainly:</p>
 <ul>
 <li>no network transport yet;</li>

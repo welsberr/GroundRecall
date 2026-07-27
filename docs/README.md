@@ -22,6 +22,7 @@ Preprint preparation:
 - [preprint-roadmap.md](preprint-roadmap.md)
 - [preprint-architecture.md](preprint-architecture.md)
 - [implemented-features-summary.md](implemented-features-summary.md)
+- [preprint/manifesto-first-outline.md](preprint/manifesto-first-outline.md)
 - [preprint/threat-model.md](preprint/threat-model.md)
 - [preprint/claim-evidence-matrix.md](preprint/claim-evidence-matrix.md)
 - [preprint/memory-layer-bibliography.md](preprint/memory-layer-bibliography.md)

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Manifesto-First Preprint Outline</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Manifesto-First Preprint Outline</h1>
+</header>
+<h1 id="manifesto-first-preprint-outline">Manifesto-First Preprint Outline</h1>
+<p>Date: 2026-07-26</p>
+<p>This outline reframes the preprint away from “here is GroundRecall, therefore these principles matter” and toward “these are the properties governed memory layers should have; GroundRecall and companion tools are examples of partial implementation.”</p>
+<h2 id="working-title">Working Title</h2>
+<p>Memory Layers Should Be Governed: Properties For Durable AI Assistant And Agent Memory</p>
+<p>Alternate titles:</p>
+<ul>
+<li>A Manifesto For Governed AI Memory Layers</li>
+<li>Durable AI Memory Needs Provenance, Policy, And Review</li>
+<li>From Persistent Context To Governed Memory Layers</li>
+</ul>
+<h2 id="core-thesis">Core Thesis</h2>
+<p>AI assistants and agents do not merely need more memory. They need memory layers with explicit governance properties: provenance, review gates, confidence, temporal validity, contradiction handling, release classification, local authority, audit, and policy-aware publication boundaries.</p>
+<p>The paper should state the desired properties first, then show that these properties are implementable through working prototype components:</p>
+<ul>
+<li>GroundRecall as a provenance-preserving, review-gated, federated memory substrate;</li>
+<li>ClaimWright as a claim-policy and publication-safety operating stance;</li>
+<li>CiteGeist as a bibliography/provenance workbench for source review;</li>
+<li>Epistemap as a confidence and knowledge-graph operation layer.</li>
+</ul>
+<p>This is stronger than a repository-first paper because the argument does not depend on any one codebase being complete. The repos become existence proofs and design probes.</p>
+<h2 id="abstract-shape">Abstract Shape</h2>
+<p>Current AI memory systems increasingly support long-term recall, graph retrieval, personalization, and memory operating-system abstractions. These systems make agents more persistent, but persistence also makes familiar failures more durable: unsupported claims, stale context, hidden contradictions, citation drift, private-to-public leakage, unreviewed promotion, and ambiguous authority over shared memory.</p>
+<p>We argue that memory layers for AI assistants and agents should be governed systems, not only retrieval systems. A governed memory layer should preserve provenance, distinguish historical support from current applicability, expose confidence and uncertainty, track contradiction and adjudication, enforce release boundaries, quarantine imported memory, retain audit history, and integrate policy frameworks for public-safe claim use.</p>
+<p>We present these requirements as a manifesto for governed AI memory. We then describe prototype implementations across GroundRecall, ClaimWright, CiteGeist, and Epistemap that demonstrate many of the required properties in local-first form. We position these prototypes as evidence that governed memory is practical, while identifying retrieval benchmarks, semantic contradiction detection, hosted review, production IAM, and distributed synchronization as future work.</p>
+<h2 id="paper-structure">Paper Structure</h2>
+<h3 id="manifesto-memory-is-not-just-recall">1. Manifesto: Memory Is Not Just Recall</h3>
+<p>Claim:</p>
+<p>Durable AI memory changes the risk profile of assistant and agent systems. If memory persists, then unsupported claims, stale assumptions, hidden contradictions, and privacy mistakes persist too.</p>
+<p>Properties introduced:</p>
+<ul>
+<li>memory should be inspectable;</li>
+<li>memory should be reviewable;</li>
+<li>memory should be governed before it becomes authoritative;</li>
+<li>memory should preserve disagreement and history;</li>
+<li>memory should respect release boundaries;</li>
+<li>memory should operate under explicit policy.</li>
+</ul>
+<h3 id="foreseeable-failure-modes">2. Foreseeable Failure Modes</h3>
+<p>Frame the problem around current-state-of-the-art weaknesses:</p>
+<ul>
+<li>ungrounded summaries becoming durable context;</li>
+<li>citations remembered without review state;</li>
+<li>stale facts reused as current;</li>
+<li>contradictions resolved by retrieval accident rather than adjudication;</li>
+<li>agent memory sharing without local authority;</li>
+<li>public artifacts outrunning private or speculative grounding;</li>
+<li>memory deletion used where expiry/supersession would better preserve provenance.</li>
+</ul>
+<p>This section should use <code>docs/preprint/threat-model.md</code>.</p>
+<h3 id="required-properties-of-governed-memory-layers">3. Required Properties Of Governed Memory Layers</h3>
+<p>This should be the normative core of the paper.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Property</th>
+<th>Requirement</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Provenance preservation</td>
+<td>Claims should remain linked to observations, sources, citations, and derivation context.</td>
+</tr>
+<tr class="even">
+<td>Review-gated promotion</td>
+<td>Candidate or imported memory should not silently become canonical.</td>
+</tr>
+<tr class="odd">
+<td>Confidence structure</td>
+<td>Confidence should encode dimensions and basis, not merely one scalar.</td>
+</tr>
+<tr class="even">
+<td>Temporal validity</td>
+<td>Systems should distinguish historical support from current applicability.</td>
+</tr>
+<tr class="odd">
+<td>Non-destructive forgetting</td>
+<td>Expiry, supersession, retraction, and confidence reduction should preserve evidence history except where exceptional erasure is required.</td>
+</tr>
+<tr class="even">
+<td>Contradiction tracking</td>
+<td>Contradictions should become explicit cases, not hidden retrieval noise.</td>
+</tr>
+<tr class="odd">
+<td>Adjudication history</td>
+<td>Resolutions should be recorded as review state without silently rewriting underlying claims.</td>
+</tr>
+<tr class="even">
+<td>Release classification</td>
+<td>Memory should carry public/internal/confidential/privileged/private or equivalent release levels.</td>
+</tr>
+<tr class="odd">
+<td>No access broadening</td>
+<td>Export/federation should not make memory less restrictive without redaction/declassification authority.</td>
+</tr>
+<tr class="even">
+<td>Quarantine before promotion</td>
+<td>Imported memory should be verified and quarantined before local acceptance.</td>
+</tr>
+<tr class="odd">
+<td>Local authority</td>
+<td>Signed memory, keys, and roles should not override receiver policy.</td>
+</tr>
+<tr class="even">
+<td>Auditability</td>
+<td>Export, import, promotion, and policy decisions should leave reviewable records.</td>
+</tr>
+<tr class="odd">
+<td>Policy integration</td>
+<td>Memory should be governed by explicit claim/publication/action policies.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="example-implementations">4. Example Implementations</h3>
+<p>Use the repos as implementation examples rather than the main argumentative starting point.</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Prototype</th>
+<th>Demonstrated properties</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GroundRecall</td>
+<td>Provenance records, review-gated promotion, contradiction cases, release levels, federation quarantine, local policy, audit, trust/role distribution.</td>
+</tr>
+<tr class="even">
+<td>ClaimWright</td>
+<td>Claim lifecycle, adversarial review, citation review, public/private gates, role cards, pre/post action checks, scientific-virtue policy stance.</td>
+</tr>
+<tr class="odd">
+<td>CiteGeist</td>
+<td>Bibliographic extraction, verification, enrichment, citation graph expansion, source review, BibTeX export, memory-layer bibliography seeding.</td>
+</tr>
+<tr class="even">
+<td>Epistemap</td>
+<td>Confidence measures, Bayesian-style evidence representation where implemented, knowledge-graph operations, contradiction/confidence interaction targets.</td>
+</tr>
+</tbody>
+</table>
+<p>This section should be explicit that integration is partial. GroundRecall has not yet imported ClaimWright policies as enforcement rules. CiteGeist and Epistemap are companion tools, not hidden GroundRecall subsystems.</p>
+<h3 id="relation-to-memory-layer-systems">5. Relation To Memory-Layer Systems</h3>
+<p>Use <code>docs/preprint/memory-layer-comparative-analysis.md</code>.</p>
+<p>Argument:</p>
+<p>Current memory-layer systems are strong on recall, personalization, graph retrieval, memory scheduling, and production performance. GroundRecall-style governed memory is complementary: it supplies review, provenance, contradiction, release-policy, federation, and local-authority controls.</p>
+<h3 id="demonstrations">6. Demonstrations</h3>
+<p>Demonstrations should be property-driven:</p>
+<ol type="1">
+<li>Provenance and review:
+<ul>
+<li>create source/observation/claim;</li>
+<li>promote to canonical memory;</li>
+<li>query with provenance.</li>
+</ul></li>
+<li>Contradiction handling:
+<ul>
+<li>create contradictory claims;</li>
+<li>sync contradiction case;</li>
+<li>adjudicate without rewriting claims.</li>
+</ul></li>
+<li>Release controls:
+<ul>
+<li>public export excludes internal/private records;</li>
+<li>redacted derivative requires policy metadata.</li>
+</ul></li>
+<li>Federation and local authority:
+<ul>
+<li>signed bundle import to quarantine;</li>
+<li>local policy-gated promotion;</li>
+<li>conflict detection.</li>
+</ul></li>
+<li>ClaimWright operating stance:
+<ul>
+<li>show a claim moving from exploratory/private to public-safe through policy checks.</li>
+</ul></li>
+<li>CiteGeist source review:
+<ul>
+<li>seed and export a bibliography;</li>
+<li>preserve accepted/rejected/unresolved source review state where available.</li>
+</ul></li>
+</ol>
+<h3 id="limitations">7. Limitations</h3>
+<p>State explicitly:</p>
+<ul>
+<li>no production IAM;</li>
+<li>no hosted review UI;</li>
+<li>no semantic contradiction detection yet;</li>
+<li>no retrieval-performance benchmark claims;</li>
+<li>no CRDT sync;</li>
+<li>no complete exceptional-erasure propagation;</li>
+<li>no full ClaimWright-to-GroundRecall enforcement bridge yet;</li>
+<li>no comprehensive security proof.</li>
+</ul>
+<h3 id="design-implications">8. Design Implications</h3>
+<p>The paper should close with design implications:</p>
+<ul>
+<li>memory layers should expose governance state to agents, not hide it behind retrieval scores;</li>
+<li>public-facing agent work needs publication gates, not just source retrieval;</li>
+<li>contradiction and stale-claim handling should be ordinary workflows;</li>
+<li>signed exchange is insufficient without local authority and quarantine;</li>
+<li>policy frameworks and memory substrates should be designed together.</li>
+</ul>
+<h2 id="recommended-claim-boundary">Recommended Claim Boundary</h2>
+<p>Claim:</p>
+<p>Governed memory layers are feasible and necessary; the included prototypes demonstrate many of the required properties.</p>
+<p>Do not claim:</p>
+<ul>
+<li>this is a complete governed-agent platform;</li>
+<li>the prototypes outperform memory-layer systems on recall benchmarks;</li>
+<li>ClaimWright policy enforcement is fully integrated into GroundRecall;</li>
+<li>semantic contradiction detection is solved.</li>
+</ul>
+<h2 id="immediate-revision-tasks">Immediate Revision Tasks</h2>
+<ol type="1">
+<li>Rewrite the roadmap’s core claim around governed memory properties.</li>
+<li>Add a property-to-implementation matrix.</li>
+<li>Add a ClaimWright integration note.</li>
+<li>Reorganize the eventual manuscript draft around properties before repos.</li>
+<li>Keep GroundRecall as the main implementation example, not the sole subject.</li>
+</ol>
+</body>
+</html>

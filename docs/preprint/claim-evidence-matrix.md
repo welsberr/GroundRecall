@@ -4,6 +4,17 @@ Date: 2026-07-26
 
 This matrix maps paper claims to current implementation evidence and known caveats. It is intended to keep the preprint claims defensible.
 
+## Manifesto-Level Claims
+
+| Preprint claim | Implementation artifact | Test / evidence | Caveat |
+| --- | --- | --- | --- |
+| AI memory layers should be governed systems, not only retrieval systems. | Manifesto-first outline; GroundRecall/ClaimWright/CiteGeist/Epistemap as examples. | Preprint comparative analysis and local prototypes. | Normative/design claim; not an empirical benchmark result. |
+| A policy framework such as ClaimWright can define the operational stance for safe memory use. | `/home/netuser/ClaimWright` MOU, policies, checks, roles, examples. | ClaimWright substrate checker and public-safe artifact workflow. | ClaimWright is not yet wired into GroundRecall as an enforcement engine. |
+| Bibliography/source review is part of governed memory. | CiteGeist seed database and memory-layer bibliography. | CiteGeist-ingested BibTeX seed/export under `docs/preprint/`. | Seed bibliography is initial, not comprehensive. |
+| Confidence and graph operations should inform memory governance. | Epistemap integration in GroundRecall confidence/query surfaces. | Confidence and query tests. | Confidence calibration and broader KG evaluation remain future work. |
+
+## GroundRecall Implementation Claims
+
 | Preprint claim | Implementation artifact | Test / evidence | Caveat |
 | --- | --- | --- | --- |
 | GroundRecall stores durable memory as typed, provenance-linked records. | `src/groundrecall/models.py`, `src/groundrecall/store.py` | Store round-trip and snapshot tests. | File-backed prototype, not a distributed database. |

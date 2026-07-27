@@ -2,7 +2,20 @@
 
 Date: 2026-07-26
 
-This roadmap begins the paper-preparation phase for GroundRecall. It freezes the current implementation scope for preprint purposes, identifies defensible claims, and defines the remaining documentation, evidence, and drafting work needed before writing the manuscript.
+This roadmap begins the paper-preparation phase for a manifesto-first paper on governed AI memory layers. It freezes the current implementation scope for preprint purposes, identifies defensible claims, and defines the remaining documentation, evidence, and drafting work needed before writing the manuscript.
+
+## Recommended Paper Mode
+
+The paper should start from general principles, not from the repositories.
+
+Recommended stance:
+
+1. durable AI memory creates foreseeable failure modes;
+2. therefore memory layers should have specific governance properties;
+3. GroundRecall, ClaimWright, CiteGeist, and Epistemap demonstrate partial implementations of those properties;
+4. the prototypes are evidence that governed memory is practical, not a claim that any one repo is a complete platform.
+
+This moves the paper from “GroundRecall has these features” to “AI memory layers should have these properties; here are working examples.”
 
 ## Scope Freeze For The Preprint
 
@@ -45,7 +58,9 @@ The paper should explicitly treat these as limitations or future work:
 
 ## Core Paper Claim
 
-GroundRecall demonstrates that long-lived AI memory can be structured as a review-gated, provenance-first control plane where current-context use is governed by evidence, confidence, temporal validity, release level, local authority, and auditability.
+AI assistants and agents do not merely need more memory. They need governed memory layers whose durable context is constrained by provenance, confidence, temporal validity, contradiction review, release level, local authority, policy, and auditability.
+
+GroundRecall demonstrates that such memory can be structured as a review-gated, provenance-first control plane. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, bibliography, and confidence/graph layers that support the same governed-memory stance.
 
 The central distinction should be:
 
@@ -56,20 +71,28 @@ This framing directly addresses the “forgetting” issue without weakening pro
 
 ## Candidate Title
 
-GroundRecall: Review-Gated, Provenance-First Memory for Long-Lived AI Agents
+Memory Layers Should Be Governed: Properties For Durable AI Assistant And Agent Memory
+
+Alternate:
+
+- A Manifesto For Governed AI Memory Layers
+- Durable AI Memory Needs Provenance, Policy, And Review
+- GroundRecall And The Case For Governed AI Memory
 
 ## Proposed Abstract Claim Boundaries
 
-The abstract should claim that GroundRecall:
+The abstract should claim that governed memory layers should:
 
-- implements a local prototype for governed memory;
-- preserves provenance across import, review, export, federation, and promotion;
-- models confidence and temporal validity explicitly;
-- surfaces contradiction cases as reviewable and adjudicable objects;
-- enforces release-level controls during federation export;
-- verifies signed exchanged knowledge artifacts before quarantine;
-- requires local policy before promotion;
-- supports signed public-key and role-directory distribution with receiver-side authority caps.
+- preserve provenance across import, review, export, federation, and promotion;
+- model confidence and temporal validity explicitly;
+- surface contradiction cases as reviewable and adjudicable objects;
+- enforce release-level controls during export and sharing;
+- verify exchanged knowledge artifacts before quarantine;
+- require local policy before promotion;
+- integrate explicit claim/publication policy frameworks;
+- support signed public-key and role-directory distribution with receiver-side authority caps where federation is needed.
+
+The abstract can then state that GroundRecall implements a local prototype for many of these properties, with ClaimWright, CiteGeist, and Epistemap serving as companion policy/source/confidence examples.
 
 The abstract should not claim:
 
@@ -81,20 +104,20 @@ The abstract should not claim:
 
 ## Paper Structure
 
-### 1. Introduction
+### 1. Manifesto: Memory Is Not Just Recall
 
 Purpose:
 
 - explain why durable AI memory is useful and dangerous;
 - motivate provenance-preserving memory instead of opaque summaries;
-- introduce review-gated promotion and local authority as the control model.
+- introduce governed memory properties before introducing specific repositories.
 
 Needed work:
 
 - write a concise motivating example;
 - define the target setting: long-lived agents, software/research workflows, multi-host collaboration.
 
-### 2. Problem And Threat Model
+### 2. Foreseeable Failure Modes And Threat Model
 
 Cover risks from:
 
@@ -117,7 +140,43 @@ Needed work:
 
 - write the threat model as a table: threat, mitigation implemented, remaining limitation.
 
-### 3. Data Model And Memory Lifecycle
+### 3. Required Properties Of Governed Memory Layers
+
+Cover:
+
+- provenance preservation;
+- review-gated promotion;
+- structured confidence;
+- temporal validity;
+- non-destructive forgetting;
+- contradiction tracking;
+- adjudication history;
+- release classification;
+- no access broadening;
+- quarantine before promotion;
+- local authority;
+- auditability;
+- policy integration.
+
+Needed work:
+
+- convert `docs/preprint/manifesto-first-outline.md` into manuscript prose;
+- add a property-to-implementation matrix.
+
+### 4. Example Implementations
+
+Cover:
+
+- GroundRecall as memory substrate;
+- ClaimWright as policy/publication-safety operating stance;
+- CiteGeist as bibliography/source-review workbench;
+- Epistemap as confidence/knowledge-graph layer.
+
+Needed work:
+
+- write a short integration note explaining that these are companion prototypes, not a single completed platform.
+
+### 5. Data Model And Memory Lifecycle
 
 Cover:
 
@@ -133,7 +192,7 @@ Needed work:
 - create one diagram: ingest → observation/claim/concept/relation → review/promotion → export/federation;
 - add a compact schema table.
 
-### 4. Confidence And Temporal Validity
+### 6. Confidence And Temporal Validity
 
 Cover:
 
@@ -148,7 +207,7 @@ Needed work:
 - summarize implemented confidence fields and migration status;
 - avoid implying full Bayesian updating unless implemented and tested.
 
-### 5. Release-Level And Governance Controls
+### 7. Release-Level And Governance Controls
 
 Cover:
 
@@ -162,7 +221,7 @@ Needed work:
 - provide a small example where public export excludes internal/private records;
 - provide a small example where a redacted public derivative is allowed with policy metadata.
 
-### 6. Federation Architecture
+### 8. Federation Architecture
 
 Cover:
 
@@ -177,7 +236,7 @@ Needed work:
 - create one diagram: producer → signed bundle → receiver verification → quarantine → local policy → promotion.
 - include contradiction cases in the bundle contents and promotion discussion, noting that cases only promote when their referenced claims are also exportable.
 
-### 7. Trust, Keys, And Role Distribution
+### 9. Trust, Keys, And Role Distribution
 
 Cover:
 
@@ -193,7 +252,7 @@ Needed work:
 - create one table contrasting HMAC, Ed25519 bundle signatures, signed keysets, and signed role directories;
 - include local-cap enforcement as a key design feature.
 
-### 8. Implementation
+### 10. Implementation
 
 Cover:
 
@@ -210,7 +269,7 @@ Needed work:
 - generate a current CLI command inventory;
 - include current validation count from a fresh run before paper submission.
 
-### 9. Demonstrations
+### 11. Demonstrations
 
 Minimum demonstrations to prepare:
 
@@ -242,7 +301,7 @@ Needed work:
 - capture generated JSON snippets and expected outputs;
 - decide which outputs become paper figures/tables.
 
-### 10. Evaluation Plan
+### 12. Evaluation Plan
 
 For the initial preprint, use engineering evidence rather than broad empirical claims.
 
@@ -265,7 +324,7 @@ Defer:
 - broad benchmark comparisons;
 - claims of superior safety without empirical data.
 
-### 11. Limitations And Future Work
+### 13. Limitations And Future Work
 
 State plainly:
 
