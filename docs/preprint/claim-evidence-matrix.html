@@ -4,7 +4,8 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>GroundRecall Claim Evidence Matrix</title>
+  <meta name="dcterms.date" content="2026-07-27" />
+  <title>Appendix A: Claim-To-Evidence Matrix</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -16,61 +17,365 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">GroundRecall Claim Evidence Matrix</h1>
+<h1 class="title">Appendix A: Claim-To-Evidence Matrix</h1>
+<p class="date">2026-07-27</p>
 </header>
-<h1 id="groundrecall-preprint-claim-to-evidence-matrix">GroundRecall Preprint Claim-To-Evidence Matrix</h1>
-<p>Date: 2026-07-26</p>
-<p>This matrix maps paper claims to current implementation evidence and known caveats. It is intended to keep the preprint claims defensible.</p>
-<h2 id="manifesto-level-claims">Manifesto-Level Claims</h2>
+<p>This appendix substantiates the manuscript discipline that each substantive paper claim maps to one of five evidence classes:</p>
+<ol type="1">
+<li>implemented code;</li>
+<li>test coverage;</li>
+<li>reproducible demonstration;</li>
+<li>bibliography or source analysis;</li>
+<li>explicit future-work status.</li>
+</ol>
+<p>The matrix is also a restraint mechanism. Claims with only normative support are stated as design recommendations. Claims about implementation are limited to current code and tests. Claims about comparative performance, production deployment, semantic contradiction detection, and broad safety outcomes are marked as future work or excluded.</p>
+<h2 id="evidence-classes">Evidence Classes</h2>
 <table>
 <colgroup>
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
-<col style="width: 25%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
 </colgroup>
 <thead>
 <tr class="header">
-<th>Preprint claim</th>
-<th>Implementation artifact</th>
-<th>Test / evidence</th>
-<th>Caveat</th>
+<th>Evidence class</th>
+<th>Meaning in this paper</th>
+<th>Acceptable manuscript use</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>AI memory layers should be governed systems, not only retrieval systems.</td>
-<td>Manifesto-first outline; GroundRecall/ClaimWright/CiteGeist/Epistemap as examples.</td>
-<td>Preprint comparative analysis and local prototypes.</td>
-<td>Normative/design claim; not an empirical benchmark result.</td>
+<td>Implemented code</td>
+<td>A feature exists in the GroundRecall, ClaimWright, CiteGeist, or Epistemap repositories.</td>
+<td>Supports “the prototype implements” or “the system exposes” claims when scoped to the current repository state.</td>
 </tr>
 <tr class="even">
-<td>A policy framework such as ClaimWright can define one suitable operational stance for safe memory use.</td>
-<td><code>/home/netuser/ClaimWright</code> MOU, policies, checks, roles, examples.</td>
-<td>ClaimWright substrate checker and public-safe artifact workflow.</td>
-<td>ClaimWright is an example, not a universal policy; not yet wired into GroundRecall as an enforcement engine.</td>
+<td>Test coverage</td>
+<td>Automated tests exercise the behavior.</td>
+<td>Supports engineering evidence claims, not broad empirical performance claims.</td>
 </tr>
 <tr class="odd">
-<td>Different users/entities can adopt different policy stances while retaining common minimum elements.</td>
-<td>Manifesto-first outline policy pluralism section.</td>
-<td>Common-elements table covering claim lifecycle, evidence traceability, citation review, uncertainty, contradiction/staleness review, boundaries, roles, pre-action and post-action checks.</td>
-<td>Normative design claim; needs broader stakeholder validation.</td>
+<td>Reproducible demonstration</td>
+<td>A command, example, or generated artifact can reproduce a paper-visible behavior.</td>
+<td>Supports manuscript examples and appendix walkthroughs.</td>
 </tr>
 <tr class="even">
-<td>Bibliography/source review is part of governed memory.</td>
-<td>CiteGeist seed database and memory-layer bibliography.</td>
-<td>CiteGeist-ingested BibTeX seed/export under <code>docs/preprint/</code>.</td>
-<td>Seed bibliography is initial, not comprehensive.</td>
+<td>Bibliography/source analysis</td>
+<td>External literature or source review supports the framing.</td>
+<td>Supports related-work and comparative-positioning claims.</td>
 </tr>
 <tr class="odd">
-<td>Confidence and graph operations should inform memory governance.</td>
-<td>Epistemap integration in GroundRecall confidence/query surfaces.</td>
-<td>Confidence and query tests.</td>
-<td>Confidence calibration and broader KG evaluation remain future work.</td>
+<td>Future-work status</td>
+<td>The repository or manuscript explicitly identifies a missing capability.</td>
+<td>Supports limitation and roadmap claims only.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="core-manuscript-claims">Core Manuscript Claims</h2>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Manuscript claim</th>
+<th>Evidence class</th>
+<th>Supporting artifacts</th>
+<th>Current status</th>
+<th>Caveat / restraint</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Durable AI memory needs governance, not only retrieval.</td>
+<td>Bibliography/source analysis; design argument</td>
+<td><code>docs/preprint/preprint-draft.md</code>; <code>docs/preprint/memory-layer-comparative-analysis.md</code>; <code>docs/preprint/memory-layer-bibliography.md</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code></td>
+<td>Supported as a normative/design thesis.</td>
+<td>Not an empirical proof that governed memory improves productivity or safety outcomes.</td>
+</tr>
+<tr class="even">
+<td>Current memory-layer systems foreground persistence, retrieval, graph organization, personalization, and memory-OS abstractions.</td>
+<td>Bibliography/source analysis</td>
+<td>References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in <code>docs/preprint/preprint-draft.md</code></td>
+<td>Supported for related-work framing.</td>
+<td>Bibliography is seeded, not exhaustive. Privacy, provenance, and AI-governance literature still needs expansion.</td>
+</tr>
+<tr class="odd">
+<td>GroundRecall is complementary to performance-oriented memory layers.</td>
+<td>Bibliography/source analysis; implemented code</td>
+<td><code>docs/preprint/preprint-draft.md</code>; <code>docs/preprint/memory-layer-comparative-analysis.md</code>; GroundRecall governance features listed below</td>
+<td>Supported as comparative positioning.</td>
+<td>No benchmark comparison against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS.</td>
+</tr>
+<tr class="even">
+<td>ClaimWright is one suitable policy framework, not a universal stance.</td>
+<td>Implemented code; design argument</td>
+<td><code>/home/netuser/ClaimWright</code>; <code>docs/preprint/preprint-draft.md</code> policy-pluralism section</td>
+<td>Supported as an example policy stance.</td>
+<td>ClaimWright policy files are not yet enforced directly inside GroundRecall.</td>
+</tr>
+<tr class="odd">
+<td>CiteGeist provides a source-review and bibliography workbench relevant to governed memory.</td>
+<td>Implemented code; reproducible artifact; bibliography/source analysis</td>
+<td><code>/home/netuser/bin/CiteGeist</code>; <code>docs/preprint/citegeist-memory-layer.sqlite3</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code>; <code>docs/preprint/memory-layer-bibliography.md</code></td>
+<td>Supported for bibliography seeding and source-review framing.</td>
+<td>The current bibliography is not comprehensive and does not yet include a formal systematic-review protocol.</td>
+</tr>
+<tr class="even">
+<td>Epistemap provides a confidence and knowledge-graph operation layer relevant to governed memory.</td>
+<td>Implemented code; test coverage</td>
+<td><code>/home/netuser/bin/Epistemap</code>; <code>src/groundrecall/epistemap_adapter.py</code>; <code>tests/test_epistemap_adapter.py</code>; <code>tests/test_claim_evaluation_export.py</code></td>
+<td>Supported for adapter/export surfaces.</td>
+<td>Broad confidence calibration and cross-repository posterior validation remain future work.</td>
 </tr>
 </tbody>
 </table>
 <h2 id="groundrecall-implementation-claims">GroundRecall Implementation Claims</h2>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+<col style="width: 16%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Manuscript claim</th>
+<th>Evidence class</th>
+<th>Supporting code</th>
+<th>Supporting tests / artifacts</th>
+<th>Current status</th>
+<th>Caveat / restraint</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GroundRecall stores durable memory as typed records rather than raw chat history alone.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/models.py</code>; <code>src/groundrecall/store.py</code>; <code>src/groundrecall/groundrecall_models.py</code>; <code>src/groundrecall/groundrecall_store.py</code></td>
+<td><code>tests/test_groundrecall_store.py</code></td>
+<td>Supported.</td>
+<td>File-backed local prototype, not a distributed database.</td>
+</tr>
+<tr class="even">
+<td>Observations, claims, concepts, relations, promotions, adjudications, contradiction cases, and snapshots are first-class record types.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/models.py</code>; <code>src/groundrecall/store.py</code></td>
+<td><code>tests/test_groundrecall_store.py</code>; <code>tests/test_groundrecall_promotion.py</code>; <code>tests/test_contradictions.py</code></td>
+<td>Supported.</td>
+<td>The supported claim is limited to the implemented record set, not every possible governance object.</td>
+</tr>
+<tr class="odd">
+<td>Provenance is preserved across source, observation, claim, query, and export flows.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/store.py</code>; <code>src/groundrecall/query.py</code>; <code>src/groundrecall/export.py</code>; <code>src/groundrecall/review_export.py</code></td>
+<td><code>tests/test_groundrecall_store.py</code>; <code>tests/test_groundrecall_query.py</code>; <code>tests/test_groundrecall_export.py</code>; <code>tests/test_export_guardrails.py</code></td>
+<td>Supported for stored/queryable/exportable provenance metadata.</td>
+<td>Extraction correctness depends on upstream adapters and review; the store does not guarantee source interpretation quality.</td>
+</tr>
+<tr class="even">
+<td>Review-gated promotion prevents candidate material from silently becoming canonical memory.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/promotion.py</code>; <code>src/groundrecall/groundrecall_promotion.py</code>; <code>src/groundrecall/lint.py</code></td>
+<td><code>tests/test_groundrecall_promotion.py</code>; <code>tests/test_relation_review.py</code>; <code>tests/test_groundrecall_review_workspace.py</code></td>
+<td>Supported.</td>
+<td>Review UI and workflow ergonomics are prototype-level.</td>
+</tr>
+<tr class="odd">
+<td>GroundRecall can expose query bundles with supporting provenance, graph context, contradictions, and supersessions.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/query.py</code>; <code>src/groundrecall/groundrecall_query.py</code>; <code>src/groundrecall/graph_augment.py</code></td>
+<td><code>tests/test_groundrecall_query.py</code>; <code>tests/test_graph_augment.py</code>; <code>tests/test_graph_diagnostics.py</code></td>
+<td>Supported.</td>
+<td>This is a retrieval and packaging claim, not a benchmark claim.</td>
+</tr>
+<tr class="even">
+<td>Confidence is structured and reviewable rather than only a scalar hint.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/confidence.py</code>; <code>src/groundrecall/epistemap_adapter.py</code></td>
+<td><code>tests/test_confidence_profiles.py</code>; <code>tests/test_confidence_migration.py</code>; <code>tests/test_epistemap_adapter.py</code></td>
+<td>Supported for confidence profiles, assessments, temporal blocks, and migration/readiness reports.</td>
+<td>The paper must not claim Bayesian calibration unless Epistemap/GroundRecall implements and validates it explicitly.</td>
+</tr>
+<tr class="odd">
+<td>Temporal validity and expiry affect current applicability without erasing historical support.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/confidence.py</code>; <code>src/groundrecall/query.py</code>; model metadata fields</td>
+<td><code>tests/test_confidence_profiles.py</code>; <code>tests/test_groundrecall_query.py</code></td>
+<td>Supported for current-applicability handling.</td>
+<td>Time-qualified contradiction handling and broader temporal benchmark coverage remain future work.</td>
+</tr>
+<tr class="even">
+<td>Ordinary epistemic maintenance is non-destructive.</td>
+<td>Implemented code; test coverage; design argument</td>
+<td>Supersession, retraction, expiry, contradiction, and adjudication fields across <code>src/groundrecall/models.py</code>, <code>src/groundrecall/confidence.py</code>, and <code>src/groundrecall/contradictions.py</code></td>
+<td><code>tests/test_confidence_profiles.py</code>; <code>tests/test_contradictions.py</code>; <code>tests/test_groundrecall_promotion.py</code></td>
+<td>Supported as design and partial implementation.</td>
+<td>Exceptional erasure remains separate and incomplete.</td>
+</tr>
+<tr class="odd">
+<td>Contradictions can be represented as explicit reviewable cases.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/contradictions.py</code>; contradiction case models in <code>src/groundrecall/models.py</code>; CLI routes in <code>src/groundrecall/cli.py</code></td>
+<td><code>tests/test_contradictions.py</code></td>
+<td>Supported for explicit contradiction links and deterministic case generation.</td>
+<td>Automatic semantic contradiction detection is not implemented.</td>
+</tr>
+<tr class="even">
+<td>Contradiction adjudication records decisions without rewriting underlying claims.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/contradictions.py</code>; adjudication records in <code>src/groundrecall/models.py</code></td>
+<td><code>tests/test_contradictions.py</code></td>
+<td>Supported.</td>
+<td>Adjudication does not yet automatically re-rank every downstream query result.</td>
+</tr>
+<tr class="odd">
+<td>Release-level classification constrains export and federation.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/federation.py</code>; <code>src/groundrecall/export_guardrails.py</code></td>
+<td><code>tests/test_federation.py</code>; <code>tests/test_export_guardrails.py</code></td>
+<td>Supported for <code>public &lt; internal &lt; confidential &lt; privileged &lt; private</code> controls and private/local-only behavior.</td>
+<td>Correctness depends on accurate metadata and review classification.</td>
+</tr>
+<tr class="even">
+<td>Export guardrails prevent lower-release bundles from carrying higher-release records or private support references.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/export_guardrails.py</code>; federation filtering in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_export_guardrails.py</code>; <code>tests/test_federation.py</code></td>
+<td>Supported.</td>
+<td>This is not a substitute for end-to-end data-loss-prevention tooling.</td>
+</tr>
+<tr class="odd">
+<td>Federation bundles are signed and content-hashed.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code> signature, hash, tampering, HMAC, and Ed25519 tests</td>
+<td>Supported.</td>
+<td>Key management is local prototype-level; no key transparency or enterprise PKI integration.</td>
+</tr>
+<tr class="even">
+<td>Imported federation bundles are quarantine-first.</td>
+<td>Implemented code; test coverage</td>
+<td><code>import_federation_bundle_to_quarantine</code> and promotion functions in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code> quarantine and promotion tests</td>
+<td>Supported.</td>
+<td>No hosted review UI or network polling layer.</td>
+</tr>
+<tr class="odd">
+<td>Promotion from quarantine is local-policy-gated and conflict-aware.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/federation.py</code> local policy, scoped grants, conflict planning, audit events</td>
+<td><code>tests/test_federation.py</code> policy, scoped grants, conflict, promotion, and audit tests</td>
+<td>Supported.</td>
+<td>No enterprise IAM integration.</td>
+</tr>
+<tr class="even">
+<td>A valid signature does not by itself create local authority.</td>
+<td>Implemented code; test coverage; design argument</td>
+<td>Local policy evaluation, accepted release levels, trust registries, scoped grants, role directory import caps in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code> policy, trust-registry, keyset, and role-directory tests</td>
+<td>Supported.</td>
+<td>This is a local-authority design property, not a comprehensive security proof.</td>
+</tr>
+<tr class="odd">
+<td>Trust registries record active, expired, revoked, and superseded key state.</td>
+<td>Implemented code; test coverage</td>
+<td>Trust registry functions in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code> trust registry lifecycle tests</td>
+<td>Supported.</td>
+<td>Does not include a distributed revocation propagation mechanism.</td>
+</tr>
+<tr class="even">
+<td>Signed public keysets and signed role directories can be imported only with receiver-side caps.</td>
+<td>Implemented code; test coverage</td>
+<td>Public keyset and role-directory publication/import functions in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code> signed keyset and role-directory tests</td>
+<td>Supported.</td>
+<td>Requires pinned signer keys and local policy decisions.</td>
+</tr>
+<tr class="odd">
+<td>Federation of contradiction cases respects release and claim exportability constraints.</td>
+<td>Implemented code; test coverage</td>
+<td>Contradiction-case filtering in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code>; <code>tests/test_contradictions.py</code></td>
+<td>Supported.</td>
+<td>Cross-host semantic reconciliation remains future work.</td>
+</tr>
+<tr class="even">
+<td>Audit events are recorded for federation policy decisions.</td>
+<td>Implemented code; test coverage</td>
+<td><code>append_federation_audit_event</code> and <code>build_federation_audit_event</code> in <code>src/groundrecall/federation.py</code></td>
+<td><code>tests/test_federation.py</code> audit tests</td>
+<td>Supported.</td>
+<td>Audit storage is local file-backed; no tamper-evident external audit log.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="claims-that-are-explicitly-not-made">Claims That Are Explicitly Not Made</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Excluded claim</th>
+<th>Status</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GroundRecall outperforms Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS on memory benchmarks.</td>
+<td>Not claimed.</td>
+<td>No comparative benchmark has been run.</td>
+</tr>
+<tr class="even">
+<td>Governed memory has been shown to improve user productivity or reduce all AI-agent risk.</td>
+<td>Not claimed.</td>
+<td>Current evidence is engineering evidence, not user-study or broad safety evidence.</td>
+</tr>
+<tr class="odd">
+<td>GroundRecall automatically detects semantic contradictions.</td>
+<td>Future work.</td>
+<td>Current contradiction workflow starts from explicit contradiction links.</td>
+</tr>
+<tr class="even">
+<td>GroundRecall provides production identity management or enterprise access control.</td>
+<td>Future work.</td>
+<td>Current controls are local policy, key, role, and release-level mechanisms.</td>
+</tr>
+<tr class="odd">
+<td>GroundRecall provides complete exceptional-erasure propagation.</td>
+<td>Future work.</td>
+<td>Ordinary epistemic maintenance is non-destructive; exceptional erasure remains a separate incomplete mechanism.</td>
+</tr>
+<tr class="even">
+<td>GroundRecall is a complete distributed memory platform.</td>
+<td>Future work.</td>
+<td>No network transport, polling layer, CRDT merge, hosted review UI, or release-pack publication workflow is implemented.</td>
+</tr>
+<tr class="odd">
+<td>ClaimWright is the only acceptable policy framework.</td>
+<td>Not claimed.</td>
+<td>The manuscript treats ClaimWright as one suitable operational stance under policy pluralism.</td>
+</tr>
+<tr class="even">
+<td>GroundRecall confidence measures are fully Bayesian or empirically calibrated.</td>
+<td>Not claimed.</td>
+<td>Current implementation supports structured confidence profiles and Epistemap-compatible exports; validated Bayesian updating remains outside current evidence.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="demonstration-gap-register">Demonstration Gap Register</h2>
+<p>The current manuscript can cite implementation and tests. It still needs stable demonstration artifacts for readers who want to reproduce the main governance behaviors without reading the whole test suite.</p>
 <table>
 <colgroup>
 <col style="width: 25%" />
@@ -80,93 +385,56 @@
 </colgroup>
 <thead>
 <tr class="header">
-<th>Preprint claim</th>
-<th>Implementation artifact</th>
-<th>Test / evidence</th>
-<th>Caveat</th>
+<th>Needed demonstration</th>
+<th>Evidence class it would add</th>
+<th>Proposed artifact</th>
+<th>Claim supported</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>GroundRecall stores durable memory as typed, provenance-linked records.</td>
-<td><code>src/groundrecall/models.py</code>, <code>src/groundrecall/store.py</code></td>
-<td>Store round-trip and snapshot tests.</td>
-<td>File-backed prototype, not a distributed database.</td>
+<td>Provenance and promotion walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/provenance_promotion/</code></td>
+<td>Candidate observations and claims can be reviewed, promoted, and queried with provenance.</td>
 </tr>
 <tr class="even">
-<td>GroundRecall preserves evidence rather than flattening memory into ungrounded summaries.</td>
-<td>Observation/claim provenance fields; snapshot/export paths.</td>
-<td>Query/export/store tests; deterministic JSON snapshots.</td>
-<td>Extraction accuracy is not guaranteed by the store.</td>
+<td>Contradiction adjudication walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/contradiction_adjudication/</code></td>
+<td>Contradictions become explicit cases and can be adjudicated without rewriting claims.</td>
 </tr>
 <tr class="odd">
-<td>Confidence is structured and reviewable.</td>
-<td><code>src/groundrecall/confidence.py</code>; Epistemap integration.</td>
-<td>Confidence profile and migration tests.</td>
-<td>Full calibration/evaluation remains future work.</td>
+<td>Release filtering walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/release_filtering/</code></td>
+<td>Public export excludes internal/confidential/privileged/private records and reports findings.</td>
 </tr>
 <tr class="even">
-<td>Ordinary forgetting is non-destructive lifecycle management.</td>
-<td>Expiry/supersession/retraction/applicability metadata and confidence handling.</td>
-<td>Confidence and temporal query behavior tests.</td>
-<td>Exceptional erasure workflow not complete.</td>
+<td>Federation quarantine walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/federation_quarantine/</code></td>
+<td>Signed import verifies origin/integrity but still lands in quarantine before local promotion.</td>
 </tr>
 <tr class="odd">
-<td>Contradictions are reviewable first-class objects.</td>
-<td><code>ContradictionCaseRecord</code>; <code>src/groundrecall/contradictions.py</code>.</td>
-<td><code>tests/test_contradictions.py</code>; query and diagnostics tests.</td>
-<td>Depends on explicit contradiction links; no semantic auto-detection yet.</td>
+<td>Local authority walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/local_authority/</code></td>
+<td>Signed keysets and role directories are capped by receiver policy.</td>
 </tr>
 <tr class="even">
-<td>Contradiction adjudication preserves disagreement history.</td>
-<td><code>groundrecall contradictions adjudicate</code>; adjudication records with <code>subject_type="contradiction_case"</code>.</td>
-<td>CLI/adjudication tests.</td>
-<td>Does not rewrite or automatically re-rank underlying claims yet.</td>
-</tr>
-<tr class="odd">
-<td>Export/federation enforces release-level constraints.</td>
-<td><code>src/groundrecall/federation.py</code>, <code>src/groundrecall/export_guardrails.py</code>.</td>
-<td>Federation tests for public/internal/confidential/privileged/private behavior.</td>
-<td>Correct classification still depends on input metadata and review.</td>
-</tr>
-<tr class="even">
-<td>Signed bundles detect tampering.</td>
-<td>Federation bundle manifest, content hash, HMAC/Ed25519 verification.</td>
-<td>Signature/hash verification tests.</td>
-<td>Key management is local prototype level.</td>
-</tr>
-<tr class="odd">
-<td>Imported memory is quarantine-first.</td>
-<td><code>import_federation_bundle_to_quarantine</code>; promotion planning/apply functions.</td>
-<td>Quarantine and promotion tests.</td>
-<td>No hosted review service.</td>
-</tr>
-<tr class="even">
-<td>Promotion is local-policy-gated.</td>
-<td><code>FederationLocalPolicy</code>, scoped grants, audit events.</td>
-<td>Policy, scope, role-directory, and audit tests.</td>
-<td>Not integrated with enterprise IAM.</td>
-</tr>
-<tr class="odd">
-<td>Public-key trust distribution is locally capped.</td>
-<td>Signed keysets and role-directory publication/import.</td>
-<td>Ed25519 keyset and role-directory tests.</td>
-<td>Requires pinned signer keys; no key transparency service.</td>
-</tr>
-<tr class="even">
-<td>GroundRecall aligns with memory-layer research but contributes governance controls.</td>
-<td>Preprint memory-layer bibliography and architecture note.</td>
-<td>CiteGeist-seeded bibliography; source-verified annotations.</td>
-<td>Needs broader literature expansion before manuscript submission.</td>
+<td>CiteGeist bibliography walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/citegeist_bibliography/</code></td>
+<td>Source review and BibTeX export remain inspectable.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="immediate-evidence-gaps">Immediate Evidence Gaps</h2>
-<ul>
-<li>Reproducible demonstration scripts under <code>examples/preprint/</code>.</li>
-<li>A generated paper table mapping tests to claims.</li>
-<li>A manuscript-ready comparative table distilled from <code>docs/preprint/memory-layer-comparative-analysis.md</code>.</li>
-<li>Bibliography expansion into privacy/security/provenance governance literature.</li>
-</ul>
+<h2 id="appendix-use-in-the-manuscript">Appendix Use in the Manuscript</h2>
+<p>The main paper can cite this appendix when making engineering claims. The safest formulation is:</p>
+<blockquote>
+<p>Appendix A maps each substantive manuscript claim to code, tests, source analysis, reproducible artifacts, or future-work status.</p>
+</blockquote>
+<p>That statement is stronger and more auditable than saying only that the project follows a claim-to-evidence discipline.</p>
 </body>
 </html>

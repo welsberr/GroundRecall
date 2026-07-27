@@ -169,7 +169,7 @@ The current evidence is engineering evidence. The full GroundRecall test suite p
 
 This evidence supports implementation claims about governed-memory properties in a local prototype. It does not establish improved user productivity, broad safety outcomes, retrieval superiority, or production security. Those claims require different evaluation designs.
 
-The claim-to-evidence discipline is simple: each paper claim maps to implemented code, test coverage, reproducible demonstration, bibliography/source analysis, or explicit future-work status. Claims that do not map to evidence are softened or removed.
+The claim-to-evidence discipline is simple: each paper claim maps to implemented code, test coverage, reproducible demonstration, bibliography/source analysis, or explicit future-work status. Appendix A provides the current claim-to-evidence matrix. Claims that do not map to evidence are softened or removed.
 
 ## 10. Demonstrations and Reproducibility
 
