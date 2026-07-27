@@ -90,6 +90,19 @@ The strongest objections are predictable and should remain visible:
 
 Release status: conditionally suitable for internal/public draft review, pending human publication approval. The draft is not final-public-safe because bibliography expansion, reproducible demonstrations, and external governance/security citations remain open.
 
+## Review Results Applied
+
+| Review result | Applied change |
+| --- | --- |
+| Avoid implying proof of safety benefits. | Abstract and prototype sections now say the systems demonstrate implementable local controls, not validated safety outcomes. |
+| Avoid overbroad claims about the literature. | Related-work language now refers to "the sources reviewed for this draft" and "within this reviewed set" rather than all memory-layer literature. |
+| Keep GroundRecall claims local/prototype-scoped. | Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features. |
+| Keep ClaimWright integration scoped. | Existing wording that ClaimWright is not yet enforced inside GroundRecall was retained; the limitations section keeps it explicit. |
+| Avoid Bayesian confidence overclaim. | Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added. |
+| Keep semantic contradiction detection as future work. | Existing contradiction caveats were retained in the abstract and limitations. |
+| Expose final-public-safety status. | The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe before broader bibliography, demonstrations, and human approval. |
+| Resolve public/private path issue. | Repository-level references remain in the appendix; no absolute local paths are used for public evidence references. |
+
 ## Post-Action Check
 
 | Check | Result |

@@ -6,7 +6,7 @@ bibliography: memory-layer-citegeist-export.bib
 
 ## Abstract
 
-Current AI memory systems increasingly support long-term recall, graph retrieval, personalization, and memory operating-system abstractions. These systems make assistants and agents more persistent, but persistence also makes familiar failures more durable: unsupported claims, stale context, hidden contradictions, citation drift, private-to-public leakage, unreviewed promotion, and ambiguous authority over shared memory. We argue that memory layers for AI assistants and agents should be governed systems, not only retrieval systems. A governed memory layer preserves provenance, distinguishes historical support from current applicability, exposes confidence and uncertainty, tracks contradiction and adjudication, enforces release boundaries, quarantines imported memory, retains audit history, and integrates explicit policy frameworks for reliable, evidence-driven work. We present these requirements as a manifesto for governed AI memory and describe local-first prototype components that demonstrate many of the required properties: GroundRecall as a provenance-preserving, review-gated, federated memory substrate; ClaimWright as one suitable claim-policy and publication-safety framework; CiteGeist as a bibliography and source-review workbench; and Epistemap as a confidence and knowledge-graph operation layer. These prototypes show that governed memory is practical while leaving retrieval benchmarking, semantic contradiction detection, hosted review, production identity management, exceptional erasure propagation, and distributed synchronization as open work.
+Current AI memory systems increasingly support long-term recall, graph retrieval, personalization, and memory operating-system abstractions. These systems make assistants and agents more persistent, but persistence also makes familiar failures more durable: unsupported claims, stale context, hidden contradictions, citation drift, private-to-public leakage, unreviewed promotion, and ambiguous authority over shared memory. We argue that memory layers for AI assistants and agents should be governed systems, not only retrieval systems. A governed memory layer preserves provenance, distinguishes historical support from current applicability, exposes confidence and uncertainty, tracks contradiction and adjudication, enforces release boundaries, quarantines imported memory, retains audit history, and integrates explicit policy frameworks for reliable, evidence-driven work. We present these requirements as a manifesto for governed AI memory and describe local-first prototype components that demonstrate several of the required controls: GroundRecall as a provenance-preserving, review-gated, federated memory substrate; ClaimWright as one suitable claim-policy and publication-safety framework; CiteGeist as a bibliography and source-review workbench; and Epistemap as a confidence and knowledge-graph operation layer. These prototypes show that governed-memory controls can be implemented in a local prototype while leaving retrieval benchmarking, semantic contradiction detection, hosted review, production identity management, exceptional erasure propagation, distributed synchronization, and broader governance/security literature integration as open work.
 
 ## 1. Introduction: Memory Is Not Just Recall
 
@@ -22,7 +22,7 @@ This paper states the required properties first, then uses prototype systems as 
 
 ## 2. Foreseeable Failure Modes
 
-The current memory-layer literature is strong on persistence, retrieval, personalization, graph traversal, memory scheduling, and production deployment. Its center of gravity is less often governance. A system that optimizes for memory availability and relevance can still fail as an evidence-preserving substrate for research, publication, organizational action, or multi-agent collaboration.
+The current memory-layer literature is strong on persistence, retrieval, personalization, graph traversal, memory scheduling, and production deployment. The sources reviewed for this draft foreground governance less often than retrieval and memory-management performance. A system that optimizes for memory availability and relevance can still fail as an evidence-preserving substrate for research, publication, organizational action, or multi-agent collaboration.
 
 The foreseeable failure modes include:
 
@@ -61,7 +61,7 @@ A memory layer suitable for durable AI assistant and agent work requires at leas
 | Auditability | Export, import, promotion, adjudication, and policy decisions leave reviewable records. |
 | Policy integration | Memory is governed by explicit claim, publication, and action policies. |
 
-These properties are orthogonal to retrieval performance. A memory layer can retrieve relevant material quickly while remaining unsafe for evidence-driven work. Conversely, a governed memory layer may be slower or more conservative while being better suited to research, legal, organizational, or public-facing tasks.
+These properties are orthogonal to retrieval performance. A memory layer can retrieve relevant material quickly while still lacking the review, provenance, and release controls needed for evidence-driven work. Conversely, a governed memory layer may be slower or more conservative while being better suited to research, legal, organizational, or public-facing tasks.
 
 The governance level can vary with risk. Private exploratory work may use advisory policy. Durable, expensive, public, privacy-relevant, or authority-bearing actions require stronger gates. The minimum requirement is that memory makes such distinctions possible and inspectable.
 
@@ -90,13 +90,13 @@ Policy pluralism avoids treating one project’s values and thresholds as univer
 
 ## 5. Prototype Components
 
-The prototype components discussed here are partial implementations and design probes, not a complete governed-agent platform.
+The prototype components discussed here are partial implementations and design probes, not a complete governed-agent platform or a validated safety intervention.
 
 GroundRecall is the main memory substrate. It implements typed records for sources, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, and snapshots. It supports review-gated promotion, query/export surfaces, confidence and temporal-validity metadata, release-level classification, signed federation bundles, quarantine-before-promotion import, local policy checks, audit events, trust registries, signed public keysets, and signed role directories.
 
 ClaimWright is a companion policy framework. It provides a human-readable collaboration memorandum, machine-readable policy files, claim lifecycle states, confidence dimensions, mixed enforcement defaults, agent role cards, pre-action and post-action checks, citation review patterns, and a public-safe artifact workflow. In the present implementation, ClaimWright is not an enforcement engine inside GroundRecall. It is an example of the sort of configurable policy framework that a governed memory layer can reflect and eventually enforce.
 
-CiteGeist is a bibliography workbench. It supports BibTeX-centered ingestion, reference extraction, verification, enrichment, citation-graph expansion, topic-aware review, and export. For this paper, it was used to seed a memory-layer bibliography and produce a local CiteGeist database and BibTeX export. It represents the source-review side of governed memory: citations and bibliographic claims remain inspectable rather than merely embedded in prose.
+CiteGeist is a bibliography workbench. It supports BibTeX-centered ingestion, reference extraction, verification, enrichment, citation-graph expansion, topic-aware review, and export. For this paper, it was used to seed a memory-layer bibliography and produce a local CiteGeist database and BibTeX export. That seed supports initial related-work framing, not systematic-review completeness. CiteGeist represents the source-review side of governed memory: citations and bibliographic claims remain inspectable rather than merely embedded in prose.
 
 Epistemap is a confidence and knowledge-graph operation layer. GroundRecall exposes Epistemap-compatible query and confidence surfaces. Its role is to support evidence representation, confidence measures, graph operations, and future contradiction/confidence interactions. The present evidence does not support claims of broad confidence calibration or empirical superiority.
 
@@ -111,11 +111,11 @@ Together, these prototypes show a feasible decomposition:
 
 Recent memory-layer systems establish the importance of durable memory for agents. A recent ACM TOIS survey organizes memory mechanisms for LLM-based agents around memory sources, forms, operations, and evaluation [10]. Generative Agents demonstrated memory streams, reflection, planning, and retrieval over remembered experience [1]. MemGPT framed long-context interaction as virtual context management across memory tiers [2]. HippoRAG combined LLMs, knowledge graphs, and Personalized PageRank for long-term multi-hop retrieval [3]. A-MEM proposed dynamically organized agentic memory with historical memory linking and evolution [4]. Mem0 presented a production-oriented long-term memory layer with extraction, consolidation, retrieval, and a graph-memory variant [5]. MemoryOS and MemOS developed memory operating-system abstractions with memory tiers, lifecycle control, scheduling, and unified memory units [6, 7]. AriGraph used a semantic and episodic knowledge-graph world model for agent planning [8]. Work on knowledge-graph alignment for retrieval-augmented generation also shows that graph representation and linearization choices affect downstream LLM use of graph knowledge [9].
 
-This literature is strong on recall, personalization, graph retrieval, memory scheduling, and production performance. The visible gap is governance. Release classification, provenance-preserving review, contradiction adjudication, quarantine-before-promotion federation, local authority, and auditable cross-host exchange are not the central contributions of most memory-layer systems.
+Within this reviewed set, the most visible contributions concern recall, personalization, graph retrieval, memory scheduling, and production performance. Governance is less central. Release classification, provenance-preserving review, contradiction adjudication, quarantine-before-promotion federation, local authority, and auditable cross-host exchange appear as complementary controls rather than the main contribution of most reviewed memory-layer systems.
 
 GroundRecall-style governed memory is therefore complementary to performance-oriented memory layers:
 
-> Governed memory supplies review, provenance, contradiction, release-policy, federation, and local-authority controls that memory systems often need but do not foreground.
+> Governed memory supplies review, provenance, contradiction, release-policy, federation, and local-authority controls that performance-oriented memory systems may need even when those controls are not their central contribution.
 
 This framing avoids an unsupported performance comparison. GroundRecall has not been evaluated against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS on long-dialogue recall, multi-hop retrieval, cost, latency, or personalization benchmarks. Its current evidence is engineering evidence for governance properties.
 
@@ -171,6 +171,8 @@ This evidence supports implementation claims about governed-memory properties in
 
 The claim-to-evidence discipline is simple: each paper claim maps to implemented code, test coverage, reproducible demonstration, bibliography/source analysis, or explicit future-work status. Appendix A provides the current claim-to-evidence matrix. A separate ClaimWright review record applies claim-auditor, citation-reviewer, adversarial-reviewer, and publication-gatekeeper procedures to the draft. Claims that do not map to evidence are softened or removed.
 
+The ClaimWright review result is conditional. The draft is suitable for internal and public draft review, but it is not yet final-public-safe. Before submission or authoritative publication, the paper needs a broader governance/security bibliography pass, stable reproducible demonstrations, and final human publication approval.
+
 ## 10. Demonstrations and Reproducibility
 
 The current repository contains documentation artifacts, a CiteGeist-seeded bibliography database, BibTeX exports, and HTML renderings of the manuscript planning materials. Reproducible demonstrations remain the next missing evidence layer.
@@ -205,7 +207,7 @@ These demonstrations are not yet a substitute for benchmark evaluation. They are
 
 ## 11. Limitations
 
-GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. It does not yet enforce ClaimWright policy files inside GroundRecall. It does not provide a comprehensive security proof.
+GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. It does not yet enforce ClaimWright policy files inside GroundRecall. It does not provide a comprehensive security proof. The current related-work section also does not yet include a full governance, privacy, provenance, access-control, or distributed-systems literature review.
 
 These limitations bound the contribution. They do not defeat the core argument. Governed memory properties are necessary and implementable; the current prototypes are partial evidence, not complete systems.
 
