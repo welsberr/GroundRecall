@@ -112,6 +112,8 @@ Recent memory-layer systems establish the importance of durable memory for agent
 
 The governance side of the argument draws on adjacent standards and security literature. The NIST AI RMF frames AI risk management around govern, map, measure, and manage functions and trustworthy-system characteristics [11]. NIST SP 800-53 provides a security and privacy control catalog covering access control, audit and accountability, identification and authentication, privacy, and supply-chain risk management [12]. NIST SP 800-207 frames zero trust as a move away from implicit trust toward resource- and identity-centered policy decisions [13]. W3C PROV defines interoperable provenance concepts for entities, activities, agents, derivation, and bundles [14, 15]. SLSA, Sigstore, and The Update Framework provide software-supply-chain analogues for verifiable provenance, transparency logs, signed metadata, roles, and key-compromise resilience [16, 17, 18]. Recent distributed access-control survey work reinforces that access control remains a core defense for distributed systems and organizational security [19].
 
+The second bibliography expansion broadens the evaluation and security context. LongMemEval, LoCoMo, MemoryAgentBench, and LoCoMo-Plus provide concrete benchmark targets for long-term interactive memory, very long-term conversational memory, incremental memory-agent competence, selective forgetting or conflict handling, and cognitive-memory stress cases [20, 21, 22, 23]. GraphRAG work adds another relevant axis: entity graphs, community summaries, graph-retrieval surveys, GraphRAG-Bench pipeline evaluation, and agentic GraphRAG all support the claim that graph operations are becoming central to memory and retrieval systems [24, 25, 26, 27]. Privacy and authorization work is also emerging directly around persistent AI memory and RAG: Agent-Memory Protocol proposes purpose-bound memory handling, CAMS addresses memory injection and extraction attacks, and Permission-Aware RAG frames retrieval as an IAM-mediated access decision [28, 29, 30]. Older security foundations remain relevant for the federation design: decentralized information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security surveys provide vocabulary and mechanisms for local authority, no access broadening, auditability, and provenance-aware governance [31, 32, 33, 34, 35, 36].
+
 Within this reviewed set, the most visible contributions concern recall, personalization, graph retrieval, memory scheduling, and production performance. Governance is less central. Release classification, provenance-preserving review, contradiction adjudication, quarantine-before-promotion federation, local authority, and auditable cross-host exchange appear as complementary controls rather than the main contribution of most reviewed memory-layer systems.
 
 GroundRecall-style governed memory is therefore complementary to performance-oriented memory layers:
@@ -208,7 +210,7 @@ The current generated outputs are `provenance_promotion.json`, `contradiction_ad
 
 ## 11. Limitations
 
-GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. It does not yet enforce ClaimWright policy files inside GroundRecall. It does not provide a comprehensive security proof. The related-work section now includes initial governance, provenance, access-control, zero-trust, and supply-chain-security sources, but it is still not a full systematic review.
+GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. It does not yet enforce ClaimWright policy files inside GroundRecall. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.
 
 These limitations bound the contribution. They do not defeat the core argument. Governed memory properties are necessary and implementable; the current prototypes are partial evidence, not complete systems.
 
@@ -261,6 +263,23 @@ The author acknowledges assistance from OpenAI Codex in drafting, editing, sourc
 17. Sigstore. *What is Sigstore?* 2026. Source: <https://www.sigstore.dev/docs/what_is_sigstore>.
 18. The Update Framework. *The Update Framework Specification.* 2026. Source: <https://theupdateframework.github.io/specification/>.
 19. Lewis Golightly, Paolo Modesti, Rémi Garcia, and Victor Chang. "Securing Distributed Systems: A Survey on Access Control Techniques for Cloud, Blockchain, IoT and SDN." *Cyber Security and Applications*, 1, article 100015, 2023. DOI: [10.1016/j.csa.2023.100015](https://doi.org/10.1016/j.csa.2023.100015). Source: <https://www.sciencedirect.com/science/article/pii/S2772918423000036>.
+20. Di Wu, Hongwei Wang, Wenhao Yu, Yuwei Zhang, Kai-Wei Chang, and Dong Yu. "LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory." arXiv:2410.10813, submitted 2024, revised 2025. DOI: [10.48550/arXiv.2410.10813](https://doi.org/10.48550/arXiv.2410.10813). Source: <https://arxiv.org/abs/2410.10813>.
+21. Adyasha Maharana, Dong-Ho Lee, Sergey Tulyakov, Mohit Bansal, Francesco Barbieri, and Yuwei Fang. "Evaluating Very Long-Term Conversational Memory of LLM Agents." *Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)*, 2024, pp. 13851--13870. DOI: [10.18653/v1/2024.acl-long.747](https://doi.org/10.18653/v1/2024.acl-long.747). Source: <https://aclanthology.org/2024.acl-long.747/>.
+22. Yuanzhe Hu, Yu Wang, and Julian McAuley. "Evaluating Memory in LLM Agents via Incremental Multi-Turn Interactions." *International Conference on Learning Representations*, 2026. Source: <https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/>.
+23. Yifei Li, Weidong Guo, Lingling Zhang, Rongman Xu, Muye Huang, Hui Liu, Lijiao Xu, Yu Xu, and Jun Liu. "Locomo-Plus: Beyond-Factual Cognitive Memory Evaluation Framework for LLM Agents." arXiv:2602.10715, 2026. DOI: [10.48550/arXiv.2602.10715](https://doi.org/10.48550/arXiv.2602.10715). Source: <https://arxiv.org/abs/2602.10715>.
+24. Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert Osazuwa Ness, and Jonathan Larson. "From Local to Global: A Graph RAG Approach to Query-Focused Summarization." arXiv:2404.16130, submitted 2024, revised 2025. DOI: [10.48550/arXiv.2404.16130](https://doi.org/10.48550/arXiv.2404.16130). Source: <https://arxiv.org/abs/2404.16130>.
+25. Qinggang Zhang, Shengyuan Chen, Yuanchen Bei, Zheng Yuan, Huachi Zhou, Zijin Hong, Hao Chen, Yilin Xiao, Chuang Zhou, Junnan Dong, Yi Chang, and Xiao Huang. "Graph Retrieval-Augmented Generation: A Survey." *ACM Transactions on Information Systems*, 2026. DOI: [10.1145/3777378](https://doi.org/10.1145/3777378). Source: <https://doi.org/10.1145/3777378>.
+26. Zhishang Xiang, Chuanjie Wu, Qinggang Zhang, Shengyuan Chen, Zijin Hong, Xiao Huang, and Jinsong Su. "When to use Graphs in RAG: A Comprehensive Analysis for Graph Retrieval-Augmented Generation." arXiv:2506.05690, submitted 2025, revised 2026. DOI: [10.48550/arXiv.2506.05690](https://doi.org/10.48550/arXiv.2506.05690). Source: <https://arxiv.org/abs/2506.05690>.
+27. Zihan Chen, Lei Zheng, and Di Zhu. "A Survey of Agentic GraphRAG: From Retrieval-Augmented Generation to Graph-native Agents." SSRN, 2026. DOI: [10.2139/ssrn.6713979](https://doi.org/10.2139/ssrn.6713979). Source: <https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979>.
+28. Junde Wu, Minhao Hu, Jiayuan Zhu, Jiaye Wang, and Yueming Jin. "Agent-Memory Protocol: A Privacy-Focused Protocol for LLM Agents and User Memory Interaction." *Proceedings of The Second AAAI Bridge Program on AI for Medicine and Healthcare*, Proceedings of Machine Learning Research 317, 2026, pp. 293--301. Source: <https://proceedings.mlr.press/v317/wu26a.html>.
+29. T. Dhivyasree, S. Saravanan, Arun Kumar Ramamoorthy, and Uma Maheswari Balasubramanian. "Cognitive Autonomous Memory Security (CAMS) against injection and extraction attacks in long-term memory of AI agents." *Egyptian Informatics Journal*, 34, article 100983, 2026. DOI: [10.1016/j.eij.2026.100983](https://doi.org/10.1016/j.eij.2026.100983). Source: <https://www.sciencedirect.com/science/article/pii/S1110866526001003>.
+30. Jooyoung Jeong and Sang Goo Lee. "Permission-Aware RAG: Identity and Access Management (IAM)-Based Access Filtering in Multi-Resource Environments." *IEEE Access*, 13, 2025, pp. 192819--192835. DOI: [10.1109/ACCESS.2025.3628960](https://doi.org/10.1109/ACCESS.2025.3628960). Source: <https://doi.org/10.1109/ACCESS.2025.3628960>.
+31. Andrew C. Myers and Barbara Liskov. "A Decentralized Model for Information Flow Control." *Proceedings of the Sixteenth ACM Symposium on Operating Systems Principles*, 1997, pp. 129--142. DOI: [10.1145/268998.266669](https://doi.org/10.1145/268998.266669). Source: <https://doi.org/10.1145/268998.266669>.
+32. Andrew C. Myers and Barbara Liskov. "Protecting Privacy Using the Decentralized Label Model." *ACM Transactions on Software Engineering and Methodology*, 9(4), 2000, pp. 410--442. DOI: [10.1145/363516.363526](https://doi.org/10.1145/363516.363526). Source: <https://doi.org/10.1145/363516.363526>.
+33. Vineet Rajani, Deepak Garg, and Tamara Rezk. "On Access Control, Capabilities, Their Equivalence, and Confused Deputy Attacks." *2016 IEEE 29th Computer Security Foundations Symposium*, 2016, pp. 150--163. DOI: [10.1109/CSF.2016.18](https://doi.org/10.1109/CSF.2016.18). Source: <https://doi.org/10.1109/CSF.2016.18>.
+34. Ben Laurie, Emilia Kasper Messeri, and Rob Stradling. *Certificate Transparency Version 2.0.* RFC 9162, 2021. DOI: [10.17487/RFC9162](https://doi.org/10.17487/RFC9162). Source: <https://www.rfc-editor.org/info/rfc9162>.
+35. Alin Tomescu, Vivek Bhupatiraju, Dimitrios Papadopoulos, Charalampos Papamanthou, Nikos Triandopoulos, and Srinivas Devadas. "Transparency Logs via Append-Only Authenticated Dictionaries." *Proceedings of the 2019 ACM SIGSAC Conference on Computer and Communications Security*, 2019, pp. 1299--1316. DOI: [10.1145/3319535.3345652](https://doi.org/10.1145/3319535.3345652). Source: <https://doi.org/10.1145/3319535.3345652>.
+36. Bofeng Pan, Natalia Stakhanova, and Suprio Ray. "Data Provenance in Security and Privacy." *ACM Computing Surveys*, 55(14s), article 323, 2023, pp. 1--35. DOI: [10.1145/3593294](https://doi.org/10.1145/3593294). Source: <https://doi.org/10.1145/3593294>.
 
 \newpage
 
@@ -307,11 +326,21 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Supporting artifacts:** References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in `docs/preprint/preprint-draft.md`
   - **Current status:** Supported for related-work framing.
   - **Caveat / restraint:** Bibliography is seeded, not exhaustive.
-- **Governed memory draws on adjacent governance, provenance, access-control, zero-trust, and supply-chain-security patterns.**
+- **Governed memory draws on adjacent governance, provenance, access-control, zero-trust, information-flow, capability-security, transparency-log, and supply-chain-security patterns.**
   - **Evidence class:** Bibliography/source analysis
-  - **Supporting artifacts:** NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, and distributed access-control survey entries in `docs/preprint/memory-layer-citegeist-export.bib`
-  - **Current status:** Supported for initial adjacent-literature framing.
-  - **Caveat / restraint:** Still not a systematic review of all governance/security literature.
+  - **Supporting artifacts:** NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access-control, decentralized information-flow control, decentralized label model, capability/confused-deputy, RFC 9162, append-only authenticated dictionary, and provenance-security entries in `docs/preprint/memory-layer-citegeist-export.bib`
+  - **Current status:** Supported for adjacent-literature framing.
+  - **Caveat / restraint:** Still not a systematic review of all governance/security literature or a comprehensive security proof.
+- **Benchmark literature now provides concrete targets for evaluating long-term memory and graph-RAG behavior.**
+  - **Evidence class:** Bibliography/source analysis; future-work status
+  - **Supporting artifacts:** LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG entries in `docs/preprint/memory-layer-citegeist-export.bib`; limitations in `docs/preprint/preprint-draft.md`
+  - **Current status:** Supported as evaluation-context framing and future evaluation target selection.
+  - **Caveat / restraint:** GroundRecall has not yet been run against those benchmarks.
+- **Persistent AI memory and RAG systems raise privacy, memory-injection, memory-extraction, and retrieval-authorization concerns.**
+  - **Evidence class:** Bibliography/source analysis
+  - **Supporting artifacts:** Agent-Memory Protocol, CAMS, and Permission-Aware RAG entries in `docs/preprint/memory-layer-citegeist-export.bib`
+  - **Current status:** Supported for problem-framing and comparison.
+  - **Caveat / restraint:** The coverage is initial, not a complete privacy-leakage or authorization survey.
 - **GroundRecall is complementary to performance-oriented memory layers.**
   - **Evidence class:** Bibliography/source analysis; implemented code
   - **Supporting artifacts:** `docs/preprint/preprint-draft.md`; `docs/preprint/memory-layer-comparative-analysis.md`; GroundRecall governance features listed below
@@ -463,6 +492,9 @@ The matrix is also a restraint mechanism. Claims with only normative support are
 - **GroundRecall outperforms Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS on memory benchmarks.**
   - **Status:** Not claimed.
   - **Reason:** No comparative benchmark has been run.
+- **GroundRecall has been evaluated on LongMemEval, LoCoMo, MemoryAgentBench, or GraphRAG-Bench.**
+  - **Status:** Not claimed.
+  - **Reason:** These sources identify future evaluation targets; no benchmark run is reported.
 - **Governed memory has been shown to improve user productivity or reduce all AI-agent risk.**
   - **Status:** Not claimed.
   - **Reason:** Current evidence is engineering evidence, not user-study or broad safety evidence.
@@ -628,8 +660,16 @@ Applied ClaimWright materials:
   - **Notes:** Supports that bibliography seeding exists; does not support systematic-review completeness.
 - **Privacy, provenance governance, distributed systems, IAM, and security literature**
   - **Tier:** B
+  - **Status:** Expanded source pass accepted with caveats
+  - **Notes:** Added NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access control, Permission-Aware RAG, information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security sources. This supports adjacent-literature framing but remains short of a systematic review or security proof.
+- **Long-memory and GraphRAG benchmark literature**
+  - **Tier:** B
+  - **Status:** Expansion accepted for evaluation framing
+  - **Notes:** Added LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG sources. These support benchmark-target and related-work framing, not claims that GroundRecall has been benchmarked on them.
+- **Persistent AI-memory privacy/security literature**
+  - **Tier:** B
   - **Status:** Initial expansion accepted
-  - **Notes:** Added NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, and a distributed access-control survey. This supports adjacent-literature framing but remains short of a systematic review.
+  - **Notes:** Added Agent-Memory Protocol, CAMS, and Permission-Aware RAG. These support privacy, memory-injection, memory-extraction, purpose-bound memory, and retrieval-authorization framing, while leaving deeper privacy-leakage review as future bibliography work.
 
 
 ### Adversarial Review Memo
@@ -677,6 +717,7 @@ Release status: conditionally suitable for internal/public draft review, pending
 - **Expose final-public-safety status.:** The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved.
 - **Resolve public/private path issue.:** Repository-level references remain in the appendix; no absolute local paths are used for public evidence references.
 - **Broaden bibliography.:** Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references.
+- **Complete second bibliography expansion targets.:** Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix.
 - **Add empirical demonstrations.:** Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, and local authority.
 
 
@@ -684,10 +725,10 @@ Release status: conditionally suitable for internal/public draft review, pending
 
 - **Files changed:** Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs.
 - **Claims introduced/modified:** Test-suite claim changed from "latest implementation pass" to a dated concrete result: 171 tests passed on 2026-07-27. Appendix support references were changed from absolute local paths to repository-level descriptions. Demonstration claims are now backed by generated JSON outputs.
-- **Citations recorded:** Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, and Golightly et al. distributed access-control survey.
+- **Citations recorded:** Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey.
 - **Assumptions visible:** The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright.
-- **Unresolved risks:** Bibliography is broader but not systematic; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work; human publication approval remains open.
-- **Tasks opened:** Remaining gaps are now bibliography completeness/systematic-review scope, final publication approval, and future feature work, not absence of initial demonstrations.
+- **Unresolved risks:** Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work; human publication approval remains open.
+- **Tasks opened:** Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories.
 - **Capacity used:** Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use.
 - **Branch outcome:** Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims.
 - **Broader review trigger:** Yes. Before submission, run a broader literature/security/governance review and add reproducible demonstrations.
@@ -701,7 +742,7 @@ Release status: conditionally suitable for internal/public draft review, pending
 
 Date: 2026-07-27
 
-This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The 2026-07-27 expansion adds adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources.
+This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The first 2026-07-27 expansion added adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources. The second 2026-07-27 expansion added long-memory benchmarks, GraphRAG surveys and benchmarks, AI-memory privacy/security work, permission-aware retrieval, information-flow control, capability security, transparency logs, and provenance-security literature.
 
 The bibliography was started as a BibTeX seed file at `docs/preprint/memory-layer-seed.bib` and ingested into a dedicated CiteGeist database at `docs/preprint/citegeist-memory-layer.sqlite3`.
 
@@ -773,6 +814,57 @@ GroundRecall should position itself relative to this literature as a governance-
 - **`golightly2023accesscontrolsurvey`**
   - **Source:** Golightly et al., 2023, distributed access-control survey
   - **Why it matters for GroundRecall:** Provides current distributed-systems access-control context for protected-resource access and organizational security.
+- **`wu2024longmemeval`**
+  - **Source:** Wu et al., 2024/2025, *LongMemEval*
+  - **Why it matters for GroundRecall:** Provides a benchmark for long-term interactive memory abilities: extraction, multi-session reasoning, temporal reasoning, knowledge updates, and abstention.
+- **`maharana2024locomo`**
+  - **Source:** Maharana et al., 2024, *LoCoMo*
+  - **Why it matters for GroundRecall:** Provides an ACL benchmark for very long-term conversational memory, including QA, event summarization, and dialogue generation.
+- **`hu2026memoryagentbench`**
+  - **Source:** Hu et al., 2026, *MemoryAgentBench*
+  - **Why it matters for GroundRecall:** Provides an ICLR benchmark for incremental multi-turn memory agents, including selective forgetting and conflict-resolution competencies.
+- **`li2026locomoplus`**
+  - **Source:** Li et al., 2026, *LoCoMo-Plus*
+  - **Why it matters for GroundRecall:** Extends benchmark coverage toward cognitive memory, latent constraints, and cue-triggered semantic disconnects.
+- **`edge2024graphrag`**
+  - **Source:** Edge et al., 2024/2025, *From Local to Global*
+  - **Why it matters for GroundRecall:** Establishes the GraphRAG local-to-global summarization pattern using entity graphs and community summaries.
+- **`zhang2026graphragsurvey`**
+  - **Source:** Zhang et al., 2026, *Graph Retrieval-Augmented Generation: A Survey*
+  - **Why it matters for GroundRecall:** Provides formal survey support for GraphRAG foundations, methods, applications, challenges, and directions.
+- **`xiang2025graphragbench`**
+  - **Source:** Xiang et al., 2025/2026, *GraphRAG-Bench*
+  - **Why it matters for GroundRecall:** Evaluates when graph structure helps or hurts RAG across construction, retrieval, and generation stages.
+- **`chen2026agenticgraphragsurvey`**
+  - **Source:** Chen et al., 2026, *Agentic GraphRAG* survey
+  - **Why it matters for GroundRecall:** Provides source support for agentic GraphRAG and graph-native agent framing, with a venue caveat because the located source is SSRN.
+- **`wu2026agentmemoryprotocol`**
+  - **Source:** Wu et al., 2026, *Agent-Memory Protocol*
+  - **Why it matters for GroundRecall:** Provides a privacy-focused protocol for purpose-bound memory packing and identifier hydration at the user boundary.
+- **`dhivyasree2026cams`**
+  - **Source:** Dhivyasree et al., 2026, *CAMS*
+  - **Why it matters for GroundRecall:** Addresses memory injection and extraction attacks, zero-trust memory, drift monitoring, and tamper-evident provenance for AI-agent long-term memory.
+- **`jeong2025permissionawarerag`**
+  - **Source:** Jeong and Lee, 2025, *Permission-Aware RAG*
+  - **Why it matters for GroundRecall:** Provides formal support for retrieval authorization using provider-controlled IAM checks across governed resources.
+- **`myers1997ifc`**
+  - **Source:** Myers and Liskov, 1997, decentralized IFC
+  - **Why it matters for GroundRecall:** Foundational support for decentralized authority, fine-grained information-flow labels, and declassification.
+- **`myers2000dlmprivacy`**
+  - **Source:** Myers and Liskov, 2000, decentralized label model
+  - **Why it matters for GroundRecall:** Provides journal treatment of decentralized labels for privacy-preserving information-flow policy.
+- **`rajani2016capabilities`**
+  - **Source:** Rajani, Garg, and Rezk, 2016, capabilities and confused deputy
+  - **Why it matters for GroundRecall:** Supports capability-based authority reasoning and confused-deputy risk framing.
+- **`laurie2021rfc9162`**
+  - **Source:** RFC 9162, Certificate Transparency 2.0
+  - **Why it matters for GroundRecall:** Provides standards support for append-only Merkle-tree transparency logs and signed timestamps.
+- **`tomescu2019transparencylogs`**
+  - **Source:** Tomescu et al., 2019, append-only authenticated dictionaries
+  - **Why it matters for GroundRecall:** Provides formal systems/security support for efficient append-only transparency-log auditing.
+- **`pan2023provenancesecurity`**
+  - **Source:** Pan, Stakhanova, and Ray, 2023, provenance in security/privacy
+  - **Why it matters for GroundRecall:** Provides survey support for provenance as a security and privacy mechanism.
 
 
 ### Source Links Used For Verification
@@ -797,11 +889,34 @@ GroundRecall should position itself relative to this literature as a governance-
 - Sigstore overview: https://www.sigstore.dev/docs/what_is_sigstore
 - The Update Framework specification: https://theupdateframework.github.io/specification/
 - Golightly et al. access-control survey: https://www.sciencedirect.com/science/article/pii/S2772918423000036
+- LongMemEval: https://arxiv.org/abs/2410.10813
+- LoCoMo ACL paper: https://aclanthology.org/2024.acl-long.747/
+- LoCoMo project repository: https://github.com/snap-research/locomo
+- MemoryAgentBench: https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/
+- LoCoMo-Plus: https://arxiv.org/abs/2602.10715
+- GraphRAG local-to-global summarization: https://arxiv.org/abs/2404.16130
+- GraphRAG survey DOI: https://doi.org/10.1145/3777378
+- GraphRAG survey arXiv record: https://arxiv.org/abs/2501.13958
+- GraphRAG-Bench: https://arxiv.org/abs/2506.05690
+- GraphRAG-Bench project: https://graphrag-bench.github.io/
+- Agentic GraphRAG survey: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979
+- Agent-Memory Protocol: https://proceedings.mlr.press/v317/wu26a.html
+- CAMS memory security article: https://www.sciencedirect.com/science/article/pii/S1110866526001003
+- Permission-Aware RAG DOI: https://doi.org/10.1109/ACCESS.2025.3628960
+- Permission-Aware RAG source page: https://snu.elsevierpure.com/en/publications/permission-aware-rag-identity-and-access-management-iam-based-acc/
+- Decentralized information-flow control DOI: https://doi.org/10.1145/268998.266669
+- Decentralized information-flow control author page: https://www.cs.cornell.edu/andru/papers/iflow-sosp97/paper.html
+- Decentralized Label Model privacy article DOI: https://doi.org/10.1145/363516.363526
+- Capabilities and confused deputy DOI: https://doi.org/10.1109/CSF.2016.18
+- Capabilities and confused deputy repository page: https://kar.kent.ac.uk/90601/
+- RFC 9162 Certificate Transparency 2.0: https://www.rfc-editor.org/info/rfc9162
+- Transparency logs via append-only authenticated dictionaries DOI: https://doi.org/10.1145/3319535.3345652
+- Data provenance in security and privacy DOI: https://doi.org/10.1145/3593294
 
 ### Next Bibliography Expansion Targets
 
-- LongMemEval and LoCoMo benchmark papers/datasets.
-- GraphRAG and agentic GraphRAG surveys.
-- Persistent AI memory privacy leakage and retrieval authorization.
-- Capability-based access control, information-flow control, append-only audit logs, provenance-aware data governance, and distributed revocation.
-- Formal publication venues and source access checks for the governance/security additions.
+- Add a systematic-review protocol if the preprint moves from manifesto/position-paper framing toward survey claims.
+- Deepen privacy-leakage coverage beyond initial AI-memory security and permission-aware RAG sources.
+- Add distributed revocation/key-transparency sources specific to cross-host memory federation.
+- Replace or supplement SSRN/preprint-only sources with peer-reviewed versions as they appear.
+- Design benchmark evaluations against LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, and project-specific governance/federation demonstrations.

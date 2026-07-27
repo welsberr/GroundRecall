@@ -105,11 +105,25 @@
 <td>Bibliography is seeded, not exhaustive.</td>
 </tr>
 <tr class="odd">
-<td>Governed memory draws on adjacent governance, provenance, access-control, zero-trust, and supply-chain-security patterns.</td>
+<td>Governed memory draws on adjacent governance, provenance, access-control, zero-trust, information-flow, capability-security, transparency-log, and supply-chain-security patterns.</td>
 <td>Bibliography/source analysis</td>
-<td>NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, and distributed access-control survey entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></td>
-<td>Supported for initial adjacent-literature framing.</td>
-<td>Still not a systematic review of all governance/security literature.</td>
+<td>NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access-control, decentralized information-flow control, decentralized label model, capability/confused-deputy, RFC 9162, append-only authenticated dictionary, and provenance-security entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></td>
+<td>Supported for adjacent-literature framing.</td>
+<td>Still not a systematic review of all governance/security literature or a comprehensive security proof.</td>
+</tr>
+<tr class="even">
+<td>Benchmark literature now provides concrete targets for evaluating long-term memory and graph-RAG behavior.</td>
+<td>Bibliography/source analysis; future-work status</td>
+<td>LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code>; limitations in <code>docs/preprint/preprint-draft.md</code></td>
+<td>Supported as evaluation-context framing and future evaluation target selection.</td>
+<td>GroundRecall has not yet been run against those benchmarks.</td>
+</tr>
+<tr class="odd">
+<td>Persistent AI memory and RAG systems raise privacy, memory-injection, memory-extraction, and retrieval-authorization concerns.</td>
+<td>Bibliography/source analysis</td>
+<td>Agent-Memory Protocol, CAMS, and Permission-Aware RAG entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></td>
+<td>Supported for problem-framing and comparison.</td>
+<td>The coverage is initial, not a complete privacy-leakage or authorization survey.</td>
 </tr>
 <tr class="even">
 <td>GroundRecall is complementary to performance-oriented memory layers.</td>
@@ -345,36 +359,41 @@
 <td>No comparative benchmark has been run.</td>
 </tr>
 <tr class="even">
+<td>GroundRecall has been evaluated on LongMemEval, LoCoMo, MemoryAgentBench, or GraphRAG-Bench.</td>
+<td>Not claimed.</td>
+<td>These sources identify future evaluation targets; no benchmark run is reported.</td>
+</tr>
+<tr class="odd">
 <td>Governed memory has been shown to improve user productivity or reduce all AI-agent risk.</td>
 <td>Not claimed.</td>
 <td>Current evidence is engineering evidence, not user-study or broad safety evidence.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>GroundRecall automatically detects semantic contradictions.</td>
 <td>Future work.</td>
 <td>Current contradiction workflow starts from explicit contradiction links.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>GroundRecall provides production identity management or enterprise access control.</td>
 <td>Future work.</td>
 <td>Current controls are local policy, key, role, and release-level mechanisms.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>GroundRecall provides complete exceptional-erasure propagation.</td>
 <td>Future work.</td>
 <td>Ordinary epistemic maintenance is non-destructive; exceptional erasure remains a separate incomplete mechanism.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>GroundRecall is a complete distributed memory platform.</td>
 <td>Future work.</td>
 <td>No network transport, polling layer, CRDT merge, hosted review UI, or release-pack publication workflow is implemented.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>ClaimWright is the only acceptable policy framework.</td>
 <td>Not claimed.</td>
 <td>The manuscript treats ClaimWright as one suitable operational stance under policy pluralism.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>GroundRecall confidence measures are fully Bayesian or empirically calibrated.</td>
 <td>Not claimed.</td>
 <td>Current implementation supports structured confidence profiles and Epistemap-compatible exports; validated Bayesian updating remains outside current evidence.</td>
