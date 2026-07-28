@@ -64,6 +64,10 @@ Initial implementation status:
   `policy_request`, and `subject_id` arguments. When configured, hard-gate and
   deny decisions block the operation before store access or export side effects;
   softer decisions are returned with the tool payload as review context.
+- Federation export, quarantine import, and promotion accept optional generic
+  policy-plugin configs alongside the existing federation grant policy. Plugin
+  hard-gate and deny decisions block export/import/promotion, and plugin
+  decisions are recorded in federation audit metadata.
 - `tests/test_policy_plugins.py` covers structured decisions, conservative
   composition, ClaimWright-style hard gates, conditional public claim review,
   and plugin loading.

@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from .export_guardrails import _secret_field_path
 from .models import GroundRecallSnapshot
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .store import GroundRecallStore
 
 
@@ -916,6 +917,50 @@ def build_federation_audit_event(
     )
 
 
+def _evaluate_policy_plugins(
+    policy_plugins_path: str | Path | None,
+    *,
+    decision_point: str,
+    subject_id: str,
+    action: str,
+    release_level: ReleaseLevel,
+    target_release_level: ReleaseLevel | None = None,
+    instance_id: str = "",
+    scope_id: str = "",
+    public_facing: bool = False,
+    durable_memory_change: bool = False,
+    metadata: dict[str, Any] | None = None,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    return provider.evaluate(
+        PolicyRequest(
+            decision_point=decision_point,  # type: ignore[arg-type]
+            subject_id=subject_id,
+            action=action,
+            release_level=release_level,
+            target_release_level=target_release_level,
+            scope_id=scope_id,
+            public_facing=public_facing,
+            durable_memory_change=durable_memory_change,
+            metadata={"instance_id": instance_id, **(metadata or {})},
+        )
+    )
+
+
+def _policy_plugin_block_reasons(decision: PolicyDecision | None) -> list[str]:
+    if decision is None or decision.decision not in {"deny", "hard_gate"}:
+        return []
+    return [f"policy_plugin_{decision.decision}:{reason}" for reason in (decision.reasons or [decision.policy_id])]
+
+
+def _policy_plugin_metadata(decision: PolicyDecision | None) -> dict[str, Any]:
+    if decision is None:
+        return {}
+    return {"policy_plugin_decision": decision.model_dump(mode="json")}
+
+
 def release_level_from_metadata(metadata: dict[str, Any]) -> ReleaseLevel | None:
     for key in RELEASE_METADATA_KEYS:
         if key not in metadata:
@@ -958,6 +1003,7 @@ def export_federation_bundle(
     allow_unclassified_public: bool = False,
     allow_privileged: bool = False,
     policy: FederationLocalPolicy | None = None,
+    policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
     scope_id: str = "",
     audit_log_path: str | Path | None = None,
@@ -988,8 +1034,37 @@ def export_federation_bundle(
                         instance_id=producer_instance_id,
                         policy_decision=policy_decision,
                     ),
-                )
+            )
             raise FederationPolicyError(";".join(policy_decision.reasons))
+    plugin_decision = _evaluate_policy_plugins(
+        policy_plugins_path,
+        decision_point="federate_export",
+        subject_id=requester_id,
+        action="export",
+        release_level=target_release_level,
+        target_release_level=target_release_level,
+        instance_id=producer_instance_id,
+        scope_id=scope_id,
+        public_facing=target_release_level == "public",
+        metadata={"producer_instance_id": producer_instance_id, "owner_instance_id": owner_instance_id},
+    )
+    plugin_block_reasons = _policy_plugin_block_reasons(plugin_decision)
+    if plugin_block_reasons:
+        if audit_log_path is not None:
+            append_federation_audit_event(
+                audit_log_path,
+                build_federation_audit_event(
+                    action="export",
+                    decision="rejected",
+                    subject_id=requester_id,
+                    release_level=target_release_level,
+                    instance_id=producer_instance_id,
+                    policy_decision=policy_decision,
+                    reasons=plugin_block_reasons,
+                    metadata=_policy_plugin_metadata(plugin_decision),
+                ),
+            )
+        raise FederationPolicyError(";".join(plugin_block_reasons))
 
     store = GroundRecallStore(store_dir)
     timestamp = created_at or now_utc()
@@ -1039,7 +1114,11 @@ def export_federation_bundle(
                 bundle_id=bundle.manifest.bundle_id,
                 instance_id=producer_instance_id,
                 policy_decision=policy_decision,
-                metadata={"record_count": bundle.manifest.record_count, "excluded_total": bundle.policy_report.excluded_total},
+                metadata={
+                    "record_count": bundle.manifest.record_count,
+                    "excluded_total": bundle.policy_report.excluded_total,
+                    **_policy_plugin_metadata(plugin_decision),
+                },
             ),
         )
     return bundle
@@ -1227,6 +1306,7 @@ def import_federation_bundle_to_quarantine(
     accepted_release_levels: Iterable[ReleaseLevel],
     key_id: str | None = None,
     policy: FederationLocalPolicy | None = None,
+    policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
     scope_id: str = "",
     audit_log_path: str | Path | None = None,
@@ -1247,6 +1327,19 @@ def import_federation_bundle_to_quarantine(
         )
         if not policy_decision.allowed:
             reasons.extend(policy_decision.reasons)
+    plugin_decision = _evaluate_policy_plugins(
+        policy_plugins_path,
+        decision_point="federate_import",
+        subject_id=requester_id,
+        action="import",
+        release_level=bundle.manifest.target_release_level,
+        target_release_level=bundle.manifest.target_release_level,
+        instance_id=bundle.manifest.producer_instance_id,
+        scope_id=scope_id,
+        durable_memory_change=True,
+        metadata={"bundle_id": bundle.manifest.bundle_id, "producer_instance_id": bundle.manifest.producer_instance_id},
+    )
+    reasons.extend(_policy_plugin_block_reasons(plugin_decision))
     if bundle.manifest.target_release_level not in accepted:
         reasons.append(f"target_release_level_not_accepted:{bundle.manifest.target_release_level}")
     for finding in _bundle_policy_violations(bundle):
@@ -1272,7 +1365,7 @@ def import_federation_bundle_to_quarantine(
                     instance_id=bundle.manifest.producer_instance_id,
                     policy_decision=policy_decision,
                     reasons=reasons,
-                    metadata={"record_count": bundle.manifest.record_count},
+                    metadata={"record_count": bundle.manifest.record_count, **_policy_plugin_metadata(plugin_decision)},
                 ),
             )
         return result
@@ -1299,7 +1392,7 @@ def import_federation_bundle_to_quarantine(
                 bundle_id=bundle.manifest.bundle_id,
                 instance_id=bundle.manifest.producer_instance_id,
                 policy_decision=policy_decision,
-                metadata={"record_count": bundle.manifest.record_count, "quarantine_path": str(target)},
+                metadata={"record_count": bundle.manifest.record_count, "quarantine_path": str(target), **_policy_plugin_metadata(plugin_decision)},
             ),
         )
     return result
@@ -1379,6 +1472,7 @@ def promote_quarantined_bundle(
     key_id: str | None = None,
     accepted_release_levels: Iterable[ReleaseLevel] = ("public",),
     policy: FederationLocalPolicy | None = None,
+    policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
     scope_id: str = "",
     audit_log_path: str | Path | None = None,
@@ -1406,6 +1500,30 @@ def promote_quarantined_bundle(
             result = FederationPromotionResult(decision="rejected", plan=plan, reasons=policy_decision.reasons)
             _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
             return result
+    plugin_decision = _evaluate_policy_plugins(
+        policy_plugins_path,
+        decision_point="promote",
+        subject_id=requester_id,
+        action="promote",
+        release_level=bundle.manifest.target_release_level,
+        target_release_level=bundle.manifest.target_release_level,
+        instance_id=bundle.manifest.producer_instance_id,
+        scope_id=scope_id,
+        durable_memory_change=True,
+        metadata={"bundle_id": bundle.manifest.bundle_id, "producer_instance_id": bundle.manifest.producer_instance_id},
+    )
+    plugin_block_reasons = _policy_plugin_block_reasons(plugin_decision)
+    if plugin_block_reasons:
+        plan = plan_quarantine_promotion(
+            bundle_path,
+            store_dir,
+            signing_key=signing_key,
+            key_id=key_id,
+            accepted_release_levels=accepted_release_levels,
+        )
+        result = FederationPromotionResult(decision="rejected", plan=plan, reasons=plugin_block_reasons)
+        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision, plugin_decision=plugin_decision)
+        return result
 
     plan = plan_quarantine_promotion(
         bundle_path,
@@ -1416,11 +1534,11 @@ def promote_quarantined_bundle(
     )
     if plan.conflicts:
         result = FederationPromotionResult(decision="rejected", plan=plan, reasons=["promotion_conflicts"])
-        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision, plugin_decision=plugin_decision)
         return result
     if not apply:
         result = FederationPromotionResult(decision="planned", plan=plan)
-        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+        _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision, plugin_decision=plugin_decision)
         return result
 
     store = GroundRecallStore(store_dir)
@@ -1430,7 +1548,7 @@ def promote_quarantined_bundle(
             if existing is None:
                 collection["save"](record)
     result = FederationPromotionResult(decision="promoted", plan=plan.model_copy(update={"apply": True}))
-    _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
+    _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision, plugin_decision=plugin_decision)
     return result
 
 
@@ -1452,6 +1570,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--allow-unclassified-public", action="store_true")
     export_parser.add_argument("--allow-privileged", action="store_true")
     export_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
+    export_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     export_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the export.")
     export_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
     export_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
@@ -1463,6 +1582,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser.add_argument("--trust-registry", default=None, help="Optional local trust registry JSON file.")
     import_parser.add_argument("--key-id", default=None)
     import_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
+    import_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     import_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the import.")
     import_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
     import_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
@@ -1490,6 +1610,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Accepted target release level. May be repeated.",
     )
     promote_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
+    promote_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     promote_parser.add_argument("--requester-id", default="", help="Subject/principal requesting promotion.")
     promote_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
     promote_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
@@ -1754,6 +1875,7 @@ def main() -> None:
             allow_unclassified_public=args.allow_unclassified_public,
             allow_privileged=args.allow_privileged,
             policy=policy,
+            policy_plugins_path=args.policy_plugins,
             requester_id=args.requester_id,
             scope_id=args.scope_id,
             audit_log_path=args.audit_log,
@@ -1770,6 +1892,7 @@ def main() -> None:
             accepted_release_levels=accepted,
             key_id=resolved_key_id,
             policy=policy,
+            policy_plugins_path=args.policy_plugins,
             requester_id=args.requester_id,
             scope_id=args.scope_id,
             audit_log_path=args.audit_log,
@@ -1786,6 +1909,7 @@ def main() -> None:
             key_id=resolved_key_id,
             accepted_release_levels=accepted,
             policy=policy,
+            policy_plugins_path=args.policy_plugins,
             requester_id=args.requester_id,
             scope_id=args.scope_id,
             audit_log_path=args.audit_log,
@@ -2152,6 +2276,8 @@ def _audit_promotion(
     requester_id: str,
     bundle: FederationBundle,
     policy_decision: FederationPolicyDecision | None,
+    *,
+    plugin_decision: PolicyDecision | None = None,
 ) -> None:
     if audit_log_path is None:
         return
@@ -2171,6 +2297,7 @@ def _audit_promotion(
                 "unchanged_counts": result.plan.unchanged_counts,
                 "conflict_counts": result.plan.conflict_counts,
                 "apply": result.plan.apply,
+                **_policy_plugin_metadata(plugin_decision),
             },
         ),
     )

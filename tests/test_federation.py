@@ -1339,6 +1339,93 @@ def test_federation_cli_enforces_policy_file_and_writes_audit(tmp_path: Path, mo
     assert audit_row["scope_id"] == "project-alpha"
 
 
+def test_federation_export_honors_generic_policy_plugin_hard_gate(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    policy_plugins = tmp_path / "policy-plugins.yaml"
+    policy_plugins.write_text(
+        "\n".join(
+            [
+                "policy_id: federation.plugin.test",
+                "providers:",
+                "  - type: static",
+                "    policy_id: federation.static.hard_gate",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    audit_log = tmp_path / "audit.jsonl"
+    bundle_path = tmp_path / "bundle.json"
+
+    with pytest.raises(FederationPolicyError, match="policy_plugin_hard_gate"):
+        export_federation_bundle(
+            store.base_dir,
+            bundle_path,
+            target_release_level="public",
+            producer_instance_id="host-a",
+            signing_key=SIGNING_KEY,
+            key_id="test-key",
+            policy_plugins_path=policy_plugins,
+            requester_id="alice",
+            audit_log_path=audit_log,
+        )
+
+    assert not bundle_path.exists()
+    audit_row = json.loads(audit_log.read_text(encoding="utf-8").splitlines()[0])
+    assert audit_row["decision"] == "rejected"
+    assert audit_row["metadata"]["policy_plugin_decision"]["policy_id"] == "federation.plugin.test"
+    assert audit_row["metadata"]["policy_plugin_decision"]["decision"] == "hard_gate"
+
+
+def test_federation_promotion_honors_generic_policy_plugin_hard_gate(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_federation_store(store)
+    bundle_path = tmp_path / "bundle.json"
+    export_federation_bundle(
+        store.base_dir,
+        bundle_path,
+        target_release_level="public",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+    )
+    policy_plugins = tmp_path / "policy-plugins.yaml"
+    policy_plugins.write_text(
+        "\n".join(
+            [
+                "policy_id: federation.promote.plugin.test",
+                "providers:",
+                "  - type: static",
+                "    policy_id: federation.promote.static.hard_gate",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    audit_log = tmp_path / "audit.jsonl"
+    receiver_store = tmp_path / "receiver-store"
+
+    result = promote_quarantined_bundle(
+        bundle_path,
+        receiver_store,
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["public"],
+        policy_plugins_path=policy_plugins,
+        requester_id="alice",
+        audit_log_path=audit_log,
+        apply=True,
+    )
+
+    assert result.decision == "rejected"
+    assert result.reasons == ["policy_plugin_hard_gate:default_hard_gate"]
+    assert not (receiver_store / "claims" / "clm_public.json").exists()
+    audit_row = json.loads(audit_log.read_text(encoding="utf-8").splitlines()[0])
+    assert audit_row["metadata"]["policy_plugin_decision"]["policy_id"] == "federation.promote.plugin.test"
+    assert audit_row["metadata"]["policy_plugin_decision"]["decision"] == "hard_gate"
+
+
 def test_federation_cli_compiles_policy_from_roles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     role_directory_path = tmp_path / "roles.json"
     policy_path = tmp_path / "policy.json"

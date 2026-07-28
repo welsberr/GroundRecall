@@ -6,8 +6,6 @@ from typing import Any, Literal, Protocol
 import yaml
 from pydantic import BaseModel, Field
 
-from .federation import RELEASE_RANK, ReleaseLevel, normalize_release_level
-
 
 PolicyDecisionPoint = Literal[
     "read",
@@ -29,6 +27,44 @@ PolicyDecisionPoint = Literal[
 ]
 
 PolicyDecisionValue = Literal["allow", "deny", "soft_gate", "hard_gate", "require_review"]
+ReleaseLevel = Literal["public", "internal", "confidential", "privileged", "private"]
+
+RELEASE_LEVELS: tuple[ReleaseLevel, ...] = (
+    "public",
+    "internal",
+    "confidential",
+    "privileged",
+    "private",
+)
+RELEASE_RANK: dict[ReleaseLevel, int] = {level: index for index, level in enumerate(RELEASE_LEVELS)}
+RELEASE_VALUE_ALIASES: dict[str, ReleaseLevel] = {
+    "public": "public",
+    "publish": "public",
+    "published": "public",
+    "released": "public",
+    "internal": "internal",
+    "team": "internal",
+    "project": "internal",
+    "organization": "internal",
+    "organisation": "internal",
+    "confidential": "confidential",
+    "restricted": "confidential",
+    "sensitive": "confidential",
+    "nonpublic": "confidential",
+    "non_public": "confidential",
+    "privileged": "privileged",
+    "legal_privileged": "privileged",
+    "attorney_client": "privileged",
+    "medical": "privileged",
+    "security": "privileged",
+    "hr": "privileged",
+    "private": "private",
+    "local": "private",
+    "local_only": "private",
+    "do_not_export": "private",
+    "no_export": "private",
+    "secret": "private",
+}
 
 DECISION_RANK: dict[PolicyDecisionValue, int] = {
     "allow": 0,
@@ -325,6 +361,13 @@ def _most_restrictive_release(values: Any) -> ReleaseLevel | None:
     if not levels:
         return None
     return max(levels, key=lambda level: RELEASE_RANK[level])
+
+
+def normalize_release_level(value: Any) -> ReleaseLevel | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
+    return RELEASE_VALUE_ALIASES.get(normalized)
 
 
 def _dedupe(values: Any) -> list[Any]:
