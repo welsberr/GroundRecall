@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .graph_diagnostics import build_graph_diagnostics, compact_graph_diagnostics
+from .policy_coverage import build_policy_coverage_report
 from .store import GroundRecallStore
 
 
@@ -14,6 +15,8 @@ def summarize_store(
     *,
     include_graph: bool = False,
     compact_graph: bool = False,
+    include_policy_coverage: bool = False,
+    compact_policy_coverage: bool = False,
 ) -> dict[str, Any]:
     store = GroundRecallStore(store_dir)
     snapshots = store.list_snapshots()
@@ -44,6 +47,8 @@ def summarize_store(
             contradiction_cases=[item.model_dump() for item in store.list_contradiction_cases() if item.current_status != "rejected"],
         )
         payload["graph_diagnostics"] = compact_graph_diagnostics(diagnostics) if compact_graph else diagnostics
+    if include_policy_coverage or compact_policy_coverage:
+        payload["policy_coverage"] = build_policy_coverage_report(compact=compact_policy_coverage)
     return payload
 
 
@@ -53,8 +58,16 @@ def inspect_store(
     *,
     include_graph: bool = False,
     compact_graph: bool = False,
+    include_policy_coverage: bool = False,
+    compact_policy_coverage: bool = False,
 ) -> dict[str, Any]:
-    payload = summarize_store(store_dir, include_graph=include_graph, compact_graph=compact_graph)
+    payload = summarize_store(
+        store_dir,
+        include_graph=include_graph,
+        compact_graph=compact_graph,
+        include_policy_coverage=include_policy_coverage,
+        compact_policy_coverage=compact_policy_coverage,
+    )
     if out_path is not None:
         Path(out_path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return payload
@@ -66,10 +79,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out", default=None)
     parser.add_argument("--graph", action="store_true", help="Include concept/relation graph diagnostics")
     parser.add_argument("--graph-summary", action="store_true", help="Include compact active graph diagnostics")
+    parser.add_argument("--policy-coverage", action="store_true", help="Include policy enforcement coverage diagnostics")
+    parser.add_argument("--policy-coverage-summary", action="store_true", help="Include compact policy enforcement coverage diagnostics")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
-    payload = inspect_store(args.store_dir, out_path=args.out, include_graph=args.graph, compact_graph=args.graph_summary)
+    payload = inspect_store(
+        args.store_dir,
+        out_path=args.out,
+        include_graph=args.graph,
+        compact_graph=args.graph_summary,
+        include_policy_coverage=args.policy_coverage,
+        compact_policy_coverage=args.policy_coverage_summary,
+    )
     print(json.dumps(payload, indent=2))

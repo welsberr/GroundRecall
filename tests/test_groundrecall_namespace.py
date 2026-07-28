@@ -6,6 +6,7 @@ from groundrecall.export import export_canonical_bundle
 from groundrecall.ingest import run_groundrecall_import
 from groundrecall.inspect import inspect_store
 from groundrecall.models import ClaimRecord, ConceptRecord, ProvenanceRecord, RelationRecord
+from groundrecall.policy_coverage import build_policy_coverage_report
 from groundrecall.query import query_concept
 from groundrecall.store import GroundRecallStore
 from groundrecall.lint import lint_import_directory
@@ -83,6 +84,39 @@ def test_groundrecall_inspect_can_include_graph_diagnostics(tmp_path: Path) -> N
     assert payload["graph_diagnostics"]["summary"]["concept_count"] == payload["concept_count"] - 1
     assert payload["graph_diagnostics"]["summary"]["relation_count"] == payload["relation_count"] - 1
     assert payload["graph_diagnostics"]["summary"]["connected_component_count"] >= 1
+
+
+def test_policy_coverage_report_summarizes_enforcement_surfaces() -> None:
+    payload = build_policy_coverage_report()
+
+    assert payload["schema_version"] == "groundrecall.policy_coverage.v1"
+    assert payload["summary"]["route_count"] >= 1
+    assert payload["summary"]["covered_route_count"] >= 1
+    assert payload["summary"]["partial_route_count"] >= 1
+    assert payload["summary"]["covered_durable_mutation_route_count"] >= 1
+    assert any(item["route_id"] == "cli.graph_augment.write_candidates" for item in payload["open_items"])
+    assert any(item["route_id"] == "cli.promote" and item["status"] == "covered" for item in payload["routes"])
+
+
+def test_groundrecall_inspect_can_include_policy_coverage(tmp_path: Path) -> None:
+    store_dir = tmp_path / "store"
+    GroundRecallStore(store_dir)
+
+    payload = inspect_store(store_dir, out_path=tmp_path / "inspect-policy.json", include_policy_coverage=True)
+
+    assert (tmp_path / "inspect-policy.json").exists()
+    assert payload["policy_coverage"]["schema_version"] == "groundrecall.policy_coverage.v1"
+    assert payload["policy_coverage"]["summary"]["covered_route_count"] >= 1
+
+
+def test_groundrecall_inspect_can_include_compact_policy_coverage(tmp_path: Path) -> None:
+    store_dir = tmp_path / "store"
+    GroundRecallStore(store_dir)
+
+    payload = inspect_store(store_dir, compact_policy_coverage=True)
+
+    assert payload["policy_coverage"]["summary"]["covered_route_count"] >= 1
+    assert "routes" not in payload["policy_coverage"]
 
 
 def test_graph_diagnostics_separate_source_family_from_semantic_edges(tmp_path: Path) -> None:
@@ -218,6 +252,40 @@ def test_groundrecall_cli_inspect_dispatches(tmp_path: Path, capsys) -> None:
     output = capsys.readouterr().out
     assert '"claim_count"' in output
     assert '"concept_count"' in output
+
+
+def test_groundrecall_cli_inspect_policy_coverage_dispatches(tmp_path: Path, capsys) -> None:
+    store_dir = tmp_path / "store"
+    GroundRecallStore(store_dir)
+
+    original_argv = sys.argv
+    try:
+        sys.argv = ["groundrecall.cli", "inspect", str(store_dir), "--policy-coverage"]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    output = capsys.readouterr().out
+    assert '"policy_coverage"' in output
+    assert '"schema_version": "groundrecall.policy_coverage.v1"' in output
+    assert '"routes"' in output
+
+
+def test_groundrecall_cli_inspect_policy_coverage_summary_dispatches(tmp_path: Path, capsys) -> None:
+    store_dir = tmp_path / "store"
+    GroundRecallStore(store_dir)
+
+    original_argv = sys.argv
+    try:
+        sys.argv = ["groundrecall.cli", "inspect", str(store_dir), "--policy-coverage-summary"]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    output = capsys.readouterr().out
+    assert '"policy_coverage"' in output
+    assert '"covered_route_count"' in output
+    assert '"routes"' not in output
 
 
 def test_groundrecall_cli_inspect_graph_dispatches(tmp_path: Path, capsys) -> None:

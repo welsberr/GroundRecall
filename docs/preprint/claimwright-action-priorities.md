@@ -23,6 +23,17 @@ Items are ranked higher when they:
 
 ## P0: Policy Coverage And Audit Completeness
 
+Initial implementation status:
+
+- `src/groundrecall/policy_coverage.py` defines a versioned
+  `groundrecall.policy_coverage.v1` registry for policy-enforcement coverage.
+- `groundrecall inspect STORE --policy-coverage` emits the full route matrix.
+- `groundrecall inspect STORE --policy-coverage-summary` emits compact counts
+  and open items.
+- `inspect_store(..., include_policy_coverage=True)` exposes the same report
+  through the Python API.
+- Tests cover the report, Python API, and CLI dispatch.
+
 ClaimWright review basis:
 
 - policy-plugin enforcement covers selected surfaces, not all mutation paths;
@@ -51,7 +62,7 @@ Recommended implementation sequence:
 1. Add a policy-enforcement coverage matrix for every read/write/export/import
    route: MCP tools, CLI commands, Python APIs, federation, promotion,
    relation review, contradiction adjudication, graph backfill, review queue,
-   and future erasure.
+   and future erasure. Implemented baseline.
 2. Add deny/hard-gate audit events for every gated write attempt, including
    blocked attempts before durable memory changes occur.
 3. Add regression tests proving that each covered write path fails closed when
@@ -65,7 +76,7 @@ Recommended implementation sequence:
 Acceptance criteria:
 
 - each durable mutation route is classified as covered, intentionally ungated,
-  or not yet covered;
+  or not yet covered; implemented baseline;
 - covered write routes have deny/hard-gate tests;
 - denied write routes leave audit evidence without writing protected records;
 - the preprint can cite the coverage artifact without claiming production IAM.

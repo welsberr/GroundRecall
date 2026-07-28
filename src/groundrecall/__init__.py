@@ -95,6 +95,7 @@ from .policy import (
     load_policy_plugins,
     load_policy_provider,
 )
+from .policy_coverage import POLICY_COVERAGE_SCHEMA_VERSION, build_policy_coverage_report
 from .store import GroundRecallStore
 
 __all__ = [
@@ -190,6 +191,8 @@ __all__ = [
     "compose_policy_decisions",
     "load_policy_plugins",
     "load_policy_provider",
+    "POLICY_COVERAGE_SCHEMA_VERSION",
+    "build_policy_coverage_report",
     "build_query_parser",
     "query_main",
     "summarize_store",

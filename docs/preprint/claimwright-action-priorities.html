@@ -32,6 +32,14 @@
 <li>avoid premature production claims, benchmark claims, or broad security proofs.</li>
 </ol>
 <h2 id="p0-policy-coverage-and-audit-completeness">P0: Policy Coverage And Audit Completeness</h2>
+<p>Initial implementation status:</p>
+<ul>
+<li><code>src/groundrecall/policy_coverage.py</code> defines a versioned <code>groundrecall.policy_coverage.v1</code> registry for policy-enforcement coverage.</li>
+<li><code>groundrecall inspect STORE --policy-coverage</code> emits the full route matrix.</li>
+<li><code>groundrecall inspect STORE --policy-coverage-summary</code> emits compact counts and open items.</li>
+<li><code>inspect_store(..., include_policy_coverage=True)</code> exposes the same report through the Python API.</li>
+<li>Tests cover the report, Python API, and CLI dispatch.</li>
+</ul>
 <p>ClaimWright review basis:</p>
 <ul>
 <li>policy-plugin enforcement covers selected surfaces, not all mutation paths;</li>
@@ -52,7 +60,7 @@
 </ul>
 <p>Recommended implementation sequence:</p>
 <ol type="1">
-<li>Add a policy-enforcement coverage matrix for every read/write/export/import route: MCP tools, CLI commands, Python APIs, federation, promotion, relation review, contradiction adjudication, graph backfill, review queue, and future erasure.</li>
+<li>Add a policy-enforcement coverage matrix for every read/write/export/import route: MCP tools, CLI commands, Python APIs, federation, promotion, relation review, contradiction adjudication, graph backfill, review queue, and future erasure. Implemented baseline.</li>
 <li>Add deny/hard-gate audit events for every gated write attempt, including blocked attempts before durable memory changes occur.</li>
 <li>Add regression tests proving that each covered write path fails closed when a policy plugin denies or hard-gates the operation.</li>
 <li>Expose coverage status in diagnostics, for example <code>groundrecall inspect --policy-coverage</code>, so paper claims can cite a generated artifact rather than prose.</li>
@@ -60,7 +68,7 @@
 </ol>
 <p>Acceptance criteria:</p>
 <ul>
-<li>each durable mutation route is classified as covered, intentionally ungated, or not yet covered;</li>
+<li>each durable mutation route is classified as covered, intentionally ungated, or not yet covered; implemented baseline;</li>
 <li>covered write routes have deny/hard-gate tests;</li>
 <li>denied write routes leave audit evidence without writing protected records;</li>
 <li>the preprint can cite the coverage artifact without claiming production IAM.</li>
