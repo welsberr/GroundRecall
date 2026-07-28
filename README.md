@@ -134,6 +134,7 @@ groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurre
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family --apply
 groundrecall graph-maintenance .groundrecall/store --limit 5 --apply
+groundrecall graph-maintenance .groundrecall/store --profile support --limit 5 --apply
 groundrecall relation-review .groundrecall/store --concept-prefix concept::evo-edu-notebook --support-kind inferred --limit 25
 groundrecall relation-review .groundrecall/store --apply relation-decisions.json
 groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
@@ -148,7 +149,10 @@ strength and fragility; they are not source-truth labels.
 
 `graph-maintenance` runs one bounded graph backfill slice and records resumable
 state under the store by default. It is intended for cron/systemd-style periodic
-launches with a small `--limit`, not as a long-running daemon.
+launches with a small `--limit`, not as a long-running daemon. Its default
+`safe` profile avoids high-volume support-anchor strategies; use
+`--profile support` explicitly to backfill claim/observation/artifact support
+anchors.
 
 Export assistant-neutral data:
 

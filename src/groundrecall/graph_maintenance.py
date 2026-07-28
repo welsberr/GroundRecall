@@ -10,6 +10,21 @@ from .graph_augment import VALID_STRATEGIES, augment_store_relations_from_claims
 
 
 DEFAULT_STRATEGIES = ["claim-cooccurrence", "claim-mentions", "observation-cooccurrence", "source-family"]
+PROFILE_STRATEGIES = {
+    "safe": DEFAULT_STRATEGIES,
+    "support": ["claim-support-anchors", "observation-artifact-anchors"],
+    "semantic": ["claim-links", "claim-contradiction-cues", "claim-mentions"],
+    "all": [
+        "claim-cooccurrence",
+        "claim-links",
+        "claim-mentions",
+        "observation-cooccurrence",
+        "source-family",
+        "claim-support-anchors",
+        "observation-artifact-anchors",
+        "claim-contradiction-cues",
+    ],
+}
 STATE_SCHEMA_VERSION = "groundrecall.graph_maintenance_state.v1"
 
 
@@ -26,6 +41,7 @@ def run_graph_maintenance_slice(
     *,
     state_path: str | Path | None = None,
     strategies: list[str] | None = None,
+    profile: str = "safe",
     concept_prefixes: list[str] | None = None,
     limit: int = 10,
     min_evidence: int = 2,
@@ -33,12 +49,7 @@ def run_graph_maintenance_slice(
     apply: bool = False,
     advance_on_dry_run: bool = False,
 ) -> dict[str, Any]:
-    active_strategies = [item for item in (strategies or DEFAULT_STRATEGIES) if item]
-    invalid = sorted(set(active_strategies) - VALID_STRATEGIES)
-    if invalid:
-        raise ValueError(f"Unknown graph maintenance strategy: {', '.join(invalid)}")
-    if not active_strategies:
-        raise ValueError("At least one graph maintenance strategy is required.")
+    active_strategies = _resolve_strategies(strategies=strategies, profile=profile)
 
     resolved_state_path = Path(state_path) if state_path is not None else default_state_path(store_dir)
     state = _load_state(resolved_state_path)
@@ -76,6 +87,7 @@ def run_graph_maintenance_slice(
             "store_dir": str(Path(store_dir)),
             "updated_at": run_record["ran_at"],
             "run_count": int(state.get("run_count", 0)) + 1,
+            "profile": profile,
             "strategies": active_strategies,
             "next_strategy_index": next_strategy_index,
             "last_run": run_record,
@@ -90,10 +102,25 @@ def run_graph_maintenance_slice(
         "state_advanced": advanced,
         "selected_strategy": strategy,
         "next_strategy": active_strategies[next_strategy_index],
+        "profile": profile,
         "strategies": active_strategies,
         "run_record": run_record,
         "augmentation": augmentation,
     }
+
+
+def _resolve_strategies(*, strategies: list[str] | None, profile: str) -> list[str]:
+    active_strategies = [item for item in (strategies or []) if item]
+    if not active_strategies:
+        if profile not in PROFILE_STRATEGIES:
+            raise ValueError(f"Unknown graph maintenance profile: {profile}")
+        active_strategies = list(PROFILE_STRATEGIES[profile])
+    invalid = sorted(set(active_strategies) - VALID_STRATEGIES)
+    if invalid:
+        raise ValueError(f"Unknown graph maintenance strategy: {', '.join(invalid)}")
+    if not active_strategies:
+        raise ValueError("At least one graph maintenance strategy is required.")
+    return active_strategies
 
 
 def _load_state(path: Path) -> dict[str, Any]:
@@ -117,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run one bounded, resumable GroundRecall graph maintenance slice.")
     parser.add_argument("store_dir")
     parser.add_argument("--state-path", default=None)
+    parser.add_argument("--profile", choices=sorted(PROFILE_STRATEGIES), default="safe")
     parser.add_argument("--strategy", action="append", choices=sorted(VALID_STRATEGIES), default=[])
     parser.add_argument("--concept-prefix", action="append", default=[])
     parser.add_argument("--limit", type=int, default=10, help="Maximum candidate relations to process in this slice.")
@@ -133,6 +161,7 @@ def main() -> None:
         args.store_dir,
         state_path=args.state_path,
         strategies=list(args.strategy or []),
+        profile=args.profile,
         concept_prefixes=list(args.concept_prefix or []),
         limit=args.limit,
         min_evidence=args.min_evidence,

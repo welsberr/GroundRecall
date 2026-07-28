@@ -179,7 +179,10 @@ source-observation links and keeps that relation type in the support/provenance
 diagnostic layer rather than the concept-semantic graph layer. The
 `observation-artifact-anchors` strategy now emits
 `artifact_contains_observation` candidates from existing observation artifact
-links, also in the support/provenance layer.
+links, also in the support/provenance layer. `graph-maintenance` now exposes
+named profiles so existing cron jobs remain on the `safe` strategy set unless
+high-volume support-anchor backfill is explicitly requested with
+`--profile support`.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -227,7 +230,8 @@ Implementation requirements:
 - Add a resumable maintenance runner for scheduled operation. Initial
   implementation exists as `groundrecall graph-maintenance`: it chooses one
   strategy per invocation, applies a candidate limit, records JSON state, and
-  rotates to the next configured strategy after applied runs.
+  rotates to the next configured strategy after applied runs. Named profiles
+  keep high-volume support-anchor strategies out of the default scheduled path.
 
 Acceptance tests:
 
