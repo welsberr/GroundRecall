@@ -112,6 +112,12 @@ Initial implementation status:
   unchanged.
 - Candidate acceptance accepts optional policy-plugin configs; deny/hard-gate
   decisions block before claim, relation, or contradiction-case writes.
+- `groundrecall contradictions reject-candidate STORE RELATION_ID --reviewer
+  ... --rationale ...` marks a false-positive contradiction cue rejected
+  without creating claim links or a case.
+- Candidate acceptance and rejection can write
+  `groundrecall.contradiction_candidate_audit.v1` JSONL audit events for
+  accepted, rejected, and policy-blocked decisions.
 - Concept query bundles now expose `candidate_contradiction_cues`,
   `adjudicated_contradiction_cases`, and `conflict_summary` fields so explicit
   contradictions, heuristic cues, resolved/adjudicated cases, supersessions,
@@ -122,6 +128,10 @@ Initial implementation status:
   dispatch, policy-gated blocking, explicit-link case generation, case
   persistence, diagnostics, adjudication, query surfacing, and public-export
   cue pruning.
+- `examples/preprint/run_preprint_demos.py` now emits
+  `contradiction_candidate_review.json`, showing cue listing, candidate
+  acceptance, audit evidence, first-class case creation, adjudication, preserved
+  claim text, and query conflict-summary output.
 
 ClaimWright review basis:
 
@@ -159,11 +169,12 @@ Recommended implementation sequence:
    - adjudicated/resolved contradiction cases;
    - stale or superseded claims. Implemented baseline in concept query bundles.
 4. Add tests for candidate-to-case promotion, rejection, audit metadata, and
-   no silent rewriting of underlying claims. Implemented for listing,
-   acceptance, policy blocking, and no claim-text rewriting; rejection and
-   separate audit-log emission remain open.
+   no silent rewriting of underlying claims. Implemented baseline for listing,
+   acceptance, rejection, policy blocking, audit events, and no claim-text
+   rewriting.
 5. Add a reproducible preprint demonstration showing candidate cue → review →
-   case → adjudication.
+   case → adjudication. Implemented baseline in
+   `examples/preprint/out/contradiction_candidate_review.json`.
 
 Acceptance criteria:
 

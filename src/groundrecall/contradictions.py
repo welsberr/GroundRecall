@@ -195,6 +195,7 @@ def accept_contradiction_candidate(
     reviewed_at: str | None = None,
     policy_plugins_path: str | Path | None = None,
     policy_subject_id: str = "",
+    audit_log_path: str | Path | None = None,
 ) -> dict[str, Any]:
     """Promote a graph-inferred contradiction cue into explicit claim links and a case."""
 
@@ -215,13 +216,27 @@ def accept_contradiction_candidate(
     timestamp = reviewed_at or _now_utc()
     assert left is not None
     assert right is not None
-    policy_decision = _evaluate_candidate_acceptance_policy(
-        policy_plugins_path,
-        subject_id=policy_subject_id or reviewer,
-        relation=relation,
-        reviewer=reviewer,
-        rationale=rationale,
-    )
+    try:
+        policy_decision = _evaluate_candidate_policy(
+            policy_plugins_path,
+            subject_id=policy_subject_id or reviewer,
+            relation=relation,
+            action="accept_contradiction_candidate",
+            reviewer=reviewer,
+            rationale=rationale,
+        )
+    except ContradictionPolicyError as exc:
+        _write_candidate_audit_event(
+            audit_log_path,
+            action="accept_contradiction_candidate",
+            decision="blocked",
+            relation=relation,
+            reviewer=reviewer,
+            rationale=rationale,
+            reviewed_at=timestamp,
+            policy_decision=exc.payload.get("policy_plugin_decision"),
+        )
+        raise
     updated_left = _claim_with_contradiction_link(left, right.claim_id)
     updated_right = _claim_with_contradiction_link(right, left.claim_id)
     store.save_claim(updated_left)
@@ -251,13 +266,90 @@ def accept_contradiction_candidate(
         }
     )
     store.save_contradiction_case(case)
-    return {
+    payload = {
         "decision": "accepted_contradiction_candidate",
         "relation": updated_relation.model_dump(mode="json"),
         "case": case.model_dump(mode="json"),
         "synced_case_count": len(cases),
         **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
     }
+    _write_candidate_audit_event(
+        audit_log_path,
+        action="accept_contradiction_candidate",
+        decision="accepted",
+        relation=updated_relation,
+        reviewer=reviewer,
+        rationale=rationale,
+        reviewed_at=timestamp,
+        case_id=case.case_id,
+        policy_decision=policy_decision.model_dump(mode="json") if policy_decision is not None else None,
+    )
+    return payload
+
+
+def reject_contradiction_candidate(
+    store_dir: str | Path,
+    *,
+    relation_id: str,
+    reviewer: str,
+    rationale: str,
+    reviewed_at: str | None = None,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
+    audit_log_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Reject a graph-inferred contradiction cue without creating contradiction links."""
+
+    from .store import GroundRecallStore
+
+    store = GroundRecallStore(store_dir)
+    relation = store.get_relation(relation_id)
+    if relation is None:
+        raise KeyError(f"Unknown GroundRecall relation: {relation_id}")
+    if relation.relation_type != "claim_may_contradict_claim":
+        raise ValueError(f"Relation {relation_id} is not a claim_may_contradict_claim candidate")
+
+    timestamp = reviewed_at or _now_utc()
+    try:
+        policy_decision = _evaluate_candidate_policy(
+            policy_plugins_path,
+            subject_id=policy_subject_id or reviewer,
+            relation=relation,
+            action="reject_contradiction_candidate",
+            reviewer=reviewer,
+            rationale=rationale,
+        )
+    except ContradictionPolicyError as exc:
+        _write_candidate_audit_event(
+            audit_log_path,
+            action="reject_contradiction_candidate",
+            decision="blocked",
+            relation=relation,
+            reviewer=reviewer,
+            rationale=rationale,
+            reviewed_at=timestamp,
+            policy_decision=exc.payload.get("policy_plugin_decision"),
+        )
+        raise
+
+    updated_relation = relation.model_copy(update={"current_status": "rejected"})
+    store.save_relation(updated_relation)
+    payload = {
+        "decision": "rejected_contradiction_candidate",
+        "relation": updated_relation.model_dump(mode="json"),
+        **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
+    }
+    _write_candidate_audit_event(
+        audit_log_path,
+        action="reject_contradiction_candidate",
+        decision="rejected",
+        relation=updated_relation,
+        reviewer=reviewer,
+        rationale=rationale,
+        reviewed_at=timestamp,
+        policy_decision=policy_decision.model_dump(mode="json") if policy_decision is not None else None,
+    )
+    return payload
 
 
 def sync_contradiction_cases_for_store(store_dir: str | Path) -> list[ContradictionCaseRecord]:
@@ -399,11 +491,12 @@ def _evaluate_adjudication_policy(
     return decision
 
 
-def _evaluate_candidate_acceptance_policy(
+def _evaluate_candidate_policy(
     policy_plugins_path: str | Path | None,
     *,
     subject_id: str,
     relation: RelationRecord,
+    action: str,
     reviewer: str,
     rationale: str,
 ) -> PolicyDecision | None:
@@ -414,7 +507,7 @@ def _evaluate_candidate_acceptance_policy(
         PolicyRequest(
             decision_point="adjudicate",
             subject_id=subject_id,
-            action="accept_contradiction_candidate",
+            action=action,
             record_kind="relation",
             record_id=relation.relation_id,
             contradiction_state="candidate",
@@ -431,7 +524,7 @@ def _evaluate_candidate_acceptance_policy(
     )
     if decision.decision in {"deny", "hard_gate"}:
         raise ContradictionPolicyError(
-            "Policy plugin blocked contradiction candidate acceptance.",
+            f"Policy plugin blocked contradiction candidate action: {action}.",
             {
                 "policy_plugin_decision": decision.model_dump(mode="json"),
             },
@@ -466,6 +559,17 @@ def build_parser() -> argparse.ArgumentParser:
     accept_parser.add_argument("--reviewed-at", default=None)
     accept_parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for acceptance gating.")
     accept_parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
+    accept_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log for candidate acceptance decisions.")
+
+    reject_parser = subparsers.add_parser("reject-candidate", help="Reject a contradiction relation candidate without creating a case")
+    reject_parser.add_argument("store_dir")
+    reject_parser.add_argument("relation_id")
+    reject_parser.add_argument("--reviewer", required=True)
+    reject_parser.add_argument("--rationale", required=True)
+    reject_parser.add_argument("--reviewed-at", default=None)
+    reject_parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for rejection gating.")
+    reject_parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
+    reject_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log for candidate rejection decisions.")
 
     adjudicate_parser = subparsers.add_parser("adjudicate", help="Record an adjudication against a contradiction case")
     adjudicate_parser.add_argument("store_dir")
@@ -506,15 +610,35 @@ def main() -> None:
             limit=args.limit,
         )
     elif args.command == "accept-candidate":
-        payload = accept_contradiction_candidate(
-            args.store_dir,
-            relation_id=args.relation_id,
-            reviewer=args.reviewer,
-            rationale=args.rationale,
-            reviewed_at=args.reviewed_at,
-            policy_plugins_path=args.policy_plugins,
-            policy_subject_id=args.policy_subject_id,
-        )
+        try:
+            payload = accept_contradiction_candidate(
+                args.store_dir,
+                relation_id=args.relation_id,
+                reviewer=args.reviewer,
+                rationale=args.rationale,
+                reviewed_at=args.reviewed_at,
+                policy_plugins_path=args.policy_plugins,
+                policy_subject_id=args.policy_subject_id,
+                audit_log_path=args.audit_log,
+            )
+        except ContradictionPolicyError as exc:
+            print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)
+            raise SystemExit(2) from exc
+    elif args.command == "reject-candidate":
+        try:
+            payload = reject_contradiction_candidate(
+                args.store_dir,
+                relation_id=args.relation_id,
+                reviewer=args.reviewer,
+                rationale=args.rationale,
+                reviewed_at=args.reviewed_at,
+                policy_plugins_path=args.policy_plugins,
+                policy_subject_id=args.policy_subject_id,
+                audit_log_path=args.audit_log,
+            )
+        except ContradictionPolicyError as exc:
+            print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)
+            raise SystemExit(2) from exc
     else:
         try:
             payload = adjudicate_contradiction_case(
@@ -650,6 +774,41 @@ def _claim_reference_payload(
 def _claim_with_contradiction_link(claim: ClaimRecord, target_claim_id: str) -> ClaimRecord:
     links = list(dict.fromkeys([*claim.contradicts_claim_ids, target_claim_id]))
     return claim.model_copy(update={"contradicts_claim_ids": links})
+
+
+def _write_candidate_audit_event(
+    audit_log_path: str | Path | None,
+    *,
+    action: str,
+    decision: str,
+    relation: RelationRecord,
+    reviewer: str,
+    rationale: str,
+    reviewed_at: str,
+    case_id: str = "",
+    policy_decision: dict[str, Any] | None = None,
+) -> None:
+    if audit_log_path is None:
+        return
+    target = Path(audit_log_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    event = {
+        "schema_version": "groundrecall.contradiction_candidate_audit.v1",
+        "timestamp": reviewed_at,
+        "action": action,
+        "decision": decision,
+        "relation_id": relation.relation_id,
+        "relation_type": relation.relation_type,
+        "source_claim_id": relation.source_id,
+        "target_claim_id": relation.target_id,
+        "case_id": case_id,
+        "reviewer": reviewer,
+        "rationale": rationale,
+        "relation_status": relation.current_status,
+        **({"policy_plugin_decision": policy_decision} if policy_decision is not None else {}),
+    }
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, sort_keys=True) + "\n")
 
 
 def _adjudication_id_for_case(case_id: str, timestamp: str) -> str:

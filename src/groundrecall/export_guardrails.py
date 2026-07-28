@@ -579,6 +579,21 @@ def _refresh_conflict_summary_payload(payload: dict[str, Any]) -> None:
         )
     ):
         return
+    contradiction_pairs = {
+        tuple(sorted((str(item.get("claim_id", "")), str(target_id))))
+        for item in contradictions
+        for target_id in item.get("contradicts_claim_ids", [])
+        if isinstance(item, dict) and str(item.get("claim_id", "")) and str(target_id)
+    } if isinstance(contradictions, list) else set()
+    case_status_by_pair = {
+        tuple(sorted(str(claim_id) for claim_id in item.get("claim_ids", []) if str(claim_id))): str(item.get("status", ""))
+        for item in contradiction_cases
+        if isinstance(item, dict) and len(item.get("claim_ids", [])) >= 2
+    } if isinstance(contradiction_cases, list) else {}
+    unresolved_case_pairs = {
+        pair for pair, status in case_status_by_pair.items() if status in {"open", "under_review"}
+    }
+    contradiction_pairs_without_cases = contradiction_pairs - set(case_status_by_pair)
     payload["conflict_summary"] = {
         "explicit_contradiction_claim_count": len(contradictions) if isinstance(contradictions, list) else 0,
         "contradiction_case_count": len(contradiction_cases) if isinstance(contradiction_cases, list) else 0,
@@ -587,16 +602,9 @@ def _refresh_conflict_summary_payload(payload: dict[str, Any]) -> None:
         "supersession_claim_count": len(supersessions) if isinstance(supersessions, list) else 0,
         "stale_claim_count": len(stale_claims) if isinstance(stale_claims, list) else 0,
         "has_unresolved_conflict_signal": bool(
-            (isinstance(contradictions, list) and contradictions)
-            or (isinstance(candidate_cues, list) and candidate_cues)
-            or (
-                isinstance(contradiction_cases, list)
-                and [
-                    item
-                    for item in contradiction_cases
-                    if isinstance(item, dict) and item.get("status") in {"open", "under_review"}
-                ]
-            )
+            (isinstance(candidate_cues, list) and candidate_cues)
+            or contradiction_pairs_without_cases
+            or unresolved_case_pairs
         ),
     }
 

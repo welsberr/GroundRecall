@@ -404,10 +404,16 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         for case in contradiction_cases_for_claim_ids(cases_by_id.values(), claim_ids)
         if case.current_status != "rejected"
     ]
+    contradiction_case_pairs = {
+        tuple(sorted(str(claim_id) for claim_id in case.get("claim_ids", []) if str(claim_id)))
+        for case in contradiction_cases
+        if len(case.get("claim_ids", [])) >= 2
+    }
     candidate_contradiction_cues = _candidate_contradiction_cues_for_claim_ids(
         store.list_relations(),
         claim_ids=claim_ids,
         claims_by_id={str(item.get("claim_id", "")): item for item in claims},
+        existing_case_pairs=contradiction_case_pairs,
     )
     contradiction_case_ids = {case["case_id"] for case in contradiction_cases}
     adjudicated_contradiction_cases = [
@@ -468,10 +474,13 @@ def _candidate_contradiction_cues_for_claim_ids(
     *,
     claim_ids: set[str],
     claims_by_id: dict[str, dict[str, Any]],
+    existing_case_pairs: set[tuple[str, ...]],
 ) -> list[dict[str, Any]]:
     cues = []
     for relation in relations:
         if relation.relation_type != "claim_may_contradict_claim" or relation.current_status == "rejected":
+            continue
+        if tuple(sorted((relation.source_id, relation.target_id))) in existing_case_pairs:
             continue
         relation_claim_ids = {relation.source_id, relation.target_id}
         if not claim_ids.intersection(relation_claim_ids):
@@ -527,6 +536,21 @@ def _conflict_summary(
     supersessions: list[dict[str, Any]],
     stale_claims: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    contradiction_pairs = {
+        tuple(sorted((str(item.get("claim_id", "")), str(target_id))))
+        for item in contradictions
+        for target_id in item.get("contradicts_claim_ids", [])
+        if str(item.get("claim_id", "")) and str(target_id)
+    }
+    case_status_by_pair = {
+        tuple(sorted(str(claim_id) for claim_id in item.get("claim_ids", []) if str(claim_id))): str(item.get("status", ""))
+        for item in contradiction_cases
+        if len(item.get("claim_ids", [])) >= 2
+    }
+    unresolved_case_pairs = {
+        pair for pair, status in case_status_by_pair.items() if status in {"open", "under_review"}
+    }
+    contradiction_pairs_without_cases = contradiction_pairs - set(case_status_by_pair)
     return {
         "explicit_contradiction_claim_count": len(contradictions),
         "contradiction_case_count": len(contradiction_cases),
@@ -535,13 +559,9 @@ def _conflict_summary(
         "supersession_claim_count": len(supersessions),
         "stale_claim_count": len(stale_claims),
         "has_unresolved_conflict_signal": bool(
-            contradictions
-            or candidate_contradiction_cues
-            or [
-                item
-                for item in contradiction_cases
-                if item.get("status") in {"open", "under_review"}
-            ]
+            candidate_contradiction_cues
+            or contradiction_pairs_without_cases
+            or unresolved_case_pairs
         ),
     }
 

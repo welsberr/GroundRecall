@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from groundrecall.contradictions import (
@@ -10,6 +12,7 @@ from groundrecall.contradictions import (
     generate_contradiction_cases_from_claims,
     list_contradiction_candidate_batch,
     list_contradiction_case_batch,
+    reject_contradiction_candidate,
     sync_contradiction_cases_for_store,
 )
 from groundrecall.cli import main as groundrecall_cli_main
@@ -153,6 +156,37 @@ def test_accept_contradiction_candidate_materializes_case(tmp_path) -> None:
     assert case.metadata["accepted_candidate_reviewer"] == "unit-test"
 
 
+def test_accept_contradiction_candidate_writes_audit_event(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable."))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable."))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+        )
+    )
+    audit_log = tmp_path / "audit" / "contradictions.jsonl"
+
+    result = accept_contradiction_candidate(
+        store.base_dir,
+        relation_id="rel_alpha_beta_contradiction_candidate",
+        reviewer="unit-test",
+        rationale="The statements cannot both be true in the same scope.",
+        reviewed_at="2026-07-28T00:00:00Z",
+        audit_log_path=audit_log,
+    )
+
+    event = json.loads(audit_log.read_text(encoding="utf-8"))
+    assert event["schema_version"] == "groundrecall.contradiction_candidate_audit.v1"
+    assert event["action"] == "accept_contradiction_candidate"
+    assert event["decision"] == "accepted"
+    assert event["case_id"] == result["case"]["case_id"]
+    assert event["relation_status"] == "reviewed"
+
+
 def test_accept_contradiction_candidate_blocks_hard_policy_plugin_decision(tmp_path) -> None:
     store = GroundRecallStore(tmp_path / "groundrecall")
     store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable."))
@@ -194,6 +228,85 @@ def test_accept_contradiction_candidate_blocks_hard_policy_plugin_decision(tmp_p
     assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
     assert store.get_claim("clm_alpha").contradicts_claim_ids == []
     assert store.get_contradiction_case(contradiction_case_id_for_claims(["clm_alpha", "clm_beta"])) is None
+
+
+def test_accept_contradiction_candidate_writes_blocked_policy_audit_event(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable."))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable."))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+        )
+    )
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: candidate.block.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: candidate.block.provider",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    audit_log = tmp_path / "audit" / "contradictions.jsonl"
+
+    with pytest.raises(ContradictionPolicyError):
+        accept_contradiction_candidate(
+            store.base_dir,
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            reviewer="unit-test",
+            rationale="The statements cannot both be true in the same scope.",
+            reviewed_at="2026-07-28T00:00:00Z",
+            policy_plugins_path=config,
+            audit_log_path=audit_log,
+        )
+
+    event = json.loads(audit_log.read_text(encoding="utf-8"))
+    assert event["decision"] == "blocked"
+    assert event["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert store.get_relation("rel_alpha_beta_contradiction_candidate").current_status == "draft"
+
+
+def test_reject_contradiction_candidate_marks_relation_rejected_without_case(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable."))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable."))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+        )
+    )
+    audit_log = tmp_path / "audit" / "contradictions.jsonl"
+
+    result = reject_contradiction_candidate(
+        store.base_dir,
+        relation_id="rel_alpha_beta_contradiction_candidate",
+        reviewer="unit-test",
+        rationale="The cue is only a scope distinction.",
+        reviewed_at="2026-07-28T00:00:00Z",
+        audit_log_path=audit_log,
+    )
+
+    relation = store.get_relation("rel_alpha_beta_contradiction_candidate")
+    assert result["decision"] == "rejected_contradiction_candidate"
+    assert relation is not None
+    assert relation.current_status == "rejected"
+    assert store.get_claim("clm_alpha").contradicts_claim_ids == []
+    assert store.get_contradiction_case(contradiction_case_id_for_claims(["clm_alpha", "clm_beta"])) is None
+    event = json.loads(audit_log.read_text(encoding="utf-8"))
+    assert event["action"] == "reject_contradiction_candidate"
+    assert event["decision"] == "rejected"
 
 
 def test_adjudicate_contradiction_case_records_decision_and_updates_case(tmp_path) -> None:

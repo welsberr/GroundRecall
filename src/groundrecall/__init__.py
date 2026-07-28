@@ -9,6 +9,7 @@ from .contradictions import (
     generate_contradiction_cases_from_claims,
     list_contradiction_candidate_batch,
     list_contradiction_case_batch,
+    reject_contradiction_candidate,
     sync_contradiction_cases_for_store,
 )
 from .inspect import inspect_store, summarize_store
@@ -110,6 +111,7 @@ __all__ = [
     "generate_contradiction_cases_from_claims",
     "list_contradiction_candidate_batch",
     "list_contradiction_case_batch",
+    "reject_contradiction_candidate",
     "sync_contradiction_cases_for_store",
     "ImportResult",
     "ImportPolicyError",

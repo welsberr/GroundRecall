@@ -1,0 +1,27 @@
+{
+  "acceptance_decision": "accepted_contradiction_candidate",
+  "audit_event_count": 1,
+  "audit_schema_version": "groundrecall.contradiction_candidate_audit.v1",
+  "candidate_count_before_review": 1,
+  "candidate_relation_id": "rel_candidate_resilience_conflict",
+  "case_id": "contradiction_case::claim_resilience_history__claim_resilience_rewrite::14b170d06882bae6",
+  "case_status_after_adjudication": "resolved",
+  "claim_texts_preserved": {
+    "claim_resilience_history": "Resilient memory should preserve review history when claims are challenged.",
+    "claim_resilience_rewrite": "Resilient memory should rewrite challenged claims in place."
+  },
+  "demo": "contradiction_candidate_review",
+  "query_conflict_summary": {
+    "adjudicated_contradiction_case_count": 1,
+    "candidate_contradiction_cue_count": 0,
+    "contradiction_case_count": 1,
+    "explicit_contradiction_claim_count": 2,
+    "has_unresolved_conflict_signal": false,
+    "stale_claim_count": 0,
+    "supersession_claim_count": 0
+  },
+  "result": "pass",
+  "selected_claim_ids": [
+    "claim_resilience_history"
+  ]
+}

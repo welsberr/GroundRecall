@@ -127,9 +127,9 @@ def _seed_store(store: GroundRecallStore) -> None:
     )
     store.save_relation(
         RelationRecord(
-            relation_id="rel_candidate_contradiction_001_002",
+            relation_id="rel_candidate_contradiction_001_003",
             source_id="clm_001",
-            target_id="clm_002",
+            target_id="clm_003",
             relation_type="claim_may_contradict_claim",
             evidence_ids=["obs_001"],
             current_status="triaged",
@@ -447,7 +447,7 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert "clm_004" in contradiction_ids
     open_cases_by_pair = {tuple(item["claim_ids"]): item for item in payload["contradiction_cases"]}
     assert open_cases_by_pair[("clm_001", "clm_004")]["status"] == "open"
-    assert payload["candidate_contradiction_cues"][0]["relation_id"] == "rel_candidate_contradiction_001_002"
+    assert payload["candidate_contradiction_cues"][0]["relation_id"] == "rel_candidate_contradiction_001_003"
     assert payload["candidate_contradiction_cues"][0]["review_state"] == "candidate_not_explicit_case"
     assert payload["adjudicated_contradiction_cases"][0]["case_id"] == "case_resolved_001_002"
     assert "clm_005" in supersession_ids

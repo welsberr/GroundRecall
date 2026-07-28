@@ -24,6 +24,7 @@ Generated summaries:
 
 - `provenance_promotion.json`
 - `contradiction_adjudication.json`
+- `contradiction_candidate_review.json`
 - `release_filtering.json`
 - `federation_quarantine.json`
 - `local_authority.json`

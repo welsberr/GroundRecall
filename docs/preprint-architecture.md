@@ -122,7 +122,9 @@ Implemented behavior:
 - `groundrecall contradictions list STORE --sync` returns review batches with claim previews;
 - `groundrecall contradictions candidates STORE` returns graph-inferred contradiction cues as a separate review batch before they are treated as explicit conflicts;
 - `groundrecall contradictions accept-candidate STORE RELATION_ID ...` promotes an accepted `claim_may_contradict_claim` cue into explicit bidirectional contradiction links and synchronizes a first-class case;
-- contradiction-candidate acceptance is policy-gated when a policy-plugin config is supplied, and hard-gate or deny decisions block before durable claim, relation, or case writes;
+- `groundrecall contradictions reject-candidate STORE RELATION_ID ...` rejects false-positive contradiction cues without creating contradiction links or cases;
+- contradiction-candidate acceptance and rejection are policy-gated when a policy-plugin config is supplied, and hard-gate or deny decisions block before durable claim, relation, or case writes;
+- candidate acceptance and rejection can write JSONL audit events for accepted, rejected, and policy-blocked decisions;
 - concept query bundles expose candidate contradiction cues, adjudicated contradiction cases, and a compact conflict summary alongside explicit contradiction cases, supersessions, and temporal stale-claim signals;
 - public query export guardrails prune contradiction cases and candidate cues whose claim endpoints are not exportable, then recalculate conflict counts;
 - `groundrecall contradictions adjudicate STORE CASE_ID ...` records the decision and updates case status without rewriting the underlying claims.

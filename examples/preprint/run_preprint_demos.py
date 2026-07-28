@@ -10,7 +10,9 @@ from typing import Any
 
 from groundrecall.contradictions import (
     ContradictionPolicyError,
+    accept_contradiction_candidate,
     adjudicate_contradiction_case,
+    list_contradiction_candidate_batch,
     sync_contradiction_cases_for_store,
 )
 from groundrecall.federation import (
@@ -37,7 +39,7 @@ from groundrecall.models import (
 from groundrecall.policy import PolicyRequest, load_policy_plugins
 from groundrecall.promotion import PromotionGateError, promote_import_to_store
 from groundrecall.query import query_concept
-from groundrecall.query import build_graph_search_bundle
+from groundrecall.query import build_graph_search_bundle, build_query_bundle_for_concept
 from groundrecall.relation_review import RelationReviewPolicyError, apply_relation_review_batch
 from groundrecall.search_index import build_search_index, search_index
 from groundrecall.store import GroundRecallStore
@@ -193,6 +195,80 @@ def demo_contradiction_adjudication(work_dir: Path) -> dict[str, Any]:
         "adjudication_id": result["adjudication"]["adjudication_id"],
         "selected_claim_ids": result["adjudication"]["metadata"]["selected_claim_ids"],
         "disagreement_preserved": result["adjudication"]["metadata"]["disagreement_preserved"],
+        "result": "pass",
+    }
+
+
+def demo_contradiction_candidate_review(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "contradiction_candidate_store")
+    store.save_concept(ConceptRecord(concept_id="concept::resilience", title="Resilience", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_resilience_history",
+            claim_text="Resilient memory should preserve review history when claims are challenged.",
+            concept_ids=["concept::resilience"],
+            current_status="promoted",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_resilience_rewrite",
+            claim_text="Resilient memory should rewrite challenged claims in place.",
+            concept_ids=["concept::resilience"],
+            current_status="reviewed",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_candidate_resilience_conflict",
+            source_id="claim_resilience_history",
+            target_id="claim_resilience_rewrite",
+            relation_type="claim_may_contradict_claim",
+            current_status="triaged",
+        )
+    )
+    candidate_batch = list_contradiction_candidate_batch(store.base_dir)
+    audit_log = work_dir / "contradiction_candidate_audit.jsonl"
+    accepted = accept_contradiction_candidate(
+        store.base_dir,
+        relation_id="rel_candidate_resilience_conflict",
+        reviewer="claimwright-demo-reviewer",
+        rationale="The two claims prescribe incompatible maintenance behavior in the same scope.",
+        reviewed_at=CREATED_AT,
+        audit_log_path=audit_log,
+    )
+    adjudicated = adjudicate_contradiction_case(
+        store.base_dir,
+        case_id=accepted["case"]["case_id"],
+        status="resolved",
+        adjudicator="claimwright-demo-reviewer",
+        rationale="Preserve challenged claims and record review/adjudication state rather than rewriting in place.",
+        resolution="prefer_non_destructive_review_history",
+        selected_claim_ids=["claim_resilience_history"],
+        decided_at=CREATED_AT,
+    )
+    query_bundle = build_query_bundle_for_concept(store.base_dir, "resilience")
+    assert query_bundle is not None
+    audit_events = [
+        json.loads(line)
+        for line in audit_log.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    return {
+        "demo": "contradiction_candidate_review",
+        "candidate_count_before_review": candidate_batch["candidate_count"],
+        "candidate_relation_id": candidate_batch["candidates"][0]["relation_id"],
+        "acceptance_decision": accepted["decision"],
+        "case_id": accepted["case"]["case_id"],
+        "case_status_after_adjudication": adjudicated["case"]["status"],
+        "selected_claim_ids": adjudicated["adjudication"]["metadata"]["selected_claim_ids"],
+        "claim_texts_preserved": {
+            claim.claim_id: claim.claim_text
+            for claim in store.list_claims()
+        },
+        "audit_event_count": len(audit_events),
+        "audit_schema_version": audit_events[0]["schema_version"] if audit_events else "",
+        "query_conflict_summary": query_bundle["conflict_summary"],
         "result": "pass",
     }
 
@@ -661,6 +737,7 @@ def run(output_dir: Path) -> dict[str, Any]:
         demos = [
             demo_provenance_promotion(work_dir),
             demo_contradiction_adjudication(work_dir),
+            demo_contradiction_candidate_review(work_dir),
             demo_release_filtering(work_dir),
             demo_federation_quarantine(work_dir),
             demo_local_authority(work_dir),
