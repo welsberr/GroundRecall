@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
-from .models import AdjudicationRecord, ClaimRecord, ContradictionCaseRecord
+from .models import AdjudicationRecord, ClaimRecord, ContradictionCaseRecord, RelationRecord
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 
 
@@ -135,6 +135,128 @@ def list_contradiction_case_batch(
             "resolution": "optional short resolution category",
             "selected_claim_ids": ["optional claim ids treated as best current account"],
         },
+    }
+
+
+def list_contradiction_candidate_batch(
+    store_dir: str | Path,
+    *,
+    include_rejected: bool = False,
+    limit: int = 50,
+) -> dict[str, Any]:
+    """List graph-inferred contradiction cues as a review batch.
+
+    Graph maintenance can infer lightweight `claim_may_contradict_claim` relation
+    records before a reviewer is ready to assert an explicit contradiction. This
+    queue exposes those cues without silently promoting them into first-class
+    contradiction cases.
+    """
+
+    from .store import GroundRecallStore
+
+    store = GroundRecallStore(store_dir)
+    claims_by_id = {claim.claim_id: claim for claim in store.list_claims()}
+    relations = [
+        relation
+        for relation in store.list_relations()
+        if relation.relation_type == "claim_may_contradict_claim"
+        and (include_rejected or relation.current_status != "rejected")
+    ]
+    relations = sorted(relations, key=lambda item: (_status_sort_key(item.current_status), item.relation_id))
+    rows = [
+        _candidate_payload(relation, claims_by_id=claims_by_id)
+        for relation in relations[: max(0, limit)]
+    ]
+    return {
+        "workflow_kind": "groundrecall_contradiction_candidate_review",
+        "schema_version": "groundrecall.contradiction_candidates.v1",
+        "store_dir": str(Path(store_dir)),
+        "candidate_count": len(relations),
+        "returned_count": len(rows),
+        "filters": {
+            "include_rejected": include_rejected,
+            "limit": limit,
+        },
+        "candidates": rows,
+        "promotion_schema": {
+            "relation_id": "claim_may_contradict_claim relation id",
+            "reviewer": "reviewer id or name",
+            "rationale": "why the cue should become an explicit contradiction case",
+        },
+    }
+
+
+def accept_contradiction_candidate(
+    store_dir: str | Path,
+    *,
+    relation_id: str,
+    reviewer: str,
+    rationale: str,
+    reviewed_at: str | None = None,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
+) -> dict[str, Any]:
+    """Promote a graph-inferred contradiction cue into explicit claim links and a case."""
+
+    from .store import GroundRecallStore
+
+    store = GroundRecallStore(store_dir)
+    relation = store.get_relation(relation_id)
+    if relation is None:
+        raise KeyError(f"Unknown GroundRecall relation: {relation_id}")
+    if relation.relation_type != "claim_may_contradict_claim":
+        raise ValueError(f"Relation {relation_id} is not a claim_may_contradict_claim candidate")
+    left = store.get_claim(relation.source_id)
+    right = store.get_claim(relation.target_id)
+    missing = [claim_id for claim_id, claim in [(relation.source_id, left), (relation.target_id, right)] if claim is None]
+    if missing:
+        raise KeyError(f"Cannot accept contradiction candidate {relation_id}; missing claim ids: {missing}")
+
+    timestamp = reviewed_at or _now_utc()
+    assert left is not None
+    assert right is not None
+    policy_decision = _evaluate_candidate_acceptance_policy(
+        policy_plugins_path,
+        subject_id=policy_subject_id or reviewer,
+        relation=relation,
+        reviewer=reviewer,
+        rationale=rationale,
+    )
+    updated_left = _claim_with_contradiction_link(left, right.claim_id)
+    updated_right = _claim_with_contradiction_link(right, left.claim_id)
+    store.save_claim(updated_left)
+    store.save_claim(updated_right)
+
+    updated_relation = relation.model_copy(
+        update={
+            "current_status": "reviewed",
+            "provenance": relation.provenance.model_copy(update={"support_kind": relation.provenance.support_kind or "inferred"}),
+        }
+    )
+    store.save_relation(updated_relation)
+    cases = sync_contradiction_cases_for_store(store.base_dir)
+    case_id = contradiction_case_id_for_claims([left.claim_id, right.claim_id])
+    case = store.get_contradiction_case(case_id)
+    if case is None:
+        raise RuntimeError(f"Accepted contradiction candidate {relation_id} but case {case_id} was not materialized")
+    case = case.model_copy(
+        update={
+            "metadata": {
+                **case.metadata,
+                "accepted_candidate_relation_id": relation_id,
+                "accepted_candidate_reviewer": reviewer,
+                "accepted_candidate_rationale": rationale,
+                "accepted_candidate_reviewed_at": timestamp,
+            }
+        }
+    )
+    store.save_contradiction_case(case)
+    return {
+        "decision": "accepted_contradiction_candidate",
+        "relation": updated_relation.model_dump(mode="json"),
+        "case": case.model_dump(mode="json"),
+        "synced_case_count": len(cases),
+        **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
     }
 
 
@@ -277,6 +399,46 @@ def _evaluate_adjudication_policy(
     return decision
 
 
+def _evaluate_candidate_acceptance_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    subject_id: str,
+    relation: RelationRecord,
+    reviewer: str,
+    rationale: str,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    decision = provider.evaluate(
+        PolicyRequest(
+            decision_point="adjudicate",
+            subject_id=subject_id,
+            action="accept_contradiction_candidate",
+            record_kind="relation",
+            record_id=relation.relation_id,
+            contradiction_state="candidate",
+            durable_memory_change=True,
+            metadata={
+                "relation_id": relation.relation_id,
+                "relation_type": relation.relation_type,
+                "source_claim_id": relation.source_id,
+                "target_claim_id": relation.target_id,
+                "reviewer": reviewer,
+                "rationale": rationale,
+            },
+        )
+    )
+    if decision.decision in {"deny", "hard_gate"}:
+        raise ContradictionPolicyError(
+            "Policy plugin blocked contradiction candidate acceptance.",
+            {
+                "policy_plugin_decision": decision.model_dump(mode="json"),
+            },
+        )
+    return decision
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="List, sync, and adjudicate GroundRecall contradiction cases.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -290,6 +452,20 @@ def build_parser() -> argparse.ArgumentParser:
     list_parser.add_argument("--include-rejected", action="store_true")
     list_parser.add_argument("--sync", action="store_true", help="Generate missing cases before listing")
     list_parser.add_argument("--limit", type=int, default=50)
+
+    candidates_parser = subparsers.add_parser("candidates", help="List graph-inferred contradiction relation candidates")
+    candidates_parser.add_argument("store_dir")
+    candidates_parser.add_argument("--include-rejected", action="store_true")
+    candidates_parser.add_argument("--limit", type=int, default=50)
+
+    accept_parser = subparsers.add_parser("accept-candidate", help="Promote a contradiction relation candidate into a case")
+    accept_parser.add_argument("store_dir")
+    accept_parser.add_argument("relation_id")
+    accept_parser.add_argument("--reviewer", required=True)
+    accept_parser.add_argument("--rationale", required=True)
+    accept_parser.add_argument("--reviewed-at", default=None)
+    accept_parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for acceptance gating.")
+    accept_parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
 
     adjudicate_parser = subparsers.add_parser("adjudicate", help="Record an adjudication against a contradiction case")
     adjudicate_parser.add_argument("store_dir")
@@ -322,6 +498,22 @@ def main() -> None:
             include_rejected=args.include_rejected,
             sync=args.sync,
             limit=args.limit,
+        )
+    elif args.command == "candidates":
+        payload = list_contradiction_candidate_batch(
+            args.store_dir,
+            include_rejected=args.include_rejected,
+            limit=args.limit,
+        )
+    elif args.command == "accept-candidate":
+        payload = accept_contradiction_candidate(
+            args.store_dir,
+            relation_id=args.relation_id,
+            reviewer=args.reviewer,
+            rationale=args.rationale,
+            reviewed_at=args.reviewed_at,
+            policy_plugins_path=args.policy_plugins,
+            policy_subject_id=args.policy_subject_id,
         )
     else:
         try:
@@ -398,6 +590,66 @@ def _case_payload(
         "metadata": dict(case.metadata),
         "current_status": case.current_status,
     }
+
+
+def _candidate_payload(
+    relation: RelationRecord,
+    *,
+    claims_by_id: dict[str, ClaimRecord],
+) -> dict[str, Any]:
+    missing_claim_ids = [
+        claim_id
+        for claim_id in [relation.source_id, relation.target_id]
+        if claim_id not in claims_by_id
+    ]
+    return {
+        "relation_id": relation.relation_id,
+        "relation_type": relation.relation_type,
+        "claim_ids": [relation.source_id, relation.target_id],
+        "missing_claim_ids": missing_claim_ids,
+        "evidence_ids": list(relation.evidence_ids),
+        "claims": [
+            _claim_reference_payload(claim_id, claims_by_id=claims_by_id)
+            for claim_id in [relation.source_id, relation.target_id]
+        ],
+        "provenance": relation.provenance.model_dump(mode="json"),
+        "assessments": [
+            assessment.model_dump(mode="json") if hasattr(assessment, "model_dump") else dict(assessment)
+            for assessment in relation.assessments
+        ],
+        "review_actions": ["accept-candidate", "adjudicate-case-after-sync", "reject-relation-candidate"],
+        "current_status": relation.current_status,
+    }
+
+
+def _claim_reference_payload(
+    claim_id: str,
+    *,
+    claims_by_id: dict[str, ClaimRecord],
+) -> dict[str, Any]:
+    claim = claims_by_id.get(claim_id)
+    if claim is None:
+        return {
+            "claim_id": claim_id,
+            "claim_text": "",
+            "current_status": "missing",
+            "concept_ids": [],
+            "supporting_fragment_ids": [],
+            "source_observation_ids": [],
+        }
+    return {
+        "claim_id": claim.claim_id,
+        "claim_text": claim.claim_text,
+        "current_status": claim.current_status,
+        "concept_ids": list(claim.concept_ids),
+        "supporting_fragment_ids": list(claim.supporting_fragment_ids),
+        "source_observation_ids": list(claim.source_observation_ids),
+    }
+
+
+def _claim_with_contradiction_link(claim: ClaimRecord, target_claim_id: str) -> ClaimRecord:
+    links = list(dict.fromkeys([*claim.contradicts_claim_ids, target_claim_id]))
+    return claim.model_copy(update={"contradicts_claim_ids": links})
 
 
 def _adjudication_id_for_case(case_id: str, timestamp: str) -> str:

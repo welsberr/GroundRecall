@@ -4,15 +4,17 @@ import pytest
 
 from groundrecall.contradictions import (
     ContradictionPolicyError,
+    accept_contradiction_candidate,
     adjudicate_contradiction_case,
     contradiction_case_id_for_claims,
     generate_contradiction_cases_from_claims,
+    list_contradiction_candidate_batch,
     list_contradiction_case_batch,
     sync_contradiction_cases_for_store,
 )
 from groundrecall.cli import main as groundrecall_cli_main
 from groundrecall.graph_diagnostics import build_graph_diagnostics
-from groundrecall.models import ClaimRecord, ContradictionCaseRecord
+from groundrecall.models import ClaimRecord, ContradictionCaseRecord, RelationRecord
 from groundrecall.store import GroundRecallStore
 
 
@@ -81,6 +83,117 @@ def test_list_contradiction_case_batch_includes_claim_previews_and_schema(tmp_pa
     assert payload["cases"][0]["severity"] == "high"
     assert payload["cases"][0]["claims"][0]["claim_text"] == "Alpha is stable."
     assert payload["adjudication_schema"]["status"] == "open|under_review|resolved|superseded|rejected"
+
+
+def test_list_contradiction_candidate_batch_exposes_graph_cues(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable.", current_status="reviewed"))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable.", current_status="triaged"))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+            evidence_ids=["frag_1"],
+            current_status="triaged",
+        )
+    )
+
+    payload = list_contradiction_candidate_batch(store.base_dir)
+
+    assert payload["workflow_kind"] == "groundrecall_contradiction_candidate_review"
+    assert payload["schema_version"] == "groundrecall.contradiction_candidates.v1"
+    assert payload["candidate_count"] == 1
+    candidate = payload["candidates"][0]
+    assert candidate["relation_id"] == "rel_alpha_beta_contradiction_candidate"
+    assert candidate["claim_ids"] == ["clm_alpha", "clm_beta"]
+    assert candidate["evidence_ids"] == ["frag_1"]
+    assert candidate["claims"][0]["claim_text"] == "Alpha is stable."
+    assert candidate["claims"][1]["current_status"] == "triaged"
+    assert candidate["review_actions"][0] == "accept-candidate"
+
+
+def test_accept_contradiction_candidate_materializes_case(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable.", current_status="reviewed"))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable.", current_status="triaged"))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+            evidence_ids=["frag_1"],
+            current_status="triaged",
+        )
+    )
+
+    result = accept_contradiction_candidate(
+        store.base_dir,
+        relation_id="rel_alpha_beta_contradiction_candidate",
+        reviewer="unit-test",
+        rationale="The statements cannot both be true in the same scope.",
+        reviewed_at="2026-07-28T00:00:00Z",
+    )
+
+    left = store.get_claim("clm_alpha")
+    right = store.get_claim("clm_beta")
+    relation = store.get_relation("rel_alpha_beta_contradiction_candidate")
+    case = store.get_contradiction_case(contradiction_case_id_for_claims(["clm_alpha", "clm_beta"]))
+    assert result["decision"] == "accepted_contradiction_candidate"
+    assert left is not None
+    assert right is not None
+    assert "clm_beta" in left.contradicts_claim_ids
+    assert "clm_alpha" in right.contradicts_claim_ids
+    assert relation is not None
+    assert relation.current_status == "reviewed"
+    assert case is not None
+    assert case.metadata["accepted_candidate_relation_id"] == "rel_alpha_beta_contradiction_candidate"
+    assert case.metadata["accepted_candidate_reviewer"] == "unit-test"
+
+
+def test_accept_contradiction_candidate_blocks_hard_policy_plugin_decision(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable."))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable."))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+        )
+    )
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: candidate.block.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: candidate.block.provider",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ContradictionPolicyError) as excinfo:
+        accept_contradiction_candidate(
+            store.base_dir,
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            reviewer="unit-test",
+            rationale="The statements cannot both be true in the same scope.",
+            policy_plugins_path=config,
+            policy_subject_id="agent-1",
+        )
+
+    assert excinfo.value.payload["policy_plugin_decision"]["action"] == "accept_contradiction_candidate"
+    assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert store.get_claim("clm_alpha").contradicts_claim_ids == []
+    assert store.get_contradiction_case(contradiction_case_id_for_claims(["clm_alpha", "clm_beta"])) is None
 
 
 def test_adjudicate_contradiction_case_records_decision_and_updates_case(tmp_path) -> None:
@@ -203,6 +316,27 @@ def test_groundrecall_cli_routes_contradiction_sync(tmp_path, monkeypatch, capsy
     output = capsys.readouterr().out
     assert '"decision": "synced"' in output
     assert store.list_contradiction_cases()
+
+
+def test_groundrecall_cli_routes_contradiction_candidates(tmp_path, monkeypatch, capsys) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable."))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable."))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_alpha_beta_contradiction_candidate",
+            source_id="clm_alpha",
+            target_id="clm_beta",
+            relation_type="claim_may_contradict_claim",
+        )
+    )
+    monkeypatch.setattr("sys.argv", ["groundrecall", "contradictions", "candidates", str(store.base_dir)])
+
+    groundrecall_cli_main()
+
+    output = capsys.readouterr().out
+    assert '"workflow_kind": "groundrecall_contradiction_candidate_review"' in output
+    assert '"rel_alpha_beta_contradiction_candidate"' in output
 
 
 def test_graph_diagnostics_flags_missing_and_open_promoted_contradiction_cases() -> None:

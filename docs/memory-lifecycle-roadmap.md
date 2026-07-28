@@ -129,6 +129,9 @@ Initial implementation status:
   hard-gate and deny decisions block adjudication before adjudication or case
   records are written; softer decisions are returned and recorded in
   adjudication metadata.
+- Contradiction-candidate acceptance accepts optional policy-plugin configs.
+  Plugin hard-gate and deny decisions block before claim contradiction links,
+  relation status, or contradiction-case metadata are written.
 - Federation export, quarantine import, and promotion accept optional generic
   policy-plugin configs alongside the existing federation grant policy. Plugin
   hard-gate and deny decisions block export/import/promotion, and plugin
