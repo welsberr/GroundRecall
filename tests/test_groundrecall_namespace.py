@@ -94,8 +94,10 @@ def test_policy_coverage_report_summarizes_enforcement_surfaces() -> None:
     assert payload["summary"]["covered_route_count"] >= 1
     assert payload["summary"]["partial_route_count"] >= 1
     assert payload["summary"]["covered_durable_mutation_route_count"] >= 1
-    assert any(item["route_id"] == "cli.graph_augment.write_candidates" for item in payload["open_items"])
+    assert any(item["route_id"] == "cli.import" for item in payload["open_items"])
+    assert not any(item["route_id"] == "cli.graph_augment.write_candidates" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.promote" and item["status"] == "covered" for item in payload["routes"])
+    assert any(item["route_id"] == "cli.graph_augment.write_candidates" and item["status"] == "covered" for item in payload["routes"])
 
 
 def test_groundrecall_inspect_can_include_policy_coverage(tmp_path: Path) -> None:

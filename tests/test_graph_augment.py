@@ -3,7 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 import sys
 
-from groundrecall.graph_augment import augment_store_relations_from_claims
+import pytest
+
+from groundrecall.graph_augment import GraphAugmentPolicyError, augment_store_relations_from_claims
 from groundrecall.models import (
     ArtifactRecord,
     ClaimRecord,
@@ -36,6 +38,24 @@ def _seed_store(base: Path) -> GroundRecallStore:
             )
         )
     return store
+
+
+def _write_static_policy_config(path: Path, *, decision: str, policy_id: str = "graph.policy.test") -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                f"policy_id: {policy_id}",
+                "providers:",
+                "  - type: static",
+                f"    policy_id: {policy_id}.provider",
+                f"    default_decision: {decision}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def test_augment_store_relations_from_claims_dry_run_does_not_write(tmp_path: Path) -> None:
@@ -83,6 +103,44 @@ def test_augment_store_relations_from_claims_apply_writes_reviewable_relation(tm
     assert "claim_cooccurrence" in review_candidates[0].finding_codes
     assert payload["write_summary"]["relation_write_count"] == 1
     assert payload["diagnostic_layers"]["candidate_semantic_relations"] == 1
+
+
+def test_augment_store_relations_soft_policy_plugin_records_decision(tmp_path: Path) -> None:
+    store = _seed_store(tmp_path / "store")
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="soft_gate")
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        concept_prefixes=["concept::evo-edu"],
+        min_evidence=2,
+        apply=True,
+        policy_plugins_path=policy_config,
+        policy_subject_id="agent-1",
+    )
+
+    assert payload["write_summary"]["relation_write_count"] == 1
+    assert payload["write_summary"]["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert payload["write_summary"]["policy_plugin_decision"]["subject_id"] == "agent-1"
+
+
+def test_augment_store_relations_hard_policy_plugin_blocks_without_writes(tmp_path: Path) -> None:
+    store = _seed_store(tmp_path / "store")
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="hard_gate")
+
+    with pytest.raises(GraphAugmentPolicyError) as excinfo:
+        augment_store_relations_from_claims(
+            store.base_dir,
+            concept_prefixes=["concept::evo-edu"],
+            min_evidence=2,
+            apply=True,
+            policy_plugins_path=policy_config,
+            policy_subject_id="agent-1",
+        )
+
+    assert excinfo.value.payload["blocked_by_policy"] is True
+    assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert store.list_relations() == []
+    assert store.list_review_candidates() == []
 
 
 def test_augment_store_relations_extractor_mode_none_disables_candidate_generation(tmp_path: Path) -> None:

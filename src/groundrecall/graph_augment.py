@@ -12,6 +12,7 @@ from typing import Any
 from .export_guardrails import is_sensitive_record
 from .graph_extraction import extract_heuristic_graph_relations
 from .models import ProvenanceRecord, RelationRecord, ReviewCandidateRecord
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .store import GroundRecallStore
 
 
@@ -39,6 +40,14 @@ VALID_STRATEGIES = {
     "source-family",
 }
 VALID_EXTRACTOR_MODES = {"heuristic", "none"}
+
+
+class GraphAugmentPolicyError(RuntimeError):
+    """Raised when a policy plugin blocks graph candidate writes."""
+
+    def __init__(self, message: str, *, payload: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 @dataclass
@@ -83,6 +92,8 @@ def augment_store_relations_from_claims(
     limit: int | None = None,
     max_pair_checks: int = 50000,
     apply: bool = False,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
 ) -> dict[str, Any]:
     if strategy not in VALID_STRATEGIES:
         raise ValueError(f"Unknown graph augmentation strategy: {strategy}")
@@ -223,6 +234,15 @@ def augment_store_relations_from_claims(
         selected = selected[: max(0, int(limit))]
 
     relation_payloads = [_candidate_payload(candidate, extractor=extractor) for candidate in selected]
+    policy_decision = _evaluate_graph_augment_policy(
+        policy_plugins_path,
+        subject_id=policy_subject_id,
+        apply=apply,
+        strategy=strategy,
+        extractor=extractor,
+        relation_type=relation_type,
+        candidate_count=len(relation_payloads),
+    )
     if apply:
         for candidate in selected:
             relation_id = _relation_id(candidate.source_id, candidate.target_id, candidate.relation_type, extractor=extractor)
@@ -283,6 +303,7 @@ def augment_store_relations_from_claims(
             "relation_write_count": len(relation_payloads) if apply else 0,
             "review_candidate_write_count": len(relation_payloads) if apply else 0,
             "dry_run": not apply,
+            **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
         },
         "diagnostic_layers": {
             "reviewed_semantic_relations": sum(
@@ -299,6 +320,45 @@ def augment_store_relations_from_claims(
         },
         "relations": relation_payloads,
     }
+
+
+def _evaluate_graph_augment_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    subject_id: str,
+    apply: bool,
+    strategy: str,
+    extractor: str,
+    relation_type: str,
+    candidate_count: int,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None or not apply:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    request = PolicyRequest(
+        decision_point="propose",
+        subject_id=subject_id,
+        action="graph_augment_write_candidates",
+        record_kind="relation",
+        durable_memory_change=True,
+        metadata={
+            "strategy": strategy,
+            "extractor": extractor,
+            "relation_type": relation_type,
+            "candidate_count": candidate_count,
+        },
+    )
+    decision = provider.evaluate(request)
+    if decision.decision in {"deny", "hard_gate"}:
+        raise GraphAugmentPolicyError(
+            "Policy plugin blocked graph augmentation candidate writes.",
+            payload={
+                "operation": "augment_store_relations_from_claims",
+                "blocked_by_policy": True,
+                "policy_plugin_decision": decision.model_dump(mode="json"),
+            },
+        )
+    return decision
 
 
 def _claim_cooccurrence_candidates(
@@ -1344,6 +1404,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--max-pair-checks", type=int, default=50000, help="Maximum claim-pair checks for semantic pair-scanning strategies.")
     parser.add_argument("--apply", action="store_true", help="Write inferred relations and review candidates to the store")
+    parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for graph candidate write gating.")
+    parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
     return parser
 
 
@@ -1359,6 +1421,8 @@ def main() -> None:
         limit=args.limit,
         max_pair_checks=args.max_pair_checks,
         apply=args.apply,
+        policy_plugins_path=args.policy_plugins,
+        policy_subject_id=args.policy_subject_id,
     )
     print(json.dumps(payload, indent=2))
 

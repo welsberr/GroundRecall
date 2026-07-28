@@ -10,7 +10,7 @@ from .contradictions import (
     sync_contradiction_cases_for_store,
 )
 from .inspect import inspect_store, summarize_store
-from .graph_augment import augment_store_relations_from_claims
+from .graph_augment import GraphAugmentPolicyError, augment_store_relations_from_claims
 from .graph_maintenance import run_graph_maintenance_slice
 from .ingest import ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
 from .models import *  # noqa: F403
@@ -110,6 +110,7 @@ __all__ = [
     "ImportResult",
     "run_groundrecall_import",
     "augment_store_relations_from_claims",
+    "GraphAugmentPolicyError",
     "run_graph_maintenance_slice",
     "build_import_parser",
     "import_main",

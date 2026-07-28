@@ -38,6 +38,7 @@
 <li><code>groundrecall inspect STORE --policy-coverage</code> emits the full route matrix.</li>
 <li><code>groundrecall inspect STORE --policy-coverage-summary</code> emits compact counts and open items.</li>
 <li><code>inspect_store(..., include_policy_coverage=True)</code> exposes the same report through the Python API.</li>
+<li>Graph augmentation/backfill and graph maintenance <code>--apply</code> paths now accept optional policy-plugin configs and block deny/hard-gate decisions before candidate relation, review-candidate, or maintenance-state writes.</li>
 <li>Tests cover the report, Python API, and CLI dispatch.</li>
 </ul>
 <p>ClaimWright review basis:</p>
@@ -62,7 +63,7 @@
 <ol type="1">
 <li>Add a policy-enforcement coverage matrix for every read/write/export/import route: MCP tools, CLI commands, Python APIs, federation, promotion, relation review, contradiction adjudication, graph backfill, review queue, and future erasure. Implemented baseline.</li>
 <li>Add deny/hard-gate audit events for every gated write attempt, including blocked attempts before durable memory changes occur.</li>
-<li>Add regression tests proving that each covered write path fails closed when a policy plugin denies or hard-gates the operation.</li>
+<li>Add regression tests proving that each covered write path fails closed when a policy plugin denies or hard-gates the operation. Implemented for graph augmentation/backfill and graph maintenance apply paths.</li>
 <li>Expose coverage status in diagnostics, for example <code>groundrecall inspect --policy-coverage</code>, so paper claims can cite a generated artifact rather than prose.</li>
 <li>Update the claim-evidence matrix only after the coverage artifact and tests exist.</li>
 </ol>

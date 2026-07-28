@@ -32,6 +32,9 @@ Initial implementation status:
   and open items.
 - `inspect_store(..., include_policy_coverage=True)` exposes the same report
   through the Python API.
+- Graph augmentation/backfill and graph maintenance `--apply` paths now accept
+  optional policy-plugin configs and block deny/hard-gate decisions before
+  candidate relation, review-candidate, or maintenance-state writes.
 - Tests cover the report, Python API, and CLI dispatch.
 
 ClaimWright review basis:
@@ -66,7 +69,8 @@ Recommended implementation sequence:
 2. Add deny/hard-gate audit events for every gated write attempt, including
    blocked attempts before durable memory changes occur.
 3. Add regression tests proving that each covered write path fails closed when
-   a policy plugin denies or hard-gates the operation.
+   a policy plugin denies or hard-gates the operation. Implemented for graph
+   augmentation/backfill and graph maintenance apply paths.
 4. Expose coverage status in diagnostics, for example
    `groundrecall inspect --policy-coverage`, so paper claims can cite a
    generated artifact rather than prose.

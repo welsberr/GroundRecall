@@ -68,6 +68,8 @@ def run_graph_maintenance_slice(
     max_pair_checks: int = 50000,
     apply: bool = False,
     advance_on_dry_run: bool = False,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
 ) -> dict[str, Any]:
     active_strategies = _resolve_strategies(strategies=strategies, profile=profile)
 
@@ -121,6 +123,8 @@ def run_graph_maintenance_slice(
             limit=max(0, int(limit)),
             max_pair_checks=max(0, int(max_pair_checks)),
             apply=apply,
+            policy_plugins_path=policy_plugins_path,
+            policy_subject_id=policy_subject_id,
         )
         run_record = {
             "ran_at": _now(),
@@ -134,6 +138,7 @@ def run_graph_maintenance_slice(
             "relation_type_counts": augmentation.get("relation_type_counts", {}),
             "filter_summary": augmentation.get("filter_summary", {}),
             "write_summary": augmentation.get("write_summary", {}),
+            **({"policy_plugin_decision": augmentation["write_summary"]["policy_plugin_decision"]} if augmentation.get("write_summary", {}).get("policy_plugin_decision") else {}),
         }
 
         advanced = bool(apply or advance_on_dry_run)
@@ -257,6 +262,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-pair-checks", type=int, default=50000, help="Maximum claim-pair checks for semantic pair-scanning strategies.")
     parser.add_argument("--apply", action="store_true", help="Write triaged relations and review candidates, then advance state.")
     parser.add_argument("--advance-on-dry-run", action="store_true", help="Advance maintenance state even without writes.")
+    parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for graph maintenance write gating.")
+    parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
     parser.add_argument("--fail-if-locked", action="store_true", help="Raise an error instead of returning a skipped payload when another slice is active.")
     parser.add_argument("--stale-lock-seconds", type=int, default=3600, help="Remove an existing lock older than this many seconds. Use 0 to disable stale-lock recovery.")
     return parser
@@ -279,6 +286,8 @@ def main() -> None:
         max_pair_checks=args.max_pair_checks,
         apply=args.apply,
         advance_on_dry_run=args.advance_on_dry_run,
+        policy_plugins_path=args.policy_plugins,
+        policy_subject_id=args.policy_subject_id,
     )
     print(json.dumps(payload, indent=2))
 

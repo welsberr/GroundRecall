@@ -7,6 +7,7 @@ import sys
 
 import pytest
 
+from groundrecall.graph_augment import GraphAugmentPolicyError
 from groundrecall.graph_maintenance import (
     GraphMaintenanceLockError,
     default_lock_path,
@@ -37,6 +38,24 @@ def _seed_claim_cooccurrence_store(base: Path) -> GroundRecallStore:
             )
         )
     return store
+
+
+def _write_static_policy_config(path: Path, *, decision: str, policy_id: str = "graph.maintenance.policy.test") -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                f"policy_id: {policy_id}",
+                "providers:",
+                "  - type: static",
+                f"    policy_id: {policy_id}.provider",
+                f"    default_decision: {decision}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def test_graph_maintenance_dry_run_does_not_write_or_advance_state(tmp_path: Path) -> None:
@@ -78,6 +97,49 @@ def test_graph_maintenance_extractor_mode_none_can_advance_without_candidates(tm
     assert payload["next_strategy"] == "source-family"
     assert state["last_run"]["extractor_mode"] == "none"
     assert store.list_relations() == []
+
+
+def test_graph_maintenance_soft_policy_plugin_records_decision(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    state_path = tmp_path / "state.json"
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="soft_gate")
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        state_path=state_path,
+        strategies=["claim-cooccurrence"],
+        limit=1,
+        apply=True,
+        policy_plugins_path=policy_config,
+        policy_subject_id="agent-1",
+    )
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert payload["augmentation"]["write_summary"]["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert payload["run_record"]["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert state["last_run"]["policy_plugin_decision"]["subject_id"] == "agent-1"
+    assert len(store.list_relations()) == 1
+
+
+def test_graph_maintenance_hard_policy_plugin_blocks_without_writes_or_state(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    state_path = tmp_path / "state.json"
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="hard_gate")
+
+    with pytest.raises(GraphAugmentPolicyError):
+        run_graph_maintenance_slice(
+            store.base_dir,
+            state_path=state_path,
+            strategies=["claim-cooccurrence"],
+            limit=1,
+            apply=True,
+            policy_plugins_path=policy_config,
+            policy_subject_id="agent-1",
+        )
+
+    assert store.list_relations() == []
+    assert store.list_review_candidates() == []
+    assert not state_path.exists()
 
 
 def test_graph_maintenance_default_profile_remains_safe(tmp_path: Path) -> None:
