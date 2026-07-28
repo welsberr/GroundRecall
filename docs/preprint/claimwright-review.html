@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="dcterms.date" content="2026-07-27" />
+  <meta name="dcterms.date" content="2026-07-28" />
   <title>ClaimWright Review Record for the Governed Memory Preprint Draft</title>
   <style>
     code{white-space: pre-wrap;}
@@ -18,7 +18,7 @@
 <body>
 <header id="title-block-header">
 <h1 class="title">ClaimWright Review Record for the Governed Memory Preprint Draft</h1>
-<p class="date">2026-07-27</p>
+<p class="date">2026-07-28</p>
 </header>
 <h2 id="review-scope">Review Scope</h2>
 <p>Reviewed artifacts:</p>
@@ -140,8 +140,8 @@
 <tr class="odd">
 <td>Contradiction cases and adjudication</td>
 <td><code>supported_by_primary_evidence</code></td>
-<td><code>src/groundrecall/contradictions.py</code>, <code>tests/test_contradictions.py</code></td>
-<td>State that semantic auto-detection is future work.</td>
+<td><code>src/groundrecall/contradictions.py</code>, <code>tests/test_contradictions.py</code>, <code>src/groundrecall/graph_augment.py</code>, <code>tests/test_graph_augment.py</code></td>
+<td>State that heuristic cue generation is review-gated and that robust semantic auto-detection/resolution remains future work.</td>
 </tr>
 <tr class="even">
 <td>Release controls and federation quarantine</td>
@@ -245,7 +245,7 @@
 <li>GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.</li>
 <li>ClaimWright-style policy content is now enforceable through GroundRecall’s bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.</li>
 <li>Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.</li>
-<li>Contradiction handling depends on explicit contradiction links. Automatic semantic contradiction detection remains future work.</li>
+<li>Contradiction handling depends primarily on explicit contradiction links. Heuristic contradiction cueing can propose review candidates, but robust automatic semantic contradiction detection and resolution remain future work.</li>
 <li>Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.</li>
 </ol>
 <h2 id="publication-gate-result">Publication Gate Result</h2>
@@ -325,8 +325,8 @@
 <td>Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added.</td>
 </tr>
 <tr class="even">
-<td>Keep semantic contradiction detection as future work.</td>
-<td>Existing contradiction caveats were retained in the abstract and limitations.</td>
+<td>Keep robust semantic contradiction detection as future work.</td>
+<td>Contradiction caveats now distinguish implemented heuristic review-gated cueing from unclaimed robust semantic detection/resolution.</td>
 </tr>
 <tr class="odd">
 <td>Expose final-public-safety status.</td>
@@ -352,6 +352,10 @@
 <td>Add search-mode timing indication.</td>
 <td>Added <code>search_mode_timing.json</code> as an internal synthetic-store timing indication for indexed search versus indexed search plus graph expansion. The draft states that this is not a comparison with external memory-layer products or a recall-quality benchmark.</td>
 </tr>
+<tr class="odd">
+<td>Update graph-maintenance evidence after knowledge-graph backfill work.</td>
+<td>Added bounded graph backfill and maintenance language to the draft and claim-evidence matrix, including review-gated relation candidates, private/no-export screening, diagnostics, maintenance profiles, state files, locks, stale-lock recovery, and extractor-mode caveats.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="post-action-check">Post-Action Check</h2>
@@ -373,7 +377,7 @@
 </tr>
 <tr class="even">
 <td>Claims introduced/modified</td>
-<td>Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication.</td>
+<td>Test-suite claim changed to a dated concrete result: 234 tests passed on 2026-07-28. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication. Graph-maintenance claims are backed by current code/tests and are scoped to bounded, heuristic, review-gated backfill.</td>
 </tr>
 <tr class="odd">
 <td>Citations recorded</td>
@@ -385,7 +389,7 @@
 </tr>
 <tr class="odd">
 <td>Unresolved risks</td>
-<td>Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; semantic contradiction detection remains future work; human publication approval remains open.</td>
+<td>Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; robust semantic contradiction detection/resolution remains future work; graph backfill uses heuristic candidates rather than validated semantic extraction; human publication approval remains open.</td>
 </tr>
 <tr class="even">
 <td>Tasks opened</td>

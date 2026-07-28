@@ -1,6 +1,6 @@
 ---
 title: "ClaimWright Review Record for the Governed Memory Preprint Draft"
-date: 2026-07-27
+date: 2026-07-28
 ---
 
 ## Review Scope
@@ -48,7 +48,7 @@ Applied ClaimWright materials:
 | GroundRecall typed provenance-preserving record model | `supported_by_primary_evidence` | `src/groundrecall/models.py`, `src/groundrecall/store.py`, `tests/test_groundrecall_store.py` | Scope to current file-backed prototype. |
 | Review-gated promotion | `supported_by_primary_evidence` | `src/groundrecall/promotion.py`, `tests/test_groundrecall_promotion.py` | Do not imply complete hosted review workflow. |
 | Structured confidence and temporal applicability | `supported_by_primary_evidence` | `src/groundrecall/confidence.py`, `tests/test_confidence_profiles.py`, `tests/test_confidence_migration.py` | Do not claim full Bayesian calibration or empirical confidence validation. |
-| Contradiction cases and adjudication | `supported_by_primary_evidence` | `src/groundrecall/contradictions.py`, `tests/test_contradictions.py` | State that semantic auto-detection is future work. |
+| Contradiction cases and adjudication | `supported_by_primary_evidence` | `src/groundrecall/contradictions.py`, `tests/test_contradictions.py`, `src/groundrecall/graph_augment.py`, `tests/test_graph_augment.py` | State that heuristic cue generation is review-gated and that robust semantic auto-detection/resolution remains future work. |
 | Release controls and federation quarantine | `supported_by_primary_evidence` | `src/groundrecall/federation.py`, `src/groundrecall/export_guardrails.py`, `tests/test_federation.py`, `tests/test_export_guardrails.py` | Do not present as enterprise IAM or complete DLP. |
 | ClaimWright as policy framework | `supported_by_primary_evidence` for existence and selected adapter enforcement | ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter | State that ClaimWright is an example policy framework under GroundRecall's bounded plugin contract, not a mandatory dependency or complete policy engine. |
 | CiteGeist bibliography support | `supported_by_primary_evidence` for seed artifacts | `docs/preprint/citegeist-memory-layer.sqlite3`, BibTeX export, bibliography notes | State that bibliography is seeded, not systematic or complete. |
@@ -77,7 +77,7 @@ The strongest objections are predictable and should remain visible:
 4. GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.
 5. ClaimWright-style policy content is now enforceable through GroundRecall's bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.
 6. Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.
-7. Contradiction handling depends on explicit contradiction links. Automatic semantic contradiction detection remains future work.
+7. Contradiction handling depends primarily on explicit contradiction links. Heuristic contradiction cueing can propose review candidates, but robust automatic semantic contradiction detection and resolution remain future work.
 8. Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.
 
 ## Publication Gate Result
@@ -101,23 +101,24 @@ Release status: conditionally suitable for internal/public draft review, pending
 | Keep GroundRecall claims local/prototype-scoped. | Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features. |
 | Keep ClaimWright integration scoped. | Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent. |
 | Avoid Bayesian confidence overclaim. | Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added. |
-| Keep semantic contradiction detection as future work. | Existing contradiction caveats were retained in the abstract and limitations. |
+| Keep robust semantic contradiction detection as future work. | Contradiction caveats now distinguish implemented heuristic review-gated cueing from unclaimed robust semantic detection/resolution. |
 | Expose final-public-safety status. | The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved. |
 | Resolve public/private path issue. | Repository-level references remain in the appendix; no absolute local paths are used for public evidence references. |
 | Broaden bibliography. | Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references. |
 | Complete second bibliography expansion targets. | Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix. |
 | Add empirical demonstrations. | Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, local authority, and the policy-plugin boundary. |
 | Add search-mode timing indication. | Added `search_mode_timing.json` as an internal synthetic-store timing indication for indexed search versus indexed search plus graph expansion. The draft states that this is not a comparison with external memory-layer products or a recall-quality benchmark. |
+| Update graph-maintenance evidence after knowledge-graph backfill work. | Added bounded graph backfill and maintenance language to the draft and claim-evidence matrix, including review-gated relation candidates, private/no-export screening, diagnostics, maintenance profiles, state files, locks, stale-lock recovery, and extractor-mode caveats. |
 
 ## Post-Action Check
 
 | Check | Result |
 | --- | --- |
 | Files changed | Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs. |
-| Claims introduced/modified | Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication. |
+| Claims introduced/modified | Test-suite claim changed to a dated concrete result: 234 tests passed on 2026-07-28. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication. Graph-maintenance claims are backed by current code/tests and are scoped to bounded, heuristic, review-gated backfill. |
 | Citations recorded | Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey. |
 | Assumptions visible | The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright. |
-| Unresolved risks | Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; semantic contradiction detection remains future work; human publication approval remains open. |
+| Unresolved risks | Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; robust semantic contradiction detection/resolution remains future work; graph backfill uses heuristic candidates rather than validated semantic extraction; human publication approval remains open. |
 | Tasks opened | Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories. |
 | Capacity used | Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use. |
 | Branch outcome | Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims. |

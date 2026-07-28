@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="dcterms.date" content="2026-07-27" />
+  <meta name="dcterms.date" content="2026-07-28" />
   <title>Appendix A: Claim-To-Evidence Matrix</title>
   <style>
     code{white-space: pre-wrap;}
@@ -18,7 +18,7 @@
 <body>
 <header id="title-block-header">
 <h1 class="title">Appendix A: Claim-To-Evidence Matrix</h1>
-<p class="date">2026-07-27</p>
+<p class="date">2026-07-28</p>
 </header>
 <p>This appendix substantiates the manuscript discipline that each substantive paper claim maps to one of five evidence classes:</p>
 <ol type="1">
@@ -28,7 +28,7 @@
 <li>bibliography or source analysis;</li>
 <li>explicit future-work status.</li>
 </ol>
-<p>The matrix is also a restraint mechanism. Claims with only normative support are stated as design recommendations. Claims about implementation are limited to current code and tests. Claims about comparative performance, production deployment, semantic contradiction detection, and broad safety outcomes are marked as future work or excluded.</p>
+<p>The matrix is also a restraint mechanism. Claims with only normative support are stated as design recommendations. Claims about implementation are limited to current code and tests. Claims about comparative performance, production deployment, robust semantic contradiction detection, and broad safety outcomes are marked as future work or excluded.</p>
 <h2 id="evidence-classes">Evidence Classes</h2>
 <table>
 <colgroup>
@@ -211,12 +211,20 @@
 <tr class="odd">
 <td>GroundRecall can expose query bundles with supporting provenance, graph context, contradictions, and supersessions.</td>
 <td>Implemented code; test coverage</td>
-<td><code>src/groundrecall/query.py</code>; <code>src/groundrecall/groundrecall_query.py</code>; <code>src/groundrecall/graph_augment.py</code></td>
-<td><code>tests/test_groundrecall_query.py</code>; <code>tests/test_graph_augment.py</code>; <code>tests/test_graph_diagnostics.py</code></td>
+<td><code>src/groundrecall/query.py</code>; <code>src/groundrecall/groundrecall_query.py</code>; <code>src/groundrecall/graph_augment.py</code>; <code>src/groundrecall/graph_diagnostics.py</code></td>
+<td><code>tests/test_groundrecall_query.py</code>; <code>tests/test_graph_augment.py</code>; <code>tests/test_groundrecall_namespace.py</code></td>
 <td>Supported.</td>
 <td>This is a retrieval and packaging claim, not a benchmark claim.</td>
 </tr>
 <tr class="even">
+<td>Store-level graph enrichment is bounded, resumable, review-gated, and release-aware.</td>
+<td>Implemented code; test coverage</td>
+<td><code>src/groundrecall/graph_augment.py</code>; <code>src/groundrecall/graph_maintenance.py</code>; <code>src/groundrecall/graph_diagnostics.py</code>; <code>src/groundrecall/export_guardrails.py</code></td>
+<td><code>tests/test_graph_augment.py</code>; <code>tests/test_graph_maintenance.py</code>; <code>tests/test_export_guardrails.py</code>; <code>docs/knowledge-graph-roadmap.md</code></td>
+<td>Supported for current heuristic backfill strategies, maintenance profiles, lock/state handling, diagnostics, and private/no-export screening.</td>
+<td>Backfill candidates remain reviewable proposals; no LLM extractor, production scheduler, or semantic-correctness guarantee is claimed.</td>
+</tr>
+<tr class="odd">
 <td>Confidence is structured and reviewable rather than only a scalar hint.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/confidence.py</code>; <code>src/groundrecall/epistemap_adapter.py</code></td>
@@ -224,7 +232,7 @@
 <td>Supported for confidence profiles, assessments, temporal blocks, and migration/readiness reports.</td>
 <td>The paper must not claim Bayesian calibration unless Epistemap/GroundRecall implements and validates it explicitly.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Temporal validity and expiry affect current applicability without erasing historical support.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/confidence.py</code>; <code>src/groundrecall/query.py</code>; model metadata fields</td>
@@ -232,7 +240,7 @@
 <td>Supported for current-applicability handling.</td>
 <td>Time-qualified contradiction handling and broader temporal benchmark coverage remain future work.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Ordinary epistemic maintenance is non-destructive.</td>
 <td>Implemented code; test coverage; design argument</td>
 <td>Supersession, retraction, expiry, contradiction, and adjudication fields across <code>src/groundrecall/models.py</code>, <code>src/groundrecall/confidence.py</code>, and <code>src/groundrecall/contradictions.py</code></td>
@@ -240,15 +248,15 @@
 <td>Supported as design and partial implementation.</td>
 <td>Exceptional erasure remains separate and incomplete.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Contradictions can be represented as explicit reviewable cases.</td>
 <td>Implemented code; test coverage</td>
-<td><code>src/groundrecall/contradictions.py</code>; contradiction case models in <code>src/groundrecall/models.py</code>; CLI routes in <code>src/groundrecall/cli.py</code></td>
-<td><code>tests/test_contradictions.py</code></td>
-<td>Supported for explicit contradiction links and deterministic case generation.</td>
-<td>Automatic semantic contradiction detection is not implemented.</td>
+<td><code>src/groundrecall/contradictions.py</code>; contradiction case models in <code>src/groundrecall/models.py</code>; CLI routes in <code>src/groundrecall/cli.py</code>; heuristic cue generation in <code>src/groundrecall/graph_augment.py</code></td>
+<td><code>tests/test_contradictions.py</code>; <code>tests/test_graph_augment.py</code></td>
+<td>Supported for explicit contradiction links, deterministic case generation, and heuristic review-gated contradiction cues.</td>
+<td>Robust automatic semantic contradiction detection and resolution are not claimed.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Contradiction adjudication records decisions without rewriting underlying claims.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/contradictions.py</code>; adjudication records in <code>src/groundrecall/models.py</code></td>
@@ -256,7 +264,7 @@
 <td>Supported.</td>
 <td>Adjudication does not yet automatically re-rank every downstream query result.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Release-level classification constrains export and federation.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/federation.py</code>; <code>src/groundrecall/export_guardrails.py</code></td>
@@ -264,7 +272,7 @@
 <td>Supported for <code>public &lt; internal &lt; confidential &lt; privileged &lt; private</code> controls and private/local-only behavior.</td>
 <td>Correctness depends on accurate metadata and review classification.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Export guardrails prevent lower-release bundles from carrying higher-release records or private support references.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/export_guardrails.py</code>; federation filtering in <code>src/groundrecall/federation.py</code></td>
@@ -272,7 +280,7 @@
 <td>Supported.</td>
 <td>This is not a substitute for end-to-end data-loss-prevention tooling.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Federation bundles are signed and content-hashed.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/federation.py</code></td>
@@ -280,7 +288,7 @@
 <td>Supported.</td>
 <td>Key management is local prototype-level; no key transparency or enterprise PKI integration.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Imported federation bundles are quarantine-first.</td>
 <td>Implemented code; test coverage</td>
 <td><code>import_federation_bundle_to_quarantine</code> and promotion functions in <code>src/groundrecall/federation.py</code></td>
@@ -288,7 +296,7 @@
 <td>Supported.</td>
 <td>No hosted review UI or network polling layer.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Promotion from quarantine is local-policy-gated and conflict-aware.</td>
 <td>Implemented code; test coverage</td>
 <td><code>src/groundrecall/federation.py</code> local policy, scoped grants, conflict planning, audit events</td>
@@ -296,7 +304,7 @@
 <td>Supported.</td>
 <td>No enterprise IAM integration.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>A valid signature does not by itself create local authority.</td>
 <td>Implemented code; test coverage; design argument</td>
 <td>Local policy evaluation, accepted release levels, trust registries, scoped grants, role directory import caps in <code>src/groundrecall/federation.py</code></td>
@@ -304,7 +312,7 @@
 <td>Supported.</td>
 <td>This is a local-authority design property, not a comprehensive security proof.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Trust registries record active, expired, revoked, and superseded key state.</td>
 <td>Implemented code; test coverage</td>
 <td>Trust registry functions in <code>src/groundrecall/federation.py</code></td>
@@ -312,7 +320,7 @@
 <td>Supported.</td>
 <td>Does not include a distributed revocation propagation mechanism.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Signed public keysets and signed role directories can be imported only with receiver-side caps.</td>
 <td>Implemented code; test coverage</td>
 <td>Public keyset and role-directory publication/import functions in <code>src/groundrecall/federation.py</code></td>
@@ -320,7 +328,7 @@
 <td>Supported.</td>
 <td>Requires pinned signer keys and local policy decisions.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Federation of contradiction cases respects release and claim exportability constraints.</td>
 <td>Implemented code; test coverage</td>
 <td>Contradiction-case filtering in <code>src/groundrecall/federation.py</code></td>
@@ -328,7 +336,7 @@
 <td>Supported.</td>
 <td>Cross-host semantic reconciliation remains future work.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Audit events are recorded for federation policy decisions.</td>
 <td>Implemented code; test coverage</td>
 <td><code>append_federation_audit_event</code> and <code>build_federation_audit_event</code> in <code>src/groundrecall/federation.py</code></td>
@@ -336,7 +344,7 @@
 <td>Supported.</td>
 <td>Audit storage is local file-backed; no tamper-evident external audit log.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>GroundRecall owns a bounded policy-plugin contract that can compose generic and ClaimWright-style policy providers.</td>
 <td>Implemented code; test coverage; reproducible demonstration</td>
 <td><code>src/groundrecall/policy.py</code>; <code>docs/policy-plugin-spec.md</code></td>
@@ -344,7 +352,7 @@
 <td>Supported.</td>
 <td>Policy content is adapter-provided and policy-specific; GroundRecall constrains request/decision shape but does not validate every policy framework’s normative adequacy.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Policy plugins can gate selected MCP, export, federation, promotion, adjudication, and relation-review surfaces.</td>
 <td>Implemented code; test coverage; reproducible demonstration</td>
 <td><code>src/groundrecall/mcp.py</code>; <code>src/groundrecall/export.py</code>; <code>src/groundrecall/federation.py</code>; <code>src/groundrecall/promotion.py</code>; <code>src/groundrecall/contradictions.py</code>; <code>src/groundrecall/relation_review.py</code></td>
@@ -352,7 +360,7 @@
 <td>Supported for selected enforcement surfaces.</td>
 <td>This is not complete production IAM, complete policy coverage of every mutation path, or a security proof.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Indexed search is lower-latency than indexed search plus graph expansion in the local demonstration fixture.</td>
 <td>Reproducible demonstration; implemented code</td>
 <td><code>src/groundrecall/search_index.py</code>; <code>src/groundrecall/query.py</code>; <code>examples/preprint/run_preprint_demos.py</code></td>
@@ -393,9 +401,9 @@
 <td>Current evidence is engineering evidence, not user-study or broad safety evidence.</td>
 </tr>
 <tr class="even">
-<td>GroundRecall automatically detects semantic contradictions.</td>
+<td>GroundRecall robustly detects and resolves semantic contradictions automatically.</td>
 <td>Future work.</td>
-<td>Current contradiction workflow starts from explicit contradiction links.</td>
+<td>Current contradiction workflow starts from explicit contradiction links, with heuristic review-gated cue generation as candidate support only.</td>
 </tr>
 <tr class="odd">
 <td>GroundRecall provides production identity management or enterprise access control.</td>
