@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sys
 
@@ -108,6 +109,7 @@ def test_augment_store_relations_from_claims_apply_writes_reviewable_relation(tm
 def test_augment_store_relations_soft_policy_plugin_records_decision(tmp_path: Path) -> None:
     store = _seed_store(tmp_path / "store")
     policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="soft_gate")
+    audit_log = tmp_path / "graph-audit.jsonl"
 
     payload = augment_store_relations_from_claims(
         store.base_dir,
@@ -116,16 +118,23 @@ def test_augment_store_relations_soft_policy_plugin_records_decision(tmp_path: P
         apply=True,
         policy_plugins_path=policy_config,
         policy_subject_id="agent-1",
+        audit_log_path=audit_log,
     )
 
     assert payload["write_summary"]["relation_write_count"] == 1
     assert payload["write_summary"]["policy_plugin_decision"]["decision"] == "soft_gate"
     assert payload["write_summary"]["policy_plugin_decision"]["subject_id"] == "agent-1"
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["schema_version"] == "groundrecall.graph_policy_audit.v1"
+    assert audit_rows[0]["decision"] == "preflight_allowed"
+    assert audit_rows[0]["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert audit_rows[0]["metadata"]["candidate_count"] == 1
 
 
 def test_augment_store_relations_hard_policy_plugin_blocks_without_writes(tmp_path: Path) -> None:
     store = _seed_store(tmp_path / "store")
     policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="hard_gate")
+    audit_log = tmp_path / "graph-audit.jsonl"
 
     with pytest.raises(GraphAugmentPolicyError) as excinfo:
         augment_store_relations_from_claims(
@@ -135,12 +144,17 @@ def test_augment_store_relations_hard_policy_plugin_blocks_without_writes(tmp_pa
             apply=True,
             policy_plugins_path=policy_config,
             policy_subject_id="agent-1",
+            audit_log_path=audit_log,
         )
 
     assert excinfo.value.payload["blocked_by_policy"] is True
     assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
     assert store.list_relations() == []
     assert store.list_review_candidates() == []
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["decision"] == "blocked"
+    assert audit_rows[0]["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert audit_rows[0]["durable_memory_change"] is True
 
 
 def test_augment_store_relations_extractor_mode_none_disables_candidate_generation(tmp_path: Path) -> None:

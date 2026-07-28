@@ -103,6 +103,7 @@ def test_graph_maintenance_soft_policy_plugin_records_decision(tmp_path: Path) -
     store = _seed_claim_cooccurrence_store(tmp_path / "store")
     state_path = tmp_path / "state.json"
     policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="soft_gate")
+    audit_log = tmp_path / "graph-maintenance-audit.jsonl"
 
     payload = run_graph_maintenance_slice(
         store.base_dir,
@@ -112,6 +113,7 @@ def test_graph_maintenance_soft_policy_plugin_records_decision(tmp_path: Path) -
         apply=True,
         policy_plugins_path=policy_config,
         policy_subject_id="agent-1",
+        audit_log_path=audit_log,
     )
 
     state = json.loads(state_path.read_text(encoding="utf-8"))
@@ -119,12 +121,16 @@ def test_graph_maintenance_soft_policy_plugin_records_decision(tmp_path: Path) -
     assert payload["run_record"]["policy_plugin_decision"]["decision"] == "soft_gate"
     assert state["last_run"]["policy_plugin_decision"]["subject_id"] == "agent-1"
     assert len(store.list_relations()) == 1
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["decision"] == "preflight_allowed"
+    assert audit_rows[0]["policy_plugin_decision"]["decision"] == "soft_gate"
 
 
 def test_graph_maintenance_hard_policy_plugin_blocks_without_writes_or_state(tmp_path: Path) -> None:
     store = _seed_claim_cooccurrence_store(tmp_path / "store")
     state_path = tmp_path / "state.json"
     policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="hard_gate")
+    audit_log = tmp_path / "graph-maintenance-audit.jsonl"
 
     with pytest.raises(GraphAugmentPolicyError):
         run_graph_maintenance_slice(
@@ -135,11 +141,15 @@ def test_graph_maintenance_hard_policy_plugin_blocks_without_writes_or_state(tmp
             apply=True,
             policy_plugins_path=policy_config,
             policy_subject_id="agent-1",
+            audit_log_path=audit_log,
         )
 
     assert store.list_relations() == []
     assert store.list_review_candidates() == []
     assert not state_path.exists()
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["decision"] == "blocked"
+    assert audit_rows[0]["policy_plugin_decision"]["decision"] == "hard_gate"
 
 
 def test_graph_maintenance_default_profile_remains_safe(tmp_path: Path) -> None:

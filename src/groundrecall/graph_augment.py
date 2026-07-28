@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
@@ -94,6 +95,7 @@ def augment_store_relations_from_claims(
     apply: bool = False,
     policy_plugins_path: str | Path | None = None,
     policy_subject_id: str = "",
+    audit_log_path: str | Path | None = None,
 ) -> dict[str, Any]:
     if strategy not in VALID_STRATEGIES:
         raise ValueError(f"Unknown graph augmentation strategy: {strategy}")
@@ -242,6 +244,7 @@ def augment_store_relations_from_claims(
         extractor=extractor,
         relation_type=relation_type,
         candidate_count=len(relation_payloads),
+        audit_log_path=audit_log_path,
     )
     if apply:
         for candidate in selected:
@@ -331,6 +334,7 @@ def _evaluate_graph_augment_policy(
     extractor: str,
     relation_type: str,
     candidate_count: int,
+    audit_log_path: str | Path | None = None,
 ) -> PolicyDecision | None:
     if policy_plugins_path is None or not apply:
         return None
@@ -350,6 +354,13 @@ def _evaluate_graph_augment_policy(
     )
     decision = provider.evaluate(request)
     if decision.decision in {"deny", "hard_gate"}:
+        _append_graph_policy_audit_event(
+            audit_log_path,
+            action="graph_augment_write_candidates",
+            decision="blocked",
+            request=request,
+            policy_decision=decision,
+        )
         raise GraphAugmentPolicyError(
             "Policy plugin blocked graph augmentation candidate writes.",
             payload={
@@ -358,7 +369,48 @@ def _evaluate_graph_augment_policy(
                 "policy_plugin_decision": decision.model_dump(mode="json"),
             },
         )
+    _append_graph_policy_audit_event(
+        audit_log_path,
+        action="graph_augment_write_candidates",
+        decision="preflight_allowed",
+        request=request,
+        policy_decision=decision,
+    )
     return decision
+
+
+def _append_graph_policy_audit_event(
+    audit_log_path: str | Path | None,
+    *,
+    action: str,
+    decision: str,
+    request: PolicyRequest,
+    policy_decision: PolicyDecision,
+) -> None:
+    if audit_log_path is None:
+        return
+    recorded_at = _now()
+    basis = f"{action}:{decision}:{request.subject_id}:{request.decision_point}:{recorded_at}:{policy_decision.policy_id}"
+    payload = {
+        "schema_version": "groundrecall.graph_policy_audit.v1",
+        "event_id": f"graph-policy-audit::{sha256(basis.encode('utf-8')).hexdigest()[:16]}",
+        "recorded_at": recorded_at,
+        "action": action,
+        "decision": decision,
+        "subject_id": request.subject_id,
+        "decision_point": request.decision_point,
+        "durable_memory_change": request.durable_memory_change,
+        "metadata": dict(request.metadata),
+        "policy_plugin_decision": policy_decision.model_dump(mode="json"),
+    }
+    target = Path(audit_log_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _claim_cooccurrence_candidates(
@@ -1406,6 +1458,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--apply", action="store_true", help="Write inferred relations and review candidates to the store")
     parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for graph candidate write gating.")
     parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
+    parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log for graph policy preflight decisions.")
     return parser
 
 
@@ -1423,6 +1476,7 @@ def main() -> None:
         apply=args.apply,
         policy_plugins_path=args.policy_plugins,
         policy_subject_id=args.policy_subject_id,
+        audit_log_path=args.audit_log,
     )
     print(json.dumps(payload, indent=2))
 

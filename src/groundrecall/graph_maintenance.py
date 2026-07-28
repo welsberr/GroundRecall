@@ -70,6 +70,7 @@ def run_graph_maintenance_slice(
     advance_on_dry_run: bool = False,
     policy_plugins_path: str | Path | None = None,
     policy_subject_id: str = "",
+    audit_log_path: str | Path | None = None,
 ) -> dict[str, Any]:
     active_strategies = _resolve_strategies(strategies=strategies, profile=profile)
 
@@ -125,6 +126,7 @@ def run_graph_maintenance_slice(
             apply=apply,
             policy_plugins_path=policy_plugins_path,
             policy_subject_id=policy_subject_id,
+            audit_log_path=audit_log_path,
         )
         run_record = {
             "ran_at": _now(),
@@ -264,6 +266,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--advance-on-dry-run", action="store_true", help="Advance maintenance state even without writes.")
     parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for graph maintenance write gating.")
     parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
+    parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log for graph maintenance policy preflight decisions.")
     parser.add_argument("--fail-if-locked", action="store_true", help="Raise an error instead of returning a skipped payload when another slice is active.")
     parser.add_argument("--stale-lock-seconds", type=int, default=3600, help="Remove an existing lock older than this many seconds. Use 0 to disable stale-lock recovery.")
     return parser
@@ -288,6 +291,7 @@ def main() -> None:
         advance_on_dry_run=args.advance_on_dry_run,
         policy_plugins_path=args.policy_plugins,
         policy_subject_id=args.policy_subject_id,
+        audit_log_path=args.audit_log,
     )
     print(json.dumps(payload, indent=2))
 

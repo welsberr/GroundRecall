@@ -35,6 +35,8 @@ Initial implementation status:
 - Graph augmentation/backfill and graph maintenance `--apply` paths now accept
   optional policy-plugin configs and block deny/hard-gate decisions before
   candidate relation, review-candidate, or maintenance-state writes.
+- Those graph write paths also accept `--audit-log` and write JSONL policy
+  preflight audit events for both allowed-with-policy and blocked decisions.
 - Tests cover the report, Python API, and CLI dispatch.
 
 ClaimWright review basis:
@@ -67,7 +69,8 @@ Recommended implementation sequence:
    relation review, contradiction adjudication, graph backfill, review queue,
    and future erasure. Implemented baseline.
 2. Add deny/hard-gate audit events for every gated write attempt, including
-   blocked attempts before durable memory changes occur.
+   blocked attempts before durable memory changes occur. Implemented for graph
+   augmentation/backfill and graph maintenance when `--audit-log` is supplied.
 3. Add regression tests proving that each covered write path fails closed when
    a policy plugin denies or hard-gates the operation. Implemented for graph
    augmentation/backfill and graph maintenance apply paths.

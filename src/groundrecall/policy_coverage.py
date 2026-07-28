@@ -178,9 +178,9 @@ POLICY_COVERAGE_ENTRIES: tuple[PolicyCoverageEntry, ...] = (
         status="covered",
         durable_memory_change=True,
         enforcement=["dry-run by default", "sensitive/private/no-export records are screened before candidate generation", "--policy-plugins blocks deny/hard_gate before candidate relation or review-candidate writes"],
-        audit=["soft decisions recorded in write_summary; hard-gates return structured error payload without writes"],
+        audit=["soft decisions recorded in write_summary", "--audit-log writes JSONL graph policy preflight events for allowed and blocked policy decisions"],
         tests=["tests/test_graph_augment.py", "tests/test_graph_maintenance.py", "tests/test_export_guardrails.py"],
-        caveat="No standalone durable audit log is written for blocked direct graph augmentation outside the returned error payload.",
+        caveat="Durable audit output depends on callers supplying an audit log path.",
     ),
     PolicyCoverageEntry(
         route_id="cli.graph_maintenance.apply",
@@ -190,9 +190,9 @@ POLICY_COVERAGE_ENTRIES: tuple[PolicyCoverageEntry, ...] = (
         status="covered",
         durable_memory_change=True,
         enforcement=["dry-run unless --apply is supplied", "bounded profiles, state files, locks, stale-lock recovery", "delegates sensitive-record screening and policy-plugin write gating to graph backfill"],
-        audit=["soft decisions recorded in write_summary and maintenance run history when state advances; hard-gates return structured error payload without writes or state advancement"],
+        audit=["soft decisions recorded in write_summary and maintenance run history when state advances", "--audit-log writes JSONL graph policy preflight events for allowed and blocked policy decisions"],
         tests=["tests/test_graph_maintenance.py"],
-        caveat="No standalone durable audit log is written for blocked scheduled graph maintenance outside the returned error payload.",
+        caveat="Durable audit output depends on callers supplying an audit log path.",
     ),
     PolicyCoverageEntry(
         route_id="cli.import",
