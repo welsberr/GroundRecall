@@ -122,6 +122,42 @@ def test_augment_store_relations_from_claims_min_evidence_filters_weak_pairs(tmp
     assert store.list_relations() == []
 
 
+def test_augment_store_relations_skips_private_claims_and_concepts(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::public-a", title="Public A", current_status="reviewed"))
+    store.save_concept(ConceptRecord(concept_id="concept::public-b", title="Public B", current_status="reviewed"))
+    store.save_concept(
+        ConceptRecord(
+            concept_id="concept::private-c",
+            title="Private C",
+            metadata={"release_status": "no_export"},
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_private",
+            claim_text="Private claim should not seed graph edges.",
+            concept_ids=["concept::public-a", "concept::public-b"],
+            metadata={"release_level": "private"},
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_private_concept",
+            claim_text="A public claim to a private concept should not seed that private endpoint.",
+            concept_ids=["concept::public-a", "concept::private-c"],
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(store.base_dir, min_evidence=1, apply=True)
+
+    assert payload["candidate_relation_count"] == 0
+    assert store.list_relations() == []
+
+
 def test_augment_store_relations_reports_limit_omissions(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     for concept_id in ["concept::a", "concept::b", "concept::c"]:
@@ -601,6 +637,49 @@ def test_augment_store_relations_from_observation_artifact_anchors_reports_dupli
     assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"artifact_contains_observation": 1}
 
 
+def test_augment_store_relations_from_observation_artifact_anchors_skips_private_records(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_artifact(
+        ArtifactRecord(
+            artifact_id="art_private",
+            artifact_kind="source_note",
+            metadata={"visibility": "private"},
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_private_artifact",
+            artifact_id="art_private",
+            role="evidence",
+            text="Private artifact support.",
+            current_status="reviewed",
+        )
+    )
+    store.save_artifact(
+        ArtifactRecord(
+            artifact_id="art_public",
+            artifact_kind="source_note",
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_private",
+            artifact_id="art_public",
+            role="evidence",
+            text="Private observation support.",
+            metadata={"classification": "confidential"},
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(store.base_dir, strategy="observation-artifact-anchors", apply=True)
+
+    assert payload["candidate_relation_count"] == 0
+    assert store.list_relations() == []
+
+
 def test_augment_store_relations_from_source_anchors(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_source(
@@ -718,6 +797,49 @@ def test_augment_store_relations_from_source_anchors_reports_duplicates(tmp_path
         "fragment_supports_claim": 1,
         "source_contains_fragment": 1,
     }
+
+
+def test_augment_store_relations_from_source_anchors_skips_private_records(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_source(
+        SourceRecord(
+            source_id="src_private",
+            title="Private Source",
+            metadata={"release_level": "private"},
+            current_status="reviewed",
+        )
+    )
+    store.save_fragment(
+        FragmentRecord(
+            fragment_id="frag_private_source",
+            source_id="src_private",
+            text="Private source fragment.",
+            current_status="reviewed",
+        )
+    )
+    store.save_source(SourceRecord(source_id="src_public", title="Public Source", current_status="reviewed"))
+    store.save_fragment(
+        FragmentRecord(
+            fragment_id="frag_private",
+            source_id="src_public",
+            text="Private fragment.",
+            metadata={"export_policy": "do_not_export"},
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_private_fragment",
+            claim_text="Claim backed only by private fragments.",
+            supporting_fragment_ids=["frag_private_source", "frag_private"],
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(store.base_dir, strategy="source-anchors", apply=True)
+
+    assert payload["candidate_relation_count"] == 0
+    assert store.list_relations() == []
 
 
 def test_augment_store_relations_from_claim_semantic_cues(tmp_path: Path) -> None:

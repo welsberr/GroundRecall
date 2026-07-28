@@ -144,6 +144,15 @@ def _seed_sensitive_records(store: GroundRecallStore) -> None:
             current_status="draft",
         )
     )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_release_private",
+            claim_text="Private release-level claim should not export.",
+            concept_ids=["concept::channel-capacity"],
+            metadata={"release_level": "private"},
+            current_status="promoted",
+        )
+    )
 
 
 def test_canonical_export_filters_private_draft_and_secret_records(tmp_path: Path) -> None:
@@ -162,6 +171,7 @@ def test_canonical_export_filters_private_draft_and_secret_records(tmp_path: Pat
     assert "clm_private" not in export_text
     assert "clm_secret_value" not in export_text
     assert "clm_draft" not in export_text
+    assert "clm_release_private" not in export_text
 
     manifest = json.loads((out_dir / "export_manifest.json").read_text(encoding="utf-8"))
     report = manifest["export_guardrails"]
@@ -171,6 +181,7 @@ def test_canonical_export_filters_private_draft_and_secret_records(tmp_path: Pat
     assert "metadata:metadata.release_status:no_export" in reasons
     assert "secret_like_content" in reasons
     assert "status:draft" in reasons
+    assert "metadata:metadata.release_level:private" in reasons
 
 
 def test_canonical_export_policy_plugin_hard_gate_blocks_before_output(tmp_path: Path) -> None:

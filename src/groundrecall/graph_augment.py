@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .export_guardrails import is_sensitive_record
 from .graph_extraction import extract_heuristic_graph_relations
 from .models import ProvenanceRecord, RelationRecord, ReviewCandidateRecord
 from .store import GroundRecallStore
@@ -84,7 +85,7 @@ def augment_store_relations_from_claims(
     if strategy not in VALID_STRATEGIES:
         raise ValueError(f"Unknown graph augmentation strategy: {strategy}")
     store = GroundRecallStore(store_dir)
-    concepts = {item.concept_id: item for item in store.list_concepts() if item.current_status != "rejected"}
+    concepts = {item.concept_id: item for item in store.list_concepts() if _is_graph_backfill_eligible(item, "concept", item.concept_id)}
     existing_keys = {
         _relation_key(item.source_id, item.target_id, item.relation_type)
         for item in store.list_relations()
@@ -303,7 +304,7 @@ def _claim_cooccurrence_candidates(
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
 
     for claim in store.list_claims():
-        if claim.current_status == "rejected":
+        if not _is_graph_backfill_eligible(claim, "claim", claim.claim_id):
             continue
         concept_ids = [
             concept_id
@@ -378,7 +379,11 @@ def _claim_link_candidates(
     existing_keys: set[tuple[str, str, str]],
     stats: AugmentStats,
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
-    claims = {claim.claim_id: claim for claim in store.list_claims() if claim.current_status != "rejected"}
+    claims = {
+        claim.claim_id: claim
+        for claim in store.list_claims()
+        if _is_graph_backfill_eligible(claim, "claim", claim.claim_id)
+    }
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
     for claim in claims.values():
         for target_id in claim.contradicts_claim_ids:
@@ -414,7 +419,11 @@ def _claim_contradiction_cue_candidates(
     relation_type: str,
     max_pair_checks: int,
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
-    claims = [claim for claim in store.list_claims() if claim.current_status != "rejected"]
+    claims = [
+        claim
+        for claim in store.list_claims()
+        if _is_graph_backfill_eligible(claim, "claim", claim.claim_id)
+    ]
     claims_by_concept: dict[str, list[Any]] = {}
     for claim in claims:
         for concept_id in claim.concept_ids:
@@ -469,11 +478,11 @@ def _claim_support_anchor_candidates(
     observations = {
         observation.observation_id: observation
         for observation in store.list_observations()
-        if observation.current_status != "rejected"
+        if _is_graph_backfill_eligible(observation, "observation", observation.observation_id)
     }
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
     for claim in store.list_claims():
-        if claim.current_status == "rejected":
+        if not _is_graph_backfill_eligible(claim, "claim", claim.claim_id):
             continue
         for observation_id in claim.source_observation_ids:
             if observation_id not in observations:
@@ -505,11 +514,15 @@ def _observation_artifact_anchor_candidates(
     artifacts = {
         artifact.artifact_id: artifact
         for artifact in store.list_artifacts()
-        if artifact.current_status != "rejected"
+        if _is_graph_backfill_eligible(artifact, "artifact", artifact.artifact_id)
     }
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
     for observation in store.list_observations():
-        if observation.current_status == "rejected" or not observation.artifact_id or observation.artifact_id not in artifacts:
+        if (
+            not _is_graph_backfill_eligible(observation, "observation", observation.observation_id)
+            or not observation.artifact_id
+            or observation.artifact_id not in artifacts
+        ):
             continue
         key = _relation_key(observation.artifact_id, observation.observation_id, relation_type)
         if key in existing_keys:
@@ -536,12 +549,12 @@ def _source_anchor_candidates(
     sources = {
         source.source_id: source
         for source in store.list_sources()
-        if source.current_status != "rejected"
+        if _is_graph_backfill_eligible(source, "source", source.source_id)
     }
     fragments = {
         fragment.fragment_id: fragment
         for fragment in store.list_fragments()
-        if fragment.current_status != "rejected" and fragment.source_id in sources
+        if _is_graph_backfill_eligible(fragment, "fragment", fragment.fragment_id) and fragment.source_id in sources
     }
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
 
@@ -559,7 +572,7 @@ def _source_anchor_candidates(
         )
 
     for claim in store.list_claims():
-        if claim.current_status == "rejected":
+        if not _is_graph_backfill_eligible(claim, "claim", claim.claim_id):
             continue
         for fragment_id in claim.supporting_fragment_ids:
             if fragment_id not in fragments:
@@ -589,7 +602,7 @@ def _claim_semantic_cue_candidates(
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
     for claim in store.list_claims():
-        if claim.current_status == "rejected":
+        if not _is_graph_backfill_eligible(claim, "claim", claim.claim_id):
             continue
         concept_ids = [
             concept_id
@@ -845,7 +858,7 @@ def _claim_mentions_candidates(
     }
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
     for claim in store.list_claims():
-        if claim.current_status == "rejected":
+        if not _is_graph_backfill_eligible(claim, "claim", claim.claim_id):
             continue
         source_ids = [
             concept_id
@@ -903,7 +916,7 @@ def _observation_cooccurrence_candidates(
             "origin_section": observation.provenance.origin_section,
         }
         for observation in store.list_observations()
-        if observation.current_status != "rejected"
+        if _is_graph_backfill_eligible(observation, "observation", observation.observation_id)
     ]
     relation_rows, _summary = extract_heuristic_graph_relations(
         concept_rows,
@@ -947,6 +960,13 @@ def _candidate_payload(candidate: RelationCandidate, *, extractor: str) -> dict[
         "grounding_status": "partially_grounded",
         "current_status": "triaged",
     }
+
+
+def _is_graph_backfill_eligible(record: Any, record_kind: str, record_id: str) -> bool:
+    if str(getattr(record, "current_status", "") or "") == "rejected":
+        return False
+    sensitive, _finding = is_sensitive_record(record, record_kind, record_id)
+    return not sensitive
 
 
 def _evidence_count(candidate: RelationCandidate) -> int:

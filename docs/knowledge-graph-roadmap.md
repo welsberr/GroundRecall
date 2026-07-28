@@ -198,7 +198,9 @@ an atomic lock next to its state file, skips safely if a previous slice is still
 active, and can recover stale locks after interrupted runs. Graph diagnostics
 now classify source/fragment/claim anchor edges as provenance/support
 relations and report reviewed versus candidate relation counts separately for
-semantic and provenance layers.
+semantic and provenance layers. Graph augmentation now applies the same
+private/no-export/secret-like metadata screen used by public export guardrails
+before records can seed inferred candidate edges.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -264,7 +266,9 @@ Acceptance tests:
 - Re-running the backfill is idempotent. Covered for claim co-occurrence.
 - Periodic maintenance can process a bounded slice and resume from persisted
   state. Covered for strategy rotation and CLI dispatch.
-- Rejected/private records do not generate public exportable candidates.
+- Rejected/private records do not generate public exportable candidates. Initial
+  coverage now blocks rejected records and records with private/no-export or
+  secret-like metadata from seeding graph augmentation candidates.
 - Public export guardrails exclude draft/private candidate edges and their
   evidence when appropriate.
 - Diagnostics distinguish sparse reviewed semantics from available projection

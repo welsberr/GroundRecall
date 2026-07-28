@@ -48,6 +48,7 @@ PRIVATE_METADATA_KEYS = {
     "privileged",
     "public",
     "release",
+    "release_level",
     "release_status",
     "secret",
     "sensitivity",
@@ -112,6 +113,19 @@ def is_public_exportable_record(record: BaseModel, record_kind: str, record_id: 
         return False, GuardrailFinding(record_kind, record_id, "secret_like_content", secret_path)
 
     return True, None
+
+
+def is_sensitive_record(record: BaseModel, record_kind: str, record_id: str) -> tuple[bool, GuardrailFinding | None]:
+    payload = record.model_dump()
+    metadata_reason = _private_metadata_reason(payload)
+    if metadata_reason is not None:
+        return True, GuardrailFinding(record_kind, record_id, metadata_reason)
+
+    secret_path = _secret_field_path(payload)
+    if secret_path is not None:
+        return True, GuardrailFinding(record_kind, record_id, "secret_like_content", secret_path)
+
+    return False, None
 
 
 def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[GroundRecallSnapshot, dict[str, Any]]:
