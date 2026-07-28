@@ -244,6 +244,10 @@ def test_build_graph_bundle_for_concept_returns_bounded_neighborhood(tmp_path: P
     assert [item["edge_id"] for item in payload["edges"]] == ["rel_001"]
     assert any(item["claim_id"] == "clm_001" for item in payload["relevant_claims"])
     assert any(item["observation_id"] == "obs_001" for item in payload["supporting_observations"])
+    projection_types = {item["relation_type"] for item in payload["projection_edges"]}
+    assert "claim_about_concept" in projection_types
+    assert "observation_supports_claim" in projection_types
+    assert payload["projection_summary"]["projection_edge_count"] >= 2
     assert payload["graph_diagnostics"]["summary"]["concept_count"] == 2
     assert payload["graph_diagnostics"]["summary"]["relation_count"] == 1
 
@@ -307,6 +311,7 @@ def test_build_graph_search_bundle_discovers_roots_from_text_matches(tmp_path: P
     assert payload["root_concepts"][0]["match_sources"]
     assert payload["root_concepts"][0]["neighborhood_summary"]["active_relation_count"] >= 1
     assert payload["root_concepts"][0]["neighborhood_summary"]["semantic_relation_count"] >= 1
+    assert payload["projection_summary"]["projection_edge_count"] >= 2
     assert payload["graph_bundles"][0]["bundle_kind"] == "groundrecall_graph_bundle"
     assert payload["graph_bundles"][0]["root_concept"]["concept_id"] == "concept::channel-capacity"
     assert any(item["edge_id"] == "rel_001" for item in payload["graph_bundles"][0]["edges"])

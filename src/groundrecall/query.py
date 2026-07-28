@@ -581,6 +581,12 @@ def build_graph_bundle_for_concept(
 
     concept_rows = [item.model_dump() for item in selected_concepts]
     relation_rows = [item.model_dump() for item in [*selected_relations, *selected_provenance_relations]]
+    projection = _evidence_graph_projection(
+        selected_ids=selected_ids,
+        claims=selected_claims,
+        observations=observations,
+        include_rejected=include_rejected,
+    )
     return {
         "bundle_kind": "groundrecall_graph_bundle",
         "query_type": "graph",
@@ -627,6 +633,9 @@ def build_graph_bundle_for_concept(
         ],
         "relevant_claims": [claim.model_dump() for claim in selected_claims],
         "supporting_observations": [observation.model_dump() for observation in observations],
+        "projection_nodes": projection["nodes"],
+        "projection_edges": projection["edges"],
+        "projection_summary": projection["summary"],
         "source_artifacts": source_artifacts,
         "graph_diagnostics": build_graph_diagnostics(
             concept_rows,
@@ -640,6 +649,105 @@ def build_graph_bundle_for_concept(
             "Increase --depth only when the neighborhood remains small enough to review.",
             "Review contradiction and supersession links for selected claims before exporting downstream.",
         ],
+    }
+
+
+def _evidence_graph_projection(
+    *,
+    selected_ids: set[str],
+    claims: list[Any],
+    observations: list[Any],
+    include_rejected: bool,
+) -> dict[str, Any]:
+    observation_ids = {observation.observation_id for observation in observations}
+    claim_ids = {claim.claim_id for claim in claims}
+    nodes: dict[str, dict[str, Any]] = {}
+    edges: list[dict[str, Any]] = []
+
+    for claim in claims:
+        if not include_rejected and claim.current_status == "rejected":
+            continue
+        nodes[f"claim:{claim.claim_id}"] = {
+            "node_id": claim.claim_id,
+            "node_kind": "claim",
+            "title": claim.claim_text[:120],
+            "status": claim.current_status,
+        }
+        for concept_id in claim.concept_ids:
+            if concept_id in selected_ids:
+                edges.append(
+                    {
+                        "edge_id": f"projection:claim:{claim.claim_id}:about:{concept_id}",
+                        "edge_kind": "projection",
+                        "source_id": claim.claim_id,
+                        "target_id": concept_id,
+                        "relation_type": "claim_about_concept",
+                        "status": claim.current_status,
+                        "evidence_ids": list(claim.source_observation_ids),
+                    }
+                )
+        for observation_id in claim.source_observation_ids:
+            if observation_id in observation_ids:
+                edges.append(
+                    {
+                        "edge_id": f"projection:observation:{observation_id}:supports:{claim.claim_id}",
+                        "edge_kind": "projection",
+                        "source_id": observation_id,
+                        "target_id": claim.claim_id,
+                        "relation_type": "observation_supports_claim",
+                        "status": claim.current_status,
+                        "evidence_ids": [observation_id],
+                    }
+                )
+        for target_id in claim.contradicts_claim_ids:
+            if target_id in claim_ids:
+                edges.append(
+                    {
+                        "edge_id": f"projection:claim:{claim.claim_id}:contradicts:{target_id}",
+                        "edge_kind": "projection",
+                        "source_id": claim.claim_id,
+                        "target_id": target_id,
+                        "relation_type": "claim_contradicts_claim",
+                        "status": claim.current_status,
+                        "evidence_ids": list(claim.source_observation_ids),
+                    }
+                )
+        for target_id in claim.supersedes_claim_ids:
+            if target_id in claim_ids:
+                edges.append(
+                    {
+                        "edge_id": f"projection:claim:{claim.claim_id}:supersedes:{target_id}",
+                        "edge_kind": "projection",
+                        "source_id": claim.claim_id,
+                        "target_id": target_id,
+                        "relation_type": "claim_supersedes_claim",
+                        "status": claim.current_status,
+                        "evidence_ids": list(claim.source_observation_ids),
+                    }
+                )
+
+    for observation in observations:
+        if not include_rejected and observation.current_status == "rejected":
+            continue
+        nodes[f"observation:{observation.observation_id}"] = {
+            "node_id": observation.observation_id,
+            "node_kind": "observation",
+            "title": observation.role or observation.observation_id,
+            "status": observation.current_status,
+        }
+
+    relation_type_counts: dict[str, int] = {}
+    for edge in edges:
+        relation_type = str(edge["relation_type"])
+        relation_type_counts[relation_type] = relation_type_counts.get(relation_type, 0) + 1
+    return {
+        "nodes": list(nodes.values()),
+        "edges": edges,
+        "summary": {
+            "projection_node_count": len(nodes),
+            "projection_edge_count": len(edges),
+            "relation_type_counts": dict(sorted(relation_type_counts.items())),
+        },
     }
 
 
@@ -747,6 +855,8 @@ def build_graph_search_bundle(
         for concept_id in ranked_concept_ids
         if (bundle := build_graph_bundle_for_concept(store_dir, concept_id, depth=depth)) is not None
     ]
+    projection_edge_count = sum(int(bundle.get("projection_summary", {}).get("projection_edge_count", 0)) for bundle in graph_bundles)
+    projection_node_count = sum(int(bundle.get("projection_summary", {}).get("projection_node_count", 0)) for bundle in graph_bundles)
     return {
         "bundle_kind": "groundrecall_graph_search_bundle",
         "query_type": "graph_search",
@@ -771,6 +881,11 @@ def build_graph_search_bundle(
             }
             for concept_id in ranked_concept_ids
         ],
+        "projection_summary": {
+            "projection_node_count": projection_node_count,
+            "projection_edge_count": projection_edge_count,
+            "graph_bundle_count": len(graph_bundles),
+        },
         "graph_bundles": graph_bundles,
         "unresolved_matches": [
             {

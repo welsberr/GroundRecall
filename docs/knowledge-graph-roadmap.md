@@ -229,6 +229,11 @@ implemented.
 - Graph search now gives direct concept/title hits a supplemental retrieval pass
   and ranks candidate roots by direct concept matches, query-token overlap, and
   direct-vs-associated match evidence before falling back to FTS score.
+- Graph bundles now expose derived evidence projection nodes and edges for
+  claim-about-concept, observation-supports-claim, claim-contradicts-claim, and
+  claim-supersedes-claim links. These projection edges make abundant governed
+  memory structure visible while preserving the distinction from reviewed
+  semantic `RelationRecord` edges.
 
 ## Non-Goals For The First Pass
 

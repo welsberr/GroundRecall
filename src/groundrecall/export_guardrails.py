@@ -472,7 +472,13 @@ def _prune_query_payload_references(payload: dict[str, Any], findings: list[Guar
         findings=findings,
     )
     _prune_temporal_summary_payload(payload, allowed_claim_ids)
-    _prune_graph_payload_references(payload, allowed_artifact_ids, allowed_observation_ids, findings)
+    _prune_graph_payload_references(
+        payload,
+        allowed_artifact_ids,
+        allowed_observation_ids,
+        allowed_claim_ids,
+        findings,
+    )
     _refresh_query_assessment_surfaces(payload, findings)
 
 
@@ -604,6 +610,7 @@ def _prune_graph_payload_references(
     payload: dict[str, Any],
     allowed_artifact_ids: set[str],
     allowed_observation_ids: set[str],
+    allowed_claim_ids: set[str],
     findings: list[GuardrailFinding],
 ) -> None:
     nodes = payload.get("nodes")
@@ -650,6 +657,13 @@ def _prune_graph_payload_references(
         payload,
         "provenance_edges",
         allowed_concept_ids=allowed_concept_ids,
+        allowed_observation_ids=allowed_observation_ids,
+        findings=findings,
+    )
+    _prune_projection_payload(
+        payload,
+        allowed_concept_ids=allowed_concept_ids,
+        allowed_claim_ids=allowed_claim_ids,
         allowed_observation_ids=allowed_observation_ids,
         findings=findings,
     )
@@ -700,6 +714,73 @@ def _filter_graph_edges(
             kept_edges.append(edge)
         payload[field_name] = kept_edges
     return kept_edges
+
+
+def _prune_projection_payload(
+    payload: dict[str, Any],
+    *,
+    allowed_concept_ids: set[str],
+    allowed_claim_ids: set[str],
+    allowed_observation_ids: set[str],
+    findings: list[GuardrailFinding],
+) -> None:
+    allowed_node_ids = set(allowed_concept_ids) | set(allowed_claim_ids) | set(allowed_observation_ids)
+
+    nodes = payload.get("projection_nodes")
+    kept_nodes: list[dict[str, Any]] = []
+    if isinstance(nodes, list):
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            node_id = str(node.get("node_id", ""))
+            node_kind = str(node.get("node_kind", "") or "projection_node")
+            secret_path = _secret_field_path(node)
+            if secret_path is not None:
+                findings.append(GuardrailFinding(node_kind, node_id or "unknown", "secret_like_content", f"projection_nodes.{secret_path}"))
+                continue
+            if node_id not in allowed_node_ids:
+                findings.append(GuardrailFinding(node_kind, node_id or "unknown", "non_exportable_projection_node"))
+                continue
+            kept_nodes.append(node)
+        payload["projection_nodes"] = kept_nodes
+
+    kept_node_ids = {str(node.get("node_id", "")) for node in kept_nodes if isinstance(node, dict)}
+    kept_node_ids |= set(allowed_concept_ids)
+
+    edges = payload.get("projection_edges")
+    kept_edges: list[dict[str, Any]] = []
+    if isinstance(edges, list):
+        for edge in edges:
+            if not isinstance(edge, dict):
+                continue
+            edge_id = str(edge.get("edge_id", ""))
+            source_id = str(edge.get("source_id", ""))
+            target_id = str(edge.get("target_id", ""))
+            secret_path = _secret_field_path(edge)
+            if secret_path is not None:
+                findings.append(GuardrailFinding("projection_edge", edge_id or "unknown", "secret_like_content", f"projection_edges.{secret_path}"))
+                continue
+            if source_id not in kept_node_ids or target_id not in kept_node_ids:
+                findings.append(GuardrailFinding("projection_edge", edge_id or "unknown", "non_exportable_projection_endpoint"))
+                continue
+            edge["evidence_ids"] = [
+                value
+                for value in edge.get("evidence_ids", [])
+                if isinstance(value, str) and value in allowed_observation_ids
+            ]
+            kept_edges.append(edge)
+        payload["projection_edges"] = kept_edges
+
+    relation_type_counts: dict[str, int] = {}
+    for edge in kept_edges:
+        relation_type = str(edge.get("relation_type", ""))
+        if relation_type:
+            relation_type_counts[relation_type] = relation_type_counts.get(relation_type, 0) + 1
+    payload["projection_summary"] = {
+        "projection_node_count": len(kept_nodes),
+        "projection_edge_count": len(kept_edges),
+        "relation_type_counts": dict(sorted(relation_type_counts.items())),
+    }
 
 
 def _payload_record_identity(value: dict[str, Any]) -> tuple[str, str]:
