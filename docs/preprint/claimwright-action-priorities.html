@@ -40,6 +40,7 @@
 <li><code>inspect_store(..., include_policy_coverage=True)</code> exposes the same report through the Python API.</li>
 <li>Graph augmentation/backfill and graph maintenance <code>--apply</code> paths now accept optional policy-plugin configs and block deny/hard-gate decisions before candidate relation, review-candidate, or maintenance-state writes.</li>
 <li>Those graph write paths also accept <code>--audit-log</code> and write JSONL policy preflight audit events for both allowed-with-policy and blocked decisions.</li>
+<li>Direct CLI query now accepts optional policy-plugin configs and blocks deny/hard-gate decisions before store access; softer decisions are attached to query output.</li>
 <li>Tests cover the report, Python API, and CLI dispatch.</li>
 </ul>
 <p>ClaimWright review basis:</p>

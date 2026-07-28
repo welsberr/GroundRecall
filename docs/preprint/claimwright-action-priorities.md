@@ -37,6 +37,9 @@ Initial implementation status:
   candidate relation, review-candidate, or maintenance-state writes.
 - Those graph write paths also accept `--audit-log` and write JSONL policy
   preflight audit events for both allowed-with-policy and blocked decisions.
+- Direct CLI query now accepts optional policy-plugin configs and blocks
+  deny/hard-gate decisions before store access; softer decisions are attached
+  to query output.
 - Tests cover the report, Python API, and CLI dispatch.
 
 ClaimWright review basis:

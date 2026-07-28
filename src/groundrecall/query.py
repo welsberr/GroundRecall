@@ -19,6 +19,7 @@ from .epistemap_adapter import graph_bundle_from_query_payload
 from .confidence import confidence_profile_for_query_payload
 from .contradictions import contradiction_cases_for_claim_ids, generate_contradiction_cases_from_claims
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .search_index import search_index
 from .store import GroundRecallStore
 
@@ -1081,6 +1082,56 @@ def _minimum_match_score(sources: list[dict[str, Any]]) -> float:
     return min(scores) if scores else 0.0
 
 
+def _evaluate_query_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    subject_id: str,
+    kind: str,
+    query_text: str,
+    metadata: dict[str, Any] | None = None,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    return provider.evaluate(
+        PolicyRequest(
+            decision_point="query",
+            subject_id=subject_id,
+            action=f"query_{kind}",
+            public_facing=False,
+            durable_memory_change=False,
+            metadata={
+                "kind": kind,
+                "query": query_text,
+                **(metadata or {}),
+            },
+        )
+    )
+
+
+def _blocked_query_payload(decision: PolicyDecision) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "blocked_by_policy": True,
+        "policy_plugin_decision": decision.model_dump(mode="json"),
+    }
+
+
+def _attach_query_policy(payload: Any, decision: PolicyDecision | None) -> Any:
+    if decision is None:
+        return payload
+    if isinstance(payload, dict):
+        return {
+            **payload,
+            "policy_plugin_decision": decision.model_dump(mode="json"),
+        }
+    return {
+        "ok": True,
+        "payload": payload,
+        "policy_plugin_decision": decision.model_dump(mode="json"),
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Query canonical GroundRecall objects.")
     parser.add_argument("store_dir")
@@ -1097,11 +1148,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=20, help="Search result limit for search and graph-search queries")
     parser.add_argument("--graph-limit", type=int, default=5, help="Maximum root concepts for --kind graph-search")
     parser.add_argument("--include-rejected", action="store_true", help="Include rejected records when supported by the query kind")
+    parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for CLI query gating.")
+    parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
+    policy_decision = _evaluate_query_policy(
+        args.policy_plugins,
+        subject_id=args.policy_subject_id,
+        kind=args.kind,
+        query_text=args.query,
+        metadata={
+            "corpora": list(args.corpus or []),
+            "object_kinds": list(args.object_kind or []),
+            "depth": args.depth,
+            "limit": args.limit,
+            "graph_limit": args.graph_limit,
+            "include_rejected": args.include_rejected,
+        },
+    )
+    if policy_decision is not None and policy_decision.decision in {"deny", "hard_gate"}:
+        print(json.dumps(_blocked_query_payload(policy_decision), indent=2))
+        return
     if args.kind == "concept":
         payload = query_concept(args.store_dir, args.query)
     elif args.kind == "claim":
@@ -1135,7 +1205,7 @@ def main() -> None:
         )
     else:
         payload = build_query_bundle_for_concept(args.store_dir, args.query)
-    print(json.dumps(payload, indent=2))
+    print(json.dumps(_attach_query_policy(payload, policy_decision), indent=2))
 
 
 if __name__ == "__main__":

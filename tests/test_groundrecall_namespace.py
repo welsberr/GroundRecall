@@ -1,3 +1,4 @@
+import json
 import sys
 from pathlib import Path
 
@@ -27,6 +28,24 @@ def _build_llmwiki_fixture(root: Path) -> Path:
         encoding="utf-8",
     )
     return root
+
+
+def _write_static_policy_config(path: Path, *, decision: str, policy_id: str = "cli.query.policy.test") -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                f"policy_id: {policy_id}",
+                "providers:",
+                "  - type: static",
+                f"    policy_id: {policy_id}.provider",
+                f"    default_decision: {decision}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def test_groundrecall_namespace_reexports_core_functions() -> None:
@@ -344,6 +363,67 @@ def test_groundrecall_cli_query_graph_dispatches(tmp_path: Path, capsys) -> None
     assert '"bundle_kind": "groundrecall_graph_bundle"' in output
     assert '"nodes"' in output
     assert '"edges"' in output
+
+
+def test_groundrecall_cli_query_soft_policy_plugin_attaches_decision(tmp_path: Path, capsys) -> None:
+    source_root = _build_llmwiki_fixture(tmp_path / "llmwiki")
+    import_result = run_groundrecall_import(source_root, out_root=tmp_path / "imports", mode="quick", import_id="fixture-import")
+    store_dir = tmp_path / "store"
+    promote_import_to_store(import_result.out_dir, store_dir)
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="soft_gate")
+
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall.cli",
+            "query",
+            str(store_dir),
+            "channel-capacity",
+            "--kind",
+            "graph",
+            "--policy-plugins",
+            str(policy_config),
+            "--policy-subject-id",
+            "agent-1",
+        ]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["bundle_kind"] == "groundrecall_graph_bundle"
+    assert payload["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert payload["policy_plugin_decision"]["subject_id"] == "agent-1"
+
+
+def test_groundrecall_cli_query_hard_policy_plugin_blocks_before_store_access(tmp_path: Path, capsys) -> None:
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="hard_gate")
+    missing_store = tmp_path / "missing-store"
+
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall.cli",
+            "query",
+            str(missing_store),
+            "anything",
+            "--kind",
+            "graph",
+            "--policy-plugins",
+            str(policy_config),
+            "--policy-subject-id",
+            "agent-1",
+        ]
+        groundrecall_cli_main()
+    finally:
+        sys.argv = original_argv
+
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ok"] is False
+    assert payload["blocked_by_policy"] is True
+    assert payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert payload["policy_plugin_decision"]["subject_id"] == "agent-1"
+    assert not missing_store.exists()
 
 
 def test_groundrecall_cli_query_graph_search_dispatches(tmp_path: Path, capsys) -> None:
