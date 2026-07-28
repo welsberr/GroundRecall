@@ -174,3 +174,70 @@ def test_groundrecall_promotion_can_override_lint_error_gate(tmp_path: Path) -> 
 
     assert payload["lint_error_count"] == 1
     assert payload["lint_errors_allowed"] is True
+
+
+def test_groundrecall_promotion_records_soft_policy_plugin_decision(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "policy.md").write_text("# Policy\n\n- A reviewed policy-gated claim.\n", encoding="utf-8")
+    result = run_groundrecall_import(root, mode="quick", import_id="policy-soft-gate-test")
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: promotion.soft.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: promotion.soft.provider",
+                "    default_decision: soft_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = promote_import_to_store(
+        result.out_dir,
+        tmp_path / "store",
+        reviewer="R",
+        policy_plugins_path=config,
+        policy_subject_id="agent-1",
+    )
+
+    assert payload["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert payload["policy_plugin_decision"]["subject_id"] == "agent-1"
+    snapshot = GroundRecallStore(tmp_path / "store").list_snapshots()[0]
+    assert snapshot.metadata["policy_plugin_decision"]["policy_id"] == "promotion.soft.policy"
+
+
+def test_groundrecall_promotion_blocks_hard_policy_plugin_decision(tmp_path: Path) -> None:
+    root = tmp_path / "llmwiki"
+    (root / "wiki").mkdir(parents=True)
+    (root / "wiki" / "blocked.md").write_text("# Blocked\n\n- A blocked policy-gated claim.\n", encoding="utf-8")
+    result = run_groundrecall_import(root, mode="quick", import_id="policy-hard-gate-test")
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: promotion.block.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: promotion.block.provider",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PromotionGateError) as excinfo:
+        promote_import_to_store(
+            result.out_dir,
+            tmp_path / "store",
+            reviewer="R",
+            policy_plugins_path=config,
+            policy_subject_id="agent-1",
+        )
+
+    assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert not (tmp_path / "store").exists()

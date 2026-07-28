@@ -70,6 +70,14 @@ Initial implementation status:
   `policy_request`, and `subject_id` arguments. When configured, hard-gate and
   deny decisions block the operation before store access or export side effects;
   softer decisions are returned with the tool payload as review context.
+- Canonical import promotion accepts optional policy-plugin configs. Plugin
+  hard-gate and deny decisions block promotion before canonical store writes;
+  softer decisions are returned in the promotion payload and recorded in
+  snapshot metadata.
+- Contradiction adjudication accepts optional policy-plugin configs. Plugin
+  hard-gate and deny decisions block adjudication before adjudication or case
+  records are written; softer decisions are returned and recorded in
+  adjudication metadata.
 - Federation export, quarantine import, and promotion accept optional generic
   policy-plugin configs alongside the existing federation grant policy. Plugin
   hard-gate and deny decisions block export/import/promotion, and plugin

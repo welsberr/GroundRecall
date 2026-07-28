@@ -4,14 +4,24 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Literal
 
 from .models import AdjudicationRecord, ClaimRecord, ContradictionCaseRecord
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 
 
 ContradictionCaseStatus = Literal["open", "under_review", "resolved", "superseded", "rejected"]
+
+
+class ContradictionPolicyError(RuntimeError):
+    """Raised when a policy plugin blocks contradiction adjudication."""
+
+    def __init__(self, message: str, payload: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 def contradiction_case_id_for_claims(claim_ids: Iterable[str]) -> str:
@@ -153,6 +163,8 @@ def adjudicate_contradiction_case(
     decided_at: str | None = None,
     adjudication_id: str | None = None,
     metadata: dict[str, Any] | None = None,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
 ) -> dict[str, Any]:
     from .store import GroundRecallStore
 
@@ -166,11 +178,21 @@ def adjudicate_contradiction_case(
         raise ValueError(f"selected claim ids are not in contradiction case {case_id}: {missing_selected}")
     timestamp = decided_at or _now_utc()
     actual_adjudication_id = adjudication_id or _adjudication_id_for_case(case_id, timestamp)
+    policy_decision = _evaluate_adjudication_policy(
+        policy_plugins_path,
+        subject_id=policy_subject_id or adjudicator,
+        case=case,
+        status=status,
+        adjudicator=adjudicator,
+        selected_claim_ids=selected,
+        adjudication_id=actual_adjudication_id,
+    )
     adjudication_metadata = {
         "selection_policy": "explicit_contradiction_case_adjudication_no_silent_averaging",
         "disagreement_preserved": True,
         "resolution": resolution,
         "selected_claim_ids": selected,
+        **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
         **(metadata or {}),
     }
     adjudication = AdjudicationRecord(
@@ -207,7 +229,52 @@ def adjudicate_contradiction_case(
         "decision": "adjudicated",
         "case": updated_case.model_dump(mode="json"),
         "adjudication": adjudication.model_dump(mode="json"),
+        **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
     }
+
+
+def _evaluate_adjudication_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    subject_id: str,
+    case: ContradictionCaseRecord,
+    status: ContradictionCaseStatus,
+    adjudicator: str,
+    selected_claim_ids: list[str],
+    adjudication_id: str,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    decision = provider.evaluate(
+        PolicyRequest(
+            decision_point="adjudicate",
+            subject_id=subject_id,
+            action="adjudicate_contradiction_case",
+            record_kind="contradiction_case",
+            record_id=case.case_id,
+            contradiction_state=case.status,
+            durable_memory_change=True,
+            metadata={
+                "case_id": case.case_id,
+                "case_status": case.status,
+                "target_status": status,
+                "severity": case.severity,
+                "claim_ids": list(case.claim_ids),
+                "selected_claim_ids": selected_claim_ids,
+                "adjudicator": adjudicator,
+                "adjudication_id": adjudication_id,
+            },
+        )
+    )
+    if decision.decision in {"deny", "hard_gate"}:
+        raise ContradictionPolicyError(
+            "Policy plugin blocked contradiction adjudication.",
+            {
+                "policy_plugin_decision": decision.model_dump(mode="json"),
+            },
+        )
+    return decision
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -234,6 +301,8 @@ def build_parser() -> argparse.ArgumentParser:
     adjudicate_parser.add_argument("--selected-claim-id", action="append", default=[])
     adjudicate_parser.add_argument("--decided-at", default=None)
     adjudicate_parser.add_argument("--adjudication-id", default=None)
+    adjudicate_parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for adjudication gating.")
+    adjudicate_parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
     return parser
 
 
@@ -255,17 +324,23 @@ def main() -> None:
             limit=args.limit,
         )
     else:
-        payload = adjudicate_contradiction_case(
-            args.store_dir,
-            case_id=args.case_id,
-            status=args.status,
-            adjudicator=args.adjudicator,
-            rationale=args.rationale,
-            resolution=args.resolution,
-            selected_claim_ids=list(args.selected_claim_id or []),
-            decided_at=args.decided_at,
-            adjudication_id=args.adjudication_id,
-        )
+        try:
+            payload = adjudicate_contradiction_case(
+                args.store_dir,
+                case_id=args.case_id,
+                status=args.status,
+                adjudicator=args.adjudicator,
+                rationale=args.rationale,
+                resolution=args.resolution,
+                selected_claim_ids=list(args.selected_claim_id or []),
+                decided_at=args.decided_at,
+                adjudication_id=args.adjudication_id,
+                policy_plugins_path=args.policy_plugins,
+                policy_subject_id=args.policy_subject_id,
+            )
+        except ContradictionPolicyError as exc:
+            print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)
+            raise SystemExit(2) from exc
     print(json.dumps(payload, indent=2))
 
 

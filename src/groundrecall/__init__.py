@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .contradictions import (
+    ContradictionPolicyError,
     contradiction_case_id_for_claims,
     contradiction_cases_for_claim_ids,
     adjudicate_contradiction_case,
@@ -99,6 +100,7 @@ __all__ = [
     "contradiction_case_id_for_claims",
     "contradiction_cases_for_claim_ids",
     "adjudicate_contradiction_case",
+    "ContradictionPolicyError",
     "generate_contradiction_cases_from_claims",
     "list_contradiction_case_batch",
     "sync_contradiction_cases_for_store",

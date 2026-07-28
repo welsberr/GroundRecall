@@ -17,6 +17,7 @@ from .models import (
     RelationRecord,
     ReviewCandidateRecord,
 )
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .review_schema import ReviewSession
 from .store import GroundRecallStore
 
@@ -129,17 +130,71 @@ def _enforce_promotion_gate(import_dir: Path, allow_lint_errors: bool) -> dict[s
     return gate_payload
 
 
+def _evaluate_promotion_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    subject_id: str,
+    import_id: str,
+    reviewer: str,
+    lint_payload: dict[str, Any],
+    manifest: dict[str, Any],
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    decision = provider.evaluate(
+        PolicyRequest(
+            decision_point="promote",
+            subject_id=subject_id,
+            action="promote_import_to_store",
+            record_kind="import",
+            record_id=import_id,
+            durable_memory_change=True,
+            metadata={
+                "import_id": import_id,
+                "reviewer": reviewer,
+                "lint_error_count": int(lint_payload.get("error_count", 0)),
+                "lint_warning_count": int(lint_payload.get("warning_count", 0)),
+                "manifest": {
+                    "schema_version": manifest.get("schema_version", ""),
+                    "source_root": manifest.get("source_root", ""),
+                    "mode": manifest.get("mode", ""),
+                },
+            },
+        )
+    )
+    if decision.decision in {"deny", "hard_gate"}:
+        raise PromotionGateError(
+            "Policy plugin blocked import promotion.",
+            {
+                "policy_plugin_decision": decision.model_dump(mode="json"),
+            },
+        )
+    return decision
+
+
 def promote_import_to_store(
     import_dir: str | Path,
     store_dir: str | Path,
     reviewer: str | None = None,
     snapshot_id: str | None = None,
     allow_lint_errors: bool = False,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
 ) -> dict[str, Any]:
     base = Path(import_dir)
     gate_payload = _enforce_promotion_gate(base, allow_lint_errors=allow_lint_errors)
     manifest = _read_json(base / "manifest.json")
     review_session = ReviewSession.model_validate_json((base / "review_session.json").read_text(encoding="utf-8"))
+    actual_reviewer = reviewer or review_session.reviewer
+    policy_decision = _evaluate_promotion_policy(
+        policy_plugins_path,
+        subject_id=policy_subject_id or actual_reviewer,
+        import_id=str(manifest["import_id"]),
+        reviewer=actual_reviewer,
+        lint_payload=gate_payload,
+        manifest=manifest,
+    )
     queue_payload = _read_json(base / "review_queue.json")
     artifacts = _read_jsonl(base / "artifacts.jsonl")
     observations = _read_jsonl(base / "observations.jsonl")
@@ -285,7 +340,7 @@ def promote_import_to_store(
             candidate_id=manifest["import_id"],
             promotion_target="groundrecall_store",
             verdict="approved",
-            reviewer=reviewer or review_session.reviewer,
+            reviewer=actual_reviewer,
             promoted_object_ids=promoted_concept_ids + promoted_claim_ids + promoted_relation_ids,
             notes=f"Promoted import {manifest['import_id']} into GroundRecallStore.",
             promoted_at=_now(),
@@ -297,8 +352,9 @@ def promote_import_to_store(
         created_at=_now(),
         metadata={
             "source_import_id": manifest["import_id"],
-            "reviewer": reviewer or review_session.reviewer,
+            "reviewer": actual_reviewer,
             "export_kind": "canonical",
+            **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
         },
     )
     store.save_snapshot(built_snapshot)
@@ -314,6 +370,7 @@ def promote_import_to_store(
         "lint_warning_count": gate_payload["warning_count"],
         "lint_errors_allowed": allow_lint_errors,
         "snapshot_id": built_snapshot.snapshot_id,
+        **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
     }
 
 
@@ -323,6 +380,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("store_dir")
     parser.add_argument("--reviewer", default=None)
     parser.add_argument("--snapshot-id", default=None)
+    parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for promotion gating.")
+    parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
     parser.add_argument(
         "--allow-lint-errors",
         action="store_true",
@@ -340,6 +399,8 @@ def main() -> None:
             reviewer=args.reviewer,
             snapshot_id=args.snapshot_id,
             allow_lint_errors=args.allow_lint_errors,
+            policy_plugins_path=args.policy_plugins,
+            policy_subject_id=args.policy_subject_id,
         )
     except PromotionGateError as exc:
         print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)

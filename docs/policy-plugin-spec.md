@@ -161,8 +161,11 @@ The policy plugin boundary is currently used by:
 
 - MCP policy evaluation;
 - MCP read/query/search/export tools;
+- canonical import promotion into the local store;
+- contradiction-case adjudication;
 - federation export, quarantine import, and promotion;
 - canonical public export.
 
-Additional GroundRecall write, proposal, promotion, adjudication, redaction,
-and delete surfaces should route through this same contract as they mature.
+Additional GroundRecall write, proposal, review, revision, supersession,
+redaction, and delete surfaces should route through this same contract as they
+mature.

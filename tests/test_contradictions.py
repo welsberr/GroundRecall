@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import pytest
+
 from groundrecall.contradictions import (
+    ContradictionPolicyError,
     adjudicate_contradiction_case,
     contradiction_case_id_for_claims,
     generate_contradiction_cases_from_claims,
@@ -109,6 +112,84 @@ def test_adjudicate_contradiction_case_records_decision_and_updates_case(tmp_pat
     assert adjudication is not None
     assert adjudication.subject_type == "contradiction_case"
     assert adjudication.metadata["disagreement_preserved"] is True
+
+
+def test_adjudicate_contradiction_case_records_soft_policy_plugin_decision(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable.", contradicts_claim_ids=["clm_beta"], current_status="promoted"))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable.", current_status="reviewed"))
+    case = sync_contradiction_cases_for_store(store.base_dir)[0]
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: adjudication.soft.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: adjudication.soft.provider",
+                "    default_decision: require_review",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = adjudicate_contradiction_case(
+        store.base_dir,
+        case_id=case.case_id,
+        status="resolved",
+        adjudicator="unit-test",
+        rationale="Alpha is stable in scoped conditions.",
+        selected_claim_ids=["clm_alpha"],
+        decided_at="2026-07-26T00:00:00Z",
+        adjudication_id="adj_policy_soft",
+        policy_plugins_path=config,
+        policy_subject_id="agent-1",
+    )
+
+    adjudication = store.get_adjudication("adj_policy_soft")
+    assert result["policy_plugin_decision"]["decision"] == "require_review"
+    assert adjudication is not None
+    assert adjudication.metadata["policy_plugin_decision"]["subject_id"] == "agent-1"
+
+
+def test_adjudicate_contradiction_case_blocks_hard_policy_plugin_decision(tmp_path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    store.save_claim(ClaimRecord(claim_id="clm_alpha", claim_text="Alpha is stable.", contradicts_claim_ids=["clm_beta"], current_status="promoted"))
+    store.save_claim(ClaimRecord(claim_id="clm_beta", claim_text="Alpha is not stable.", current_status="reviewed"))
+    case = sync_contradiction_cases_for_store(store.base_dir)[0]
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: adjudication.block.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: adjudication.block.provider",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ContradictionPolicyError) as excinfo:
+        adjudicate_contradiction_case(
+            store.base_dir,
+            case_id=case.case_id,
+            status="resolved",
+            adjudicator="unit-test",
+            rationale="Alpha is stable in scoped conditions.",
+            selected_claim_ids=["clm_alpha"],
+            decided_at="2026-07-26T00:00:00Z",
+            adjudication_id="adj_policy_blocked",
+            policy_plugins_path=config,
+            policy_subject_id="agent-1",
+        )
+
+    assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert store.get_adjudication("adj_policy_blocked") is None
+    assert store.get_contradiction_case(case.case_id).status == "open"
 
 
 def test_groundrecall_cli_routes_contradiction_sync(tmp_path, monkeypatch, capsys) -> None:
