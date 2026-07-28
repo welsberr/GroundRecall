@@ -33,6 +33,23 @@ class RelationCandidate:
     origin_paths: list[str] = field(default_factory=list)
 
 
+@dataclass
+class AugmentStats:
+    skipped_duplicate_keys: set[tuple[str, str, str]] = field(default_factory=set)
+
+    def record_duplicate(self, key: tuple[str, str, str]) -> None:
+        self.skipped_duplicate_keys.add(key)
+
+    def skipped_duplicate_counts(self) -> dict[str, Any]:
+        by_type: dict[str, int] = {}
+        for _source_id, _target_id, relation_type in self.skipped_duplicate_keys:
+            by_type[relation_type] = by_type.get(relation_type, 0) + 1
+        return {
+            "skipped_duplicate_relation_count": len(self.skipped_duplicate_keys),
+            "skipped_duplicate_relation_type_counts": dict(sorted(by_type.items())),
+        }
+
+
 def augment_store_relations_from_claims(
     store_dir: str | Path,
     *,
@@ -51,12 +68,14 @@ def augment_store_relations_from_claims(
         _relation_key(item.source_id, item.target_id, item.relation_type)
         for item in store.list_relations()
     }
+    stats = AugmentStats()
     prefixes = [item for item in (concept_prefixes or []) if item]
     if strategy == "claim-cooccurrence":
         candidates = _claim_cooccurrence_candidates(
             store,
             concepts=concepts,
             existing_keys=existing_keys,
+            stats=stats,
             prefixes=prefixes,
             relation_type=relation_type,
         )
@@ -67,6 +86,7 @@ def augment_store_relations_from_claims(
             store,
             concepts=concepts,
             existing_keys=existing_keys,
+            stats=stats,
             prefixes=prefixes,
             relation_type=relation_type,
         )
@@ -77,6 +97,7 @@ def augment_store_relations_from_claims(
             store,
             concepts=concepts,
             existing_keys=existing_keys,
+            stats=stats,
             prefixes=prefixes,
             relation_type=relation_type,
         )
@@ -86,19 +107,23 @@ def augment_store_relations_from_claims(
         candidates = _source_family_candidates(
             concepts=concepts,
             existing_keys=existing_keys,
+            stats=stats,
             prefixes=prefixes,
             relation_type=relation_type,
         )
         extractor = SOURCE_FAMILY_EXTRACTOR_NAME
 
     effective_min_evidence = 1 if strategy in {"claim-mentions", "source-family"} else max(1, int(min_evidence))
-    selected = [
+    eligible = [
         candidate
         for candidate in candidates.values()
         if _evidence_count(candidate) >= effective_min_evidence
     ]
+    selected = list(eligible)
     selected.sort(key=lambda item: (-_evidence_count(item), item.source_id, item.target_id))
+    omitted_by_limit_count = 0
     if limit is not None:
+        omitted_by_limit_count = max(0, len(selected) - max(0, int(limit)))
         selected = selected[: max(0, int(limit))]
 
     relation_payloads = [_candidate_payload(candidate, extractor=extractor) for candidate in selected]
@@ -145,8 +170,14 @@ def augment_store_relations_from_claims(
         "relation_type": relation_type,
         "concept_prefixes": prefixes,
         "min_evidence": effective_min_evidence,
+        "raw_candidate_relation_count": len(candidates),
         "candidate_relation_count": len(relation_payloads),
         "relation_type_counts": _relation_type_counts(relation_payloads),
+        "filter_summary": {
+            "below_min_evidence_count": len(candidates) - len(eligible),
+            "omitted_by_limit_count": omitted_by_limit_count,
+            **stats.skipped_duplicate_counts(),
+        },
         "write_summary": {
             "relation_write_count": len(relation_payloads) if apply else 0,
             "review_candidate_write_count": len(relation_payloads) if apply else 0,
@@ -174,6 +205,7 @@ def _claim_cooccurrence_candidates(
     *,
     concepts: dict[str, Any],
     existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
     prefixes: list[str],
     relation_type: str,
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
@@ -192,6 +224,7 @@ def _claim_cooccurrence_candidates(
         for source_id, target_id in _concept_pairs(sorted(set(concept_ids))):
             key = _relation_key(source_id, target_id, relation_type)
             if key in existing_keys:
+                stats.record_duplicate(key)
                 continue
             candidate = candidates.get(key)
             if candidate is None:
@@ -213,6 +246,7 @@ def _source_family_candidates(
     *,
     concepts: dict[str, Any],
     existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
     prefixes: list[str],
     relation_type: str,
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
@@ -231,6 +265,7 @@ def _source_family_candidates(
         for source, target in _concept_pairs([item.concept_id for item in sorted_items]):
             key = _relation_key(source, target, relation_type)
             if key in existing_keys:
+                stats.record_duplicate(key)
                 continue
             source_concept = concepts[source]
             target_concept = concepts[target]
@@ -251,6 +286,7 @@ def _claim_mentions_candidates(
     *,
     concepts: dict[str, Any],
     existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
     prefixes: list[str],
     relation_type: str,
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
@@ -283,6 +319,7 @@ def _claim_mentions_candidates(
                 inferred_type = _claim_mention_relation_type(source_id, target_id, text, eligible_concepts)
                 key = _relation_key(source_id, target_id, inferred_type)
                 if key in existing_keys:
+                    stats.record_duplicate(key)
                     continue
                 candidate = candidates.get(key)
                 if candidate is None:
@@ -305,6 +342,7 @@ def _observation_cooccurrence_candidates(
     *,
     concepts: dict[str, Any],
     existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
     prefixes: list[str],
     relation_type: str,
 ) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
@@ -337,6 +375,7 @@ def _observation_cooccurrence_candidates(
             continue
         key = _relation_key(source_id, target_id, relation_type)
         if key in existing_keys:
+            stats.record_duplicate(key)
             continue
         evidence_ids = [str(value) for value in row.get("evidence_ids", []) if str(value)]
         candidates[key] = RelationCandidate(

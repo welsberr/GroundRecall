@@ -60,6 +60,7 @@ def run_graph_maintenance_slice(
         "min_evidence": augmentation.get("min_evidence", min_evidence),
         "candidate_relation_count": augmentation.get("candidate_relation_count", 0),
         "relation_type_counts": augmentation.get("relation_type_counts", {}),
+        "filter_summary": augmentation.get("filter_summary", {}),
         "write_summary": augmentation.get("write_summary", {}),
     }
 

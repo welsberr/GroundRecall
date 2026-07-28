@@ -164,6 +164,9 @@ writes, layer diagnostics, and an `observation-cooccurrence` strategy that
 reuses import-time heuristic graph extraction over existing store observations.
 `graph-maintenance` now runs one bounded resumable slice, records state, and
 exits so periodic schedulers can keep graph maintenance load bounded.
+Augmentation output now reports raw candidate counts, candidates below evidence
+threshold, skipped duplicate relation counts, limit omissions, relation type
+counts, and write counts.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -194,9 +197,9 @@ Implementation requirements:
   silently promoting them.
 - Add dry-run output with candidate counts by relation type, evidence coverage,
   skipped duplicate counts, and examples for review. Initial output includes
-  candidate counts, relation type counts, evidence counts, relation examples,
-  write summary, and layer diagnostics; separate skipped-duplicate counts
-  remain to be added.
+  raw candidate counts, candidate counts after filters/limits, relation type
+  counts, skipped duplicate counts, below-threshold counts, limit omissions,
+  evidence counts, relation examples, write summary, and layer diagnostics.
 - Add diagnostics that report reviewed semantic edges, candidate semantic
   edges, projection edges, and unresolved sparse concepts separately. Initial
   augmentation output distinguishes reviewed semantic relations, candidate

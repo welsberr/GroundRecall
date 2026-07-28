@@ -71,6 +71,7 @@ def test_graph_maintenance_apply_writes_bounded_slice_and_advances_state(tmp_pat
     assert state["run_count"] == 1
     assert state["next_strategy_index"] == 1
     assert state["last_run"]["candidate_relation_count"] == 1
+    assert state["last_run"]["filter_summary"]["skipped_duplicate_relation_count"] == 0
 
 
 def test_graph_maintenance_resumes_strategy_rotation(tmp_path: Path) -> None:

@@ -42,6 +42,9 @@ def test_augment_store_relations_from_claims_dry_run_does_not_write(tmp_path: Pa
 
     assert payload["applied"] is False
     assert payload["candidate_relation_count"] == 1
+    assert payload["raw_candidate_relation_count"] == 1
+    assert payload["filter_summary"]["below_min_evidence_count"] == 0
+    assert payload["filter_summary"]["skipped_duplicate_relation_count"] == 0
     assert payload["relations"][0]["source_id"] == "concept::evo-edu-adaptation"
     assert payload["relations"][0]["target_id"] == "concept::evo-edu-selection"
     assert store.list_relations() == []
@@ -89,6 +92,8 @@ def test_augment_store_relations_from_claims_is_idempotent(tmp_path: Path) -> No
 
     assert first["candidate_relation_count"] == 1
     assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_count"] == 1
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"co_occurs_with": 1}
     assert len(store.list_relations()) == 1
     assert len(store.list_review_candidates()) == 1
 
@@ -104,7 +109,36 @@ def test_augment_store_relations_from_claims_min_evidence_filters_weak_pairs(tmp
     )
 
     assert payload["candidate_relation_count"] == 0
+    assert payload["raw_candidate_relation_count"] == 1
+    assert payload["filter_summary"]["below_min_evidence_count"] == 1
     assert store.list_relations() == []
+
+
+def test_augment_store_relations_reports_limit_omissions(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    for concept_id in ["concept::a", "concept::b", "concept::c"]:
+        store.save_concept(ConceptRecord(concept_id=concept_id, title=concept_id.removeprefix("concept::").upper(), current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_many_pairs",
+            claim_text="A, B, and C are linked.",
+            concept_ids=["concept::a", "concept::b", "concept::c"],
+            source_observation_ids=["obs_many_pairs"],
+            provenance=ProvenanceRecord(origin_path="sources/many.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        min_evidence=1,
+        limit=1,
+        apply=False,
+    )
+
+    assert payload["raw_candidate_relation_count"] == 3
+    assert payload["candidate_relation_count"] == 1
+    assert payload["filter_summary"]["omitted_by_limit_count"] == 2
 
 
 def test_augment_store_relations_from_source_family(tmp_path: Path) -> None:
