@@ -185,9 +185,11 @@ existing source/fragment/claim links, again as reviewable support/provenance
 edges rather than reviewed citation support. The `claim-semantic-cues` strategy
 now emits deterministic `claim_defines_concept`,
 `claim_qualifies_concept`, `claim_constrains_concept`, and `distinguishes`
-candidates from explicit claim kinds and strong lexical cues. These are
-reviewable semantic candidates, not automatic promotions. `graph-maintenance`
-now exposes
+candidates from explicit claim kinds and strong lexical cues. It also emits
+`claim_depends_on_concept` for explicit dependency/prerequisite cues and
+`claim_has_temporal_scope` when validity, expiry, supersession, retraction,
+challenge, or confirmation metadata is present. These are reviewable semantic
+candidates, not automatic promotions. `graph-maintenance` now exposes
 named profiles so existing cron jobs remain on the `safe` strategy set unless
 high-volume support/provenance backfill is explicitly requested with
 `--profile support`. Each profile has a separate default maintenance state file
@@ -223,10 +225,10 @@ Implementation requirements:
     implementation exists through `--strategy source-anchors`;
   - definition, qualification, distinction, dependency, and temporal-validity
     cues where deterministic patterns are strong enough. Initial
-    definition/qualification/constraint/distinction implementation exists
-    through `--strategy claim-semantic-cues`; dependency and temporal-validity
-    cue extraction remain future work unless explicit metadata already reaches
-    Epistemap/query exports.
+    definition/qualification/constraint/distinction/dependency implementation
+    exists through `--strategy claim-semantic-cues`, along with temporal-scope
+    relation candidates when explicit validity or lifecycle metadata is already
+    present.
 - Record extraction method, evidence ids, support kind, grounding status,
   rationale, and confidence/provenance metadata for every candidate relation.
 - Deduplicate against existing reviewed, promoted, draft, and rejected

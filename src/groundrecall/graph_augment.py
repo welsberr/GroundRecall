@@ -649,6 +649,37 @@ def _claim_semantic_cue_candidates(
                     evidence_ids=evidence_ids,
                     origin_paths=origin_paths,
                 )
+
+        if _has_dependency_cue(lowered):
+            for concept_id in sorted(set(concept_ids)):
+                _set_source_anchor_candidate(
+                    candidates,
+                    existing_keys=existing_keys,
+                    stats=stats,
+                    source_id=claim.claim_id,
+                    target_id=concept_id,
+                    relation_type="claim_depends_on_concept",
+                    claim_ids=[claim.claim_id],
+                    support_ids=[claim.claim_id],
+                    evidence_ids=evidence_ids,
+                    origin_paths=origin_paths,
+                )
+
+        temporal_keys = _claim_temporal_scope_keys(claim)
+        if temporal_keys:
+            for concept_id in sorted(set(concept_ids)):
+                _set_source_anchor_candidate(
+                    candidates,
+                    existing_keys=existing_keys,
+                    stats=stats,
+                    source_id=claim.claim_id,
+                    target_id=concept_id,
+                    relation_type="claim_has_temporal_scope",
+                    claim_ids=[claim.claim_id],
+                    support_ids=[f"{claim.claim_id}:{key}" for key in temporal_keys],
+                    evidence_ids=evidence_ids,
+                    origin_paths=origin_paths,
+                )
     return candidates
 
 
@@ -1023,6 +1054,8 @@ def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[s
         "claim_may_contradict_claim",
         "claim_constrains_concept",
         "claim_defines_concept",
+        "claim_depends_on_concept",
+        "claim_has_temporal_scope",
         "claim_qualifies_concept",
         "claim_supersedes_claim",
         "artifact_contains_observation",
@@ -1206,7 +1239,7 @@ def _has_qualification_cue(lowered: str) -> bool:
 def _has_constraint_cue(lowered: str) -> bool:
     return bool(
         re.search(
-            r"\b(must|requires|required|cannot|depends on|limited to|constraint|scope|only when|provided that|without|fails to|will not|does not lead to|does not cause|not sufficient|insufficient)\b",
+            r"\b(must|requires|required|cannot|limited to|constraint|scope|only when|provided that|without|fails to|will not|does not lead to|does not cause|not sufficient|insufficient)\b",
             lowered,
         )
         or (" if " in lowered and " then " in lowered)
@@ -1220,6 +1253,33 @@ def _has_distinction_cue(lowered: str) -> bool:
             lowered,
         )
     )
+
+
+def _has_dependency_cue(lowered: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(depends on|dependent on|prerequisite|precondition|contingent on)\b",
+            lowered,
+        )
+    )
+
+
+def _claim_temporal_scope_keys(claim: Any) -> list[str]:
+    keys = (
+        "available_at",
+        "validated_at",
+        "valid_at",
+        "valid_until",
+        "expires_at",
+        "superseded_at",
+        "retracted_at",
+        "challenged_at",
+    )
+    metadata = claim.metadata if isinstance(getattr(claim, "metadata", None), dict) else {}
+    values = [key for key in keys if metadata.get(key) not in {"", None}]
+    if getattr(claim, "last_confirmed_at", ""):
+        values.append("last_confirmed_at")
+    return list(dict.fromkeys(values))
 
 
 def build_parser() -> argparse.ArgumentParser:

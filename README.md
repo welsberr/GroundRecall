@@ -162,7 +162,8 @@ invocations skip safely by default. Use `--fail-if-locked` when the scheduler
 should report lock contention as an error, and tune `--stale-lock-seconds` if a
 host needs faster or slower recovery after an interrupted maintenance process.
 Use `--profile semantic` for opt-in claim links, contradiction cues, topic
-mentions, and deterministic definition/qualification/distinction cue backfill.
+mentions, and deterministic semantic cue backfill for definitions,
+qualifications, distinctions, dependencies, and temporal scope.
 
 Export assistant-neutral data:
 

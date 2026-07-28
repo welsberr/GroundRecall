@@ -804,6 +804,58 @@ def test_augment_store_relations_from_claim_semantic_cues_handles_constraints_an
     assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"claim_constrains_concept": 1}
 
 
+def test_augment_store_relations_from_claim_semantic_cues_handles_dependency_and_temporal_scope(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_concept(ConceptRecord(concept_id="concept::variation", title="Variation", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_dependency",
+            claim_text="Selection depends on heritable variation under these conditions.",
+            concept_ids=["concept::selection", "concept::variation"],
+            metadata={"valid_at": "2026-01-01T00:00:00Z", "valid_until": "2026-12-31T00:00:00Z"},
+            last_confirmed_at="2026-02-01T00:00:00Z",
+            source_observation_ids=["obs_dependency"],
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(store.base_dir, strategy="claim-semantic-cues", apply=True)
+
+    relations = sorted(store.list_relations(), key=lambda item: (item.relation_type, item.target_id))
+    assert payload["relation_type_counts"] == {
+        "claim_depends_on_concept": 2,
+        "claim_has_temporal_scope": 2,
+        "claim_qualifies_concept": 2,
+    }
+    temporal = [relation for relation in relations if relation.relation_type == "claim_has_temporal_scope"]
+    assert len(temporal) == 2
+    assert temporal[0].source_id == "claim_dependency"
+    assert temporal[0].evidence_ids == ["obs_dependency"]
+    assert store.list_review_candidates()[0].finding_codes == ["relation_inferred", "claim_semantic_cues"]
+
+
+def test_augment_store_relations_from_claim_semantic_cues_temporal_scope_reports_duplicates(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_temporal",
+            claim_text="Selection was validated for this source.",
+            concept_ids=["concept::selection"],
+            metadata={"expires_at": "2026-12-31T00:00:00Z"},
+            current_status="reviewed",
+        )
+    )
+
+    first = augment_store_relations_from_claims(store.base_dir, strategy="claim-semantic-cues", apply=True)
+    second = augment_store_relations_from_claims(store.base_dir, strategy="claim-semantic-cues", apply=False)
+
+    assert first["relation_type_counts"] == {"claim_has_temporal_scope": 1}
+    assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"claim_has_temporal_scope": 1}
+
+
 def test_augment_store_relations_from_claim_semantic_cues_skips_rejected_claims_and_concepts(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::rejected", title="Rejected", current_status="rejected"))

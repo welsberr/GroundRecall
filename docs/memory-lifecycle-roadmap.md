@@ -59,8 +59,9 @@ The support profile now covers observation/artifact anchors and source/fragment
 claim anchors as reviewable provenance edges, while the default safe profile
 continues to avoid that higher-volume support/provenance pass.
 The semantic profile now also covers deterministic claim semantic cues for
-definitions, qualifications, constraints, and distinctions, keeping those edges
-in review rather than promoting them automatically.
+definitions, qualifications, constraints, distinctions, dependencies, and
+explicit temporal scope, keeping those edges in review rather than promoting
+them automatically.
 
 The detailed path is maintained in
 [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).
