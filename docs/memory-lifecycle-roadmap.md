@@ -19,6 +19,27 @@ complete.
 GroundRecall's primary product direction is a review-gated,
 provenance-first memory substrate for long-lived AI work.
 
+## Immediate Priority: Knowledge Graph / Epistemap Capability
+
+GroundRecall should prioritize graph-generation and Epistemap-aligned graph
+projection quality before graph-search performance optimization. Full-store
+timing and sparse-neighborhood checks show that graph search can be expensive
+while still returning little graph context. That is primarily a capability
+issue: the graph must become meaningful before it is worth optimizing.
+
+Near-term work should therefore focus on:
+
+- graph density and root-neighborhood audits;
+- edge-generation coverage across claims, concepts, observations, sources,
+  contradictions, supersessions, citations, federation, and provenance;
+- Epistemap-compatible graph exports that preserve confidence, provenance,
+  temporal validity, contradiction, and adjudication state;
+- review workflows for inferred or weakly grounded edges;
+- performance work only after graph coverage and semantics are adequate.
+
+The detailed path is maintained in
+[knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).
+
 ## Top Roadmap Priority: Policy Plugin Boundary
 
 GroundRecall should not hardwire ClaimWright or any other single policy

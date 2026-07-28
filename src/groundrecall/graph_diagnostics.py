@@ -60,6 +60,11 @@ def build_graph_diagnostics(
         ),
         key=lambda item: (-item["degree"], -item["inbound_count"], item["concept_id"]),
     )
+    claim_concept_summary = _claim_concept_summary(concept_ids, claims)
+    semantic_relation_type_counts = Counter(str(item.get("relation_type", "") or "unknown") for item in semantic_relations)
+    semantic_relation_status_counts = Counter(str(item.get("current_status", "") or "unknown") for item in semantic_relations)
+    degree_sum = sum(len(neighbors) for neighbors in adjacency.values())
+    possible_undirected_edges = len(concept_ids) * (len(concept_ids) - 1) / 2
 
     return {
         "summary": {
@@ -71,6 +76,23 @@ def build_graph_diagnostics(
             "largest_component_size": max((len(component) for component in components), default=0),
             "isolated_concept_count": sum(1 for component in components if len(component) == 1),
             "bridge_concept_count": len(bridges),
+            "average_degree": round(degree_sum / len(concept_ids), 3) if concept_ids else 0.0,
+            "edge_density": round(len(semantic_relations) / possible_undirected_edges, 6) if possible_undirected_edges else 0.0,
+            "claim_concept_link_count": claim_concept_summary["claim_concept_link_count"],
+            "claims_without_concept_count": claim_concept_summary["claims_without_concept_count"],
+            "concepts_with_claim_count": claim_concept_summary["concepts_with_claim_count"],
+            "concepts_without_claim_count": claim_concept_summary["concepts_without_claim_count"],
+        },
+        "density": {
+            "average_degree": round(degree_sum / len(concept_ids), 3) if concept_ids else 0.0,
+            "edge_density": round(len(semantic_relations) / possible_undirected_edges, 6) if possible_undirected_edges else 0.0,
+            "degree_sum": degree_sum,
+            "possible_undirected_edges": int(possible_undirected_edges),
+            "isolated_concept_ratio": round(sum(1 for component in components if len(component) == 1) / len(concept_ids), 3) if concept_ids else 0.0,
+            "concepts_with_claim_ratio": round(claim_concept_summary["concepts_with_claim_count"] / len(concept_ids), 3) if concept_ids else 0.0,
+            "relation_type_counts": dict(sorted(semantic_relation_type_counts.items())),
+            "relation_status_counts": dict(sorted(semantic_relation_status_counts.items())),
+            **claim_concept_summary,
         },
         "components": [
             {
@@ -122,6 +144,7 @@ def compact_graph_diagnostics(diagnostics: dict[str, Any]) -> dict[str, Any]:
     components = diagnostics.get("components", [])
     return {
         "summary": diagnostics.get("summary", {}),
+        "density": diagnostics.get("density", {}),
         "quality_summary": diagnostics.get("quality_summary", {}),
         "relation_quality": {
             "support_kind_counts": relation_quality.get("support_kind_counts", {}),
@@ -245,6 +268,30 @@ def _relation_quality(relations: list[dict[str, Any]]) -> dict[str, Any]:
         "weakly_grounded_relation_count": len(weakly_grounded_relations),
         "inferred_relations": inferred_relations[:25],
         "weakly_grounded_relations": weakly_grounded_relations[:25],
+    }
+
+
+def _claim_concept_summary(concept_ids: set[str], claims: list[dict[str, Any]]) -> dict[str, Any]:
+    claim_concept_link_count = 0
+    claims_without_concept = []
+    concepts_with_claims: set[str] = set()
+    for claim in claims:
+        claim_id = str(claim.get("claim_id", ""))
+        linked_concepts = [str(item) for item in claim.get("concept_ids", []) if str(item)]
+        if not linked_concepts:
+            claims_without_concept.append(claim_id)
+        for concept_id in linked_concepts:
+            claim_concept_link_count += 1
+            if concept_id in concept_ids:
+                concepts_with_claims.add(concept_id)
+    concepts_without_claims = sorted(concept_ids - concepts_with_claims)
+    return {
+        "claim_concept_link_count": claim_concept_link_count,
+        "claims_without_concept_count": len(claims_without_concept),
+        "claims_without_concept_ids": claims_without_concept[:25],
+        "concepts_with_claim_count": len(concepts_with_claims),
+        "concepts_without_claim_count": len(concepts_without_claims),
+        "concepts_without_claim_ids": concepts_without_claims[:25],
     }
 
 

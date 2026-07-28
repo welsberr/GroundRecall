@@ -765,6 +765,7 @@ def build_graph_search_bundle(
                 "concept_id": concept_id,
                 "title": concepts[concept_id].title,
                 "status": concepts[concept_id].current_status,
+                "neighborhood_summary": _root_neighborhood_summary(concept_id, relations),
                 "match_summary": _concept_match_summary(concepts[concept_id], concept_sources[concept_id], query_terms),
                 "match_sources": concept_sources[concept_id][:8],
             }
@@ -865,6 +866,31 @@ def _concept_ids_from_association(
         relation = relations[record_id]
         return [relation.source_id, relation.target_id]
     return []
+
+
+def _root_neighborhood_summary(concept_id: str, relations: dict[str, Any]) -> dict[str, Any]:
+    touching = [
+        relation
+        for relation in relations.values()
+        if getattr(relation, "source_id", "") == concept_id or getattr(relation, "target_id", "") == concept_id
+    ]
+    active = [relation for relation in touching if getattr(relation, "current_status", "") != "rejected"]
+    semantic = [relation for relation in active if getattr(relation, "relation_type", "") not in PROVENANCE_RELATION_TYPES]
+    provenance = [relation for relation in active if getattr(relation, "relation_type", "") in PROVENANCE_RELATION_TYPES]
+    by_type: dict[str, int] = {}
+    by_status: dict[str, int] = {}
+    for relation in active:
+        relation_type = str(getattr(relation, "relation_type", "") or "unknown")
+        status = str(getattr(relation, "current_status", "") or "unknown")
+        by_type[relation_type] = by_type.get(relation_type, 0) + 1
+        by_status[status] = by_status.get(status, 0) + 1
+    return {
+        "active_relation_count": len(active),
+        "semantic_relation_count": len(semantic),
+        "provenance_relation_count": len(provenance),
+        "relation_type_counts": dict(sorted(by_type.items())),
+        "relation_status_counts": dict(sorted(by_status.items())),
+    }
 
 
 def _graph_search_rank_key(

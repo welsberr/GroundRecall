@@ -305,6 +305,8 @@ def test_build_graph_search_bundle_discovers_roots_from_text_matches(tmp_path: P
     assert payload["query_type"] == "graph_search"
     assert payload["root_concepts"][0]["concept_id"] == "concept::channel-capacity"
     assert payload["root_concepts"][0]["match_sources"]
+    assert payload["root_concepts"][0]["neighborhood_summary"]["active_relation_count"] >= 1
+    assert payload["root_concepts"][0]["neighborhood_summary"]["semantic_relation_count"] >= 1
     assert payload["graph_bundles"][0]["bundle_kind"] == "groundrecall_graph_bundle"
     assert payload["graph_bundles"][0]["root_concept"]["concept_id"] == "concept::channel-capacity"
     assert any(item["edge_id"] == "rel_001" for item in payload["graph_bundles"][0]["edges"])

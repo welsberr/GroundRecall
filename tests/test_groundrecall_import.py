@@ -293,6 +293,9 @@ def test_graph_diagnostics_detect_bridge_concepts() -> None:
 
     assert diagnostics["summary"]["connected_component_count"] == 1
     assert diagnostics["summary"]["bridge_concept_count"] == 2
+    assert diagnostics["summary"]["average_degree"] == 1.5
+    assert diagnostics["summary"]["edge_density"] == 0.5
+    assert diagnostics["density"]["relation_type_counts"] == {"unknown": 3}
     assert [item["concept_id"] for item in diagnostics["bridge_concepts"]] == ["concept::b", "concept::c"]
 
 
@@ -349,6 +352,10 @@ def test_graph_diagnostics_reports_quality_controls() -> None:
     assert diagnostics["quality_summary"]["inferred_relation_count"] == 8
     assert diagnostics["quality_summary"]["unsupported_claim_count"] == 1
     assert diagnostics["quality_summary"]["high_fanout_concept_count"] == 1
+    assert diagnostics["summary"]["claim_concept_link_count"] == 2
+    assert diagnostics["summary"]["concepts_with_claim_count"] == 1
+    assert diagnostics["summary"]["concepts_without_claim_count"] == 8
+    assert diagnostics["density"]["relation_status_counts"] == {"unknown": 8}
     assert diagnostics["concept_quality"]["high_fanout_concepts"][0]["concept_id"] == "concept::hub"
     assert diagnostics["claim_quality"]["contradiction_links"][0]["target_exists"] is False
     assert diagnostics["claim_quality"]["superseded_neighborhoods"][0]["concept_id"] == "concept::hub"

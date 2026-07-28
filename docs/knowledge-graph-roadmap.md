@@ -1,5 +1,31 @@
 # Knowledge Graph Roadmap
 
+## Top Priority: Graph/Epistemap Capability Before Performance
+
+The current preprint timing pass found that full-store graph search can be
+slow and can return sparse neighborhoods for broad project queries. The first
+priority is therefore not query-speed optimization. It is to make sure the
+graph projection is semantically useful and sufficiently connected.
+
+Immediate graph/Epistemap work should proceed in this order:
+
+1. measure graph density, claim/concept coverage, relation status/type
+   distributions, and root-neighborhood coverage;
+2. audit which import, review, contradiction, supersession, bibliography, and
+   Epistemap adapter paths generate edges;
+3. improve edge generation and review for the relations that matter to
+   governed memory: claim-to-concept, observation-to-claim, claim-to-claim,
+   concept-to-concept, source-to-claim, contradiction, supersession, citation,
+   and provenance edges;
+4. align GroundRecall graph bundles with Epistemap so confidence,
+   contradiction, temporal validity, and provenance remain visible in graph
+   operations;
+5. optimize graph traversal only after graph coverage is adequate.
+
+This priority follows the design rule that graph databases, caches, and
+precomputed adjacency indexes are projections. They should accelerate a useful
+graph, not conceal an under-generated one.
+
 GroundRecall has a live provenance-first graph substrate, but not yet a full
 AI knowledge graph extraction and reasoning layer. The current system stores
 typed `Concept`, `Claim`, `Relation`, `Observation`, `Artifact`, and provenance
@@ -55,6 +81,8 @@ until reviewed or promoted.
 - Record why graph expansion selected a node for an assistant context package.
 - Evaluate FTS-only, graph-expanded, and hybrid retrieval with the same model
   and corpus.
+- Treat sparse root neighborhoods as graph-generation defects to investigate
+  before treating them as performance problems.
 - Add poisoning and scope-leakage fixtures for inferred edges and graph
   traversal.
 - Keep graph databases and embedding indexes as rebuildable projections unless
