@@ -231,6 +231,17 @@ POLICY_COVERAGE_ENTRIES: tuple[PolicyCoverageEntry, ...] = (
         caveat="Direct CLI read denials are returned to the caller rather than written as durable audit events.",
     ),
     PolicyCoverageEntry(
+        route_id="cli.erasure.plan",
+        surface="cli",
+        operation="exceptional_erasure_plan",
+        decision_point="delete",
+        status="covered",
+        enforcement=["dry-run only; creates no destructive changes", "records requested authority and reason class", "reports affected records and rebuildable projections before execution exists"],
+        audit=["plan includes minimal tombstone payload with affected counts, content hashes, and origin hashes"],
+        tests=["tests/test_erasure.py"],
+        caveat="Planning is implemented; destructive erasure execution and re-import blocking remain future work.",
+    ),
+    PolicyCoverageEntry(
         route_id="future.exceptional_erasure",
         surface="future",
         operation="exceptional_erasure",

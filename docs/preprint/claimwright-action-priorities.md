@@ -186,6 +186,25 @@ Acceptance criteria:
 
 ## P2: Privacy, Revocation, And Exceptional-Erasure Lifecycle
 
+Initial implementation status:
+
+- `groundrecall erasure plan STORE --target ID --reason-class ... --authority
+  ...` builds a read-only exceptional-erasure plan.
+- `src/groundrecall/erasure.py` defines versioned
+  `groundrecall.exceptional_erasure.v1` plan, target, and tombstone models.
+- The planner records reason class, authority, timestamp, target IDs, affected
+  canonical records, derived/rebuildable projections, and a minimal
+  non-sensitive tombstone payload with content hashes, origin hashes, and
+  affected counts.
+- Dependency expansion is bidirectional: a protected record pulls in supporting
+  upstream records and downstream relations, review candidates, contradiction
+  cases, adjudications, and promotions that reference it.
+- Derived-artifact reporting includes the local FTS index, snapshots, and
+  optional export/quarantine directories.
+- The planner is dry-run only and performs no deletion.
+- Policy coverage now lists `cli.erasure.plan` as covered for dry-run planning;
+  destructive execution and re-import blocking remain future work.
+
 ClaimWright review basis:
 
 - privacy-leakage and distributed-revocation coverage should deepen;
@@ -213,10 +232,10 @@ Recommended implementation sequence:
 
 1. Define an exceptional-erasure request and tombstone schema that records
    reason class, authority, timestamp, affected IDs, and non-sensitive
-   re-import prevention metadata.
+   re-import prevention metadata. Implemented baseline for dry-run plans.
 2. Implement a dry-run erasure planner that reports affected canonical records,
    indexes, exports, graph candidates, snapshots, and federation quarantine
-   objects.
+   objects. Implemented baseline.
 3. Implement erasure execution for records and rebuildable local projections
    under an explicit policy-plugin gate.
 4. Add re-import blocking for erased content hashes or origin IDs.

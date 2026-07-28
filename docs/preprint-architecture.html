@@ -182,6 +182,17 @@ contradiction case review/adjudication when explicit conflicts are present</code
 </ul>
 <p>The paper should emphasize that confidence in historical support and confidence in current applicability are different. A record may remain well-supported as a historical fact while being inapplicable to current planning because it expired, was superseded, or became contextually stale.</p>
 <p>This is the basis for the paper’s treatment of “forgetting”: ordinary forgetting should usually mean controlled exclusion from current context, not destruction of provenance.</p>
+<h2 id="exceptional-erasure-planning">Exceptional Erasure Planning</h2>
+<p>GroundRecall separates ordinary epistemic forgetting from exceptional erasure. Expiry, supersession, retraction, and contradiction review preserve provenance while changing current applicability. Exceptional erasure is reserved for separately authorized privacy, legal, or security cases.</p>
+<p>Implemented dry-run behavior:</p>
+<ul>
+<li><code>groundrecall erasure plan STORE --target ID --reason-class ... --authority ...</code> emits a versioned <code>groundrecall.exceptional_erasure.v1</code> plan;</li>
+<li>plan records include reason class, authority, requested timestamp, target IDs, affected canonical records, and derived/rebuildable projections;</li>
+<li>tombstones are minimal and non-sensitive: they carry affected counts, content hashes, origin hashes, and target IDs, not erased text;</li>
+<li>dependency expansion is bidirectional, covering supporting upstream records and downstream relations, review candidates, contradiction cases, adjudications, and promotions;</li>
+<li>derived-artifact reporting includes the local FTS index, snapshots, and optional export/quarantine directories.</li>
+</ul>
+<p>The current implementation is planning-only. It does not yet delete records, rebuild projections, propagate revocations, or block re-imports from tombstones.</p>
 <h2 id="release-level-lattice">Release-Level Lattice</h2>
 <p>Federation/export uses a release-level lattice:</p>
 <pre class="text"><code>public &lt; internal &lt; confidential &lt; privileged &lt; private</code></pre>

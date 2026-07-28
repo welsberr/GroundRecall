@@ -130,6 +130,16 @@
 <li>the paper still avoids claiming full semantic contradiction resolution.</li>
 </ul>
 <h2 id="p2-privacy-revocation-and-exceptional-erasure-lifecycle">P2: Privacy, Revocation, And Exceptional-Erasure Lifecycle</h2>
+<p>Initial implementation status:</p>
+<ul>
+<li><code>groundrecall erasure plan STORE --target ID --reason-class ... --authority   ...</code> builds a read-only exceptional-erasure plan.</li>
+<li><code>src/groundrecall/erasure.py</code> defines versioned <code>groundrecall.exceptional_erasure.v1</code> plan, target, and tombstone models.</li>
+<li>The planner records reason class, authority, timestamp, target IDs, affected canonical records, derived/rebuildable projections, and a minimal non-sensitive tombstone payload with content hashes, origin hashes, and affected counts.</li>
+<li>Dependency expansion is bidirectional: a protected record pulls in supporting upstream records and downstream relations, review candidates, contradiction cases, adjudications, and promotions that reference it.</li>
+<li>Derived-artifact reporting includes the local FTS index, snapshots, and optional export/quarantine directories.</li>
+<li>The planner is dry-run only and performs no deletion.</li>
+<li>Policy coverage now lists <code>cli.erasure.plan</code> as covered for dry-run planning; destructive execution and re-import blocking remain future work.</li>
+</ul>
 <p>ClaimWright review basis:</p>
 <ul>
 <li>privacy-leakage and distributed-revocation coverage should deepen;</li>
@@ -149,8 +159,8 @@
 </ul>
 <p>Recommended implementation sequence:</p>
 <ol type="1">
-<li>Define an exceptional-erasure request and tombstone schema that records reason class, authority, timestamp, affected IDs, and non-sensitive re-import prevention metadata.</li>
-<li>Implement a dry-run erasure planner that reports affected canonical records, indexes, exports, graph candidates, snapshots, and federation quarantine objects.</li>
+<li>Define an exceptional-erasure request and tombstone schema that records reason class, authority, timestamp, affected IDs, and non-sensitive re-import prevention metadata. Implemented baseline for dry-run plans.</li>
+<li>Implement a dry-run erasure planner that reports affected canonical records, indexes, exports, graph candidates, snapshots, and federation quarantine objects. Implemented baseline.</li>
 <li>Implement erasure execution for records and rebuildable local projections under an explicit policy-plugin gate.</li>
 <li>Add re-import blocking for erased content hashes or origin IDs.</li>
 <li>Add revocation event export/import tests for federation bundles without claiming complete distributed propagation.</li>

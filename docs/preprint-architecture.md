@@ -151,6 +151,20 @@ The paper should emphasize that confidence in historical support and confidence 
 
 This is the basis for the paper’s treatment of “forgetting”: ordinary forgetting should usually mean controlled exclusion from current context, not destruction of provenance.
 
+## Exceptional Erasure Planning
+
+GroundRecall separates ordinary epistemic forgetting from exceptional erasure. Expiry, supersession, retraction, and contradiction review preserve provenance while changing current applicability. Exceptional erasure is reserved for separately authorized privacy, legal, or security cases.
+
+Implemented dry-run behavior:
+
+- `groundrecall erasure plan STORE --target ID --reason-class ... --authority ...` emits a versioned `groundrecall.exceptional_erasure.v1` plan;
+- plan records include reason class, authority, requested timestamp, target IDs, affected canonical records, and derived/rebuildable projections;
+- tombstones are minimal and non-sensitive: they carry affected counts, content hashes, origin hashes, and target IDs, not erased text;
+- dependency expansion is bidirectional, covering supporting upstream records and downstream relations, review candidates, contradiction cases, adjudications, and promotions;
+- derived-artifact reporting includes the local FTS index, snapshots, and optional export/quarantine directories.
+
+The current implementation is planning-only. It does not yet delete records, rebuild projections, propagate revocations, or block re-imports from tombstones.
+
 ## Release-Level Lattice
 
 Federation/export uses a release-level lattice:

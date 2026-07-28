@@ -30,6 +30,7 @@ from .query import (
     search_claims,
 )
 from .export import export_graph_bundle, export_groundrecall_graph_bundle, export_groundrecall_query_bundle
+from .erasure import ErasurePlan, ErasureTarget, ErasureTombstone, plan_exceptional_erasure
 from .federation import (
     FederationBundle,
     FederationAuditEvent,
@@ -135,6 +136,10 @@ __all__ = [
     "export_graph_bundle",
     "export_groundrecall_query_bundle",
     "export_groundrecall_graph_bundle",
+    "ErasurePlan",
+    "ErasureTarget",
+    "ErasureTombstone",
+    "plan_exceptional_erasure",
     "FederationBundle",
     "FederationAuditEvent",
     "FederationImportResult",
