@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import inspect
 import json
 import shutil
@@ -34,11 +35,20 @@ from .groundrecall_review_bridge import export_review_bundle_from_import
 from .groundrecall_review_queue import build_review_queue
 from .groundrecall_segmenter import SegmentedPage, segment_markdown_artifact
 from .groundrecall_source_adapters.base import detect_source_adapter
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 import groundrecall.groundrecall_source_adapters  # noqa: F401
 
 
 VALID_MODES = {"archive", "quick", "grounded"}
 VALID_GRAPH_EXTRACTION_MODES = {"none", "heuristic"}
+
+
+class ImportPolicyError(RuntimeError):
+    """Raised when a policy plugin blocks import proposal generation."""
+
+    def __init__(self, message: str, *, payload: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 @dataclass
@@ -82,6 +92,96 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     if text:
         text += "\n"
     path.write_text(text, encoding="utf-8")
+
+
+def _append_import_policy_audit_event(
+    audit_log_path: str | Path | None,
+    *,
+    action: str,
+    decision: str,
+    request: PolicyRequest,
+    policy_decision: PolicyDecision,
+) -> None:
+    if audit_log_path is None:
+        return
+    recorded_at = _timestamp()
+    basis = f"{action}:{decision}:{request.subject_id}:{request.decision_point}:{recorded_at}:{policy_decision.policy_id}"
+    payload = {
+        "schema_version": "groundrecall.import_policy_audit.v1",
+        "event_id": f"import-policy-audit::{hashlib.sha256(basis.encode('utf-8')).hexdigest()[:16]}",
+        "recorded_at": recorded_at,
+        "action": action,
+        "decision": decision,
+        "subject_id": request.subject_id,
+        "decision_point": request.decision_point,
+        "durable_memory_change": request.durable_memory_change,
+        "metadata": dict(request.metadata),
+        "policy_plugin_decision": policy_decision.model_dump(mode="json"),
+    }
+    target = Path(audit_log_path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, sort_keys=True) + "\n")
+
+
+def _evaluate_import_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    subject_id: str,
+    import_id: str,
+    mode: str,
+    source_root: str,
+    source_root_kind: str,
+    source_adapter: str,
+    import_intent: str,
+    graph_extraction_mode: str,
+    audit_log_path: str | Path | None = None,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    provider = load_policy_plugins(policy_plugins_path)
+    request = PolicyRequest(
+        decision_point="propose",
+        subject_id=subject_id,
+        action="run_groundrecall_import",
+        record_kind="import",
+        record_id=import_id,
+        durable_memory_change=True,
+        metadata={
+            "import_id": import_id,
+            "mode": mode,
+            "source_root": source_root,
+            "source_root_kind": source_root_kind,
+            "source_adapter": source_adapter,
+            "import_intent": import_intent,
+            "graph_extraction_mode": graph_extraction_mode,
+        },
+    )
+    decision = provider.evaluate(request)
+    if decision.decision in {"deny", "hard_gate"}:
+        _append_import_policy_audit_event(
+            audit_log_path,
+            action="run_groundrecall_import",
+            decision="blocked",
+            request=request,
+            policy_decision=decision,
+        )
+        raise ImportPolicyError(
+            "Policy plugin blocked import proposal generation.",
+            payload={
+                "operation": "run_groundrecall_import",
+                "blocked_by_policy": True,
+                "policy_plugin_decision": decision.model_dump(mode="json"),
+            },
+        )
+    _append_import_policy_audit_event(
+        audit_log_path,
+        action="run_groundrecall_import",
+        decision="preflight_allowed",
+        request=request,
+        policy_decision=decision,
+    )
+    return decision
 
 
 def _dedupe_by_key(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
@@ -141,6 +241,9 @@ def run_groundrecall_import(
     concept_seed_store: str | Path | None = None,
     concept_alignment_threshold: float = 0.55,
     extract_graph: str | bool | None = "none",
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
+    audit_log_path: str | Path | None = None,
 ) -> ImportResult:
     source_path = Path(source_root).resolve()
     if mode not in VALID_MODES:
@@ -161,6 +264,18 @@ def run_groundrecall_import(
     output_root = Path(out_root) if out_root else source_path / "imports"
     source_root_ref, source_root_kind = _portable_source_root_ref(source_path, output_root)
     output_dir = output_root / actual_import_id
+    policy_decision = _evaluate_import_policy(
+        policy_plugins_path,
+        subject_id=policy_subject_id or agent_id,
+        import_id=actual_import_id,
+        mode=mode,
+        source_root=source_root_ref,
+        source_root_kind=source_root_kind,
+        source_adapter=adapter.name,
+        import_intent=adapter.import_intent(),
+        graph_extraction_mode=graph_extraction_mode,
+        audit_log_path=audit_log_path,
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
 
     context = ImportContext(
@@ -266,6 +381,7 @@ def run_groundrecall_import(
     manifest = manifest_record(context) | {
         "source_adapter": adapter.name,
         "import_intent": adapter.import_intent(),
+        **({"policy_plugin_decision": policy_decision.model_dump(mode="json")} if policy_decision is not None else {}),
         "source_root_kind": source_root_kind,
         "artifact_count": len(artifact_rows),
         "fragment_count": len(fragment_rows),
@@ -325,6 +441,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concept-seed-store", default=None)
     parser.add_argument("--concept-alignment-threshold", type=float, default=0.55)
     parser.add_argument("--extract-graph", choices=sorted(VALID_GRAPH_EXTRACTION_MODES), default="none")
+    parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for import proposal gating.")
+    parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
+    parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log for import policy preflight decisions.")
     return parser
 
 
@@ -340,5 +459,8 @@ def main() -> None:
         concept_seed_store=args.concept_seed_store,
         concept_alignment_threshold=args.concept_alignment_threshold,
         extract_graph=args.extract_graph,
+        policy_plugins_path=args.policy_plugins,
+        policy_subject_id=args.policy_subject_id,
+        audit_log_path=args.audit_log,
     )
     print(f"Wrote import artifacts to {result.out_dir}")

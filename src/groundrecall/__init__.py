@@ -12,7 +12,7 @@ from .contradictions import (
 from .inspect import inspect_store, summarize_store
 from .graph_augment import GraphAugmentPolicyError, augment_store_relations_from_claims
 from .graph_maintenance import run_graph_maintenance_slice
-from .ingest import ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
+from .ingest import ImportPolicyError, ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
 from .models import *  # noqa: F403
 from .promotion import PromotionGateError, build_parser as build_promotion_parser, main as promotion_main, promote_import_to_store
 from .relation_review import RelationReviewPolicyError
@@ -108,6 +108,7 @@ __all__ = [
     "list_contradiction_case_batch",
     "sync_contradiction_cases_for_store",
     "ImportResult",
+    "ImportPolicyError",
     "run_groundrecall_import",
     "augment_store_relations_from_claims",
     "GraphAugmentPolicyError",

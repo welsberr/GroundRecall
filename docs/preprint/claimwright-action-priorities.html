@@ -41,6 +41,7 @@
 <li>Graph augmentation/backfill and graph maintenance <code>--apply</code> paths now accept optional policy-plugin configs and block deny/hard-gate decisions before candidate relation, review-candidate, or maintenance-state writes.</li>
 <li>Those graph write paths also accept <code>--audit-log</code> and write JSONL policy preflight audit events for both allowed-with-policy and blocked decisions.</li>
 <li>Direct CLI query now accepts optional policy-plugin configs and blocks deny/hard-gate decisions before store access; softer decisions are attached to query output.</li>
+<li>Import proposal generation now accepts optional policy-plugin configs and blocks deny/hard-gate decisions before import output directories or proposal files are written. Soft decisions are recorded in the import manifest, and <code>--audit-log</code> writes JSONL preflight audit events.</li>
 <li>Tests cover the report, Python API, and CLI dispatch.</li>
 </ul>
 <p>ClaimWright review basis:</p>
@@ -71,7 +72,7 @@
 </ol>
 <p>Acceptance criteria:</p>
 <ul>
-<li>each durable mutation route is classified as covered, intentionally ungated, or not yet covered; implemented baseline;</li>
+<li>each durable mutation route is classified as covered, intentionally ungated, or future-only; implemented for all current non-future coverage routes;</li>
 <li>covered write routes have deny/hard-gate tests;</li>
 <li>denied write routes leave audit evidence without writing protected records;</li>
 <li>the preprint can cite the coverage artifact without claiming production IAM.</li>

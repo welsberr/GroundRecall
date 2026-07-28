@@ -40,6 +40,10 @@ Initial implementation status:
 - Direct CLI query now accepts optional policy-plugin configs and blocks
   deny/hard-gate decisions before store access; softer decisions are attached
   to query output.
+- Import proposal generation now accepts optional policy-plugin configs and
+  blocks deny/hard-gate decisions before import output directories or proposal
+  files are written. Soft decisions are recorded in the import manifest, and
+  `--audit-log` writes JSONL preflight audit events.
 - Tests cover the report, Python API, and CLI dispatch.
 
 ClaimWright review basis:
@@ -86,7 +90,7 @@ Recommended implementation sequence:
 Acceptance criteria:
 
 - each durable mutation route is classified as covered, intentionally ungated,
-  or not yet covered; implemented baseline;
+  or future-only; implemented for all current non-future coverage routes;
 - covered write routes have deny/hard-gate tests;
 - denied write routes leave audit evidence without writing protected records;
 - the preprint can cite the coverage artifact without claiming production IAM.

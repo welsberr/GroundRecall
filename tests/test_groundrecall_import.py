@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from groundrecall.groundrecall_normalizer import standardize_concept_rows
-from groundrecall.ingest import run_groundrecall_import
+from groundrecall.ingest import ImportPolicyError, run_groundrecall_import
 from groundrecall.graph_diagnostics import build_graph_diagnostics
 from groundrecall.lint import lint_import_directory
 from groundrecall.models import ConceptRecord
@@ -16,6 +18,24 @@ def _read_jsonl(path: Path) -> list[dict]:
     if not text:
         return []
     return [json.loads(line) for line in text.splitlines()]
+
+
+def _write_static_policy_config(path: Path, *, decision: str, policy_id: str = "import.policy.test") -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                f"policy_id: {policy_id}",
+                "providers:",
+                "  - type: static",
+                f"    policy_id: {policy_id}.provider",
+                f"    default_decision: {decision}",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
 
 
 def _build_graph_extraction_fixture(root: Path) -> Path:
@@ -120,6 +140,56 @@ def test_groundrecall_import_emits_normalized_artifacts(tmp_path: Path) -> None:
     assert "citations" in review_data
     assert "citation_reviews" in review_data
     assert "analysis_lanes" in review_data["review_guidance"]
+
+
+def test_groundrecall_import_soft_policy_plugin_records_decision_and_audit(tmp_path: Path) -> None:
+    root = _build_graph_extraction_fixture(tmp_path / "llmwiki")
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="soft_gate")
+    audit_log = tmp_path / "import-audit.jsonl"
+
+    result = run_groundrecall_import(
+        root,
+        mode="quick",
+        import_id="policy-soft-import",
+        policy_plugins_path=policy_config,
+        policy_subject_id="agent-1",
+        audit_log_path=audit_log,
+    )
+
+    manifest = json.loads((result.out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert manifest["policy_plugin_decision"]["subject_id"] == "agent-1"
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["schema_version"] == "groundrecall.import_policy_audit.v1"
+    assert audit_rows[0]["decision"] == "preflight_allowed"
+    assert audit_rows[0]["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert audit_rows[0]["metadata"]["import_id"] == "policy-soft-import"
+
+
+def test_groundrecall_import_hard_policy_plugin_blocks_before_output_writes(tmp_path: Path) -> None:
+    root = _build_graph_extraction_fixture(tmp_path / "llmwiki")
+    out_root = tmp_path / "imports"
+    policy_config = _write_static_policy_config(tmp_path / "policy.yaml", decision="hard_gate")
+    audit_log = tmp_path / "import-audit.jsonl"
+
+    with pytest.raises(ImportPolicyError) as excinfo:
+        run_groundrecall_import(
+            root,
+            out_root=out_root,
+            mode="quick",
+            import_id="policy-hard-import",
+            policy_plugins_path=policy_config,
+            policy_subject_id="agent-1",
+            audit_log_path=audit_log,
+        )
+
+    assert excinfo.value.payload["blocked_by_policy"] is True
+    assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert not (out_root / "policy-hard-import").exists()
+    audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+    assert audit_rows[0]["decision"] == "blocked"
+    assert audit_rows[0]["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert audit_rows[0]["durable_memory_change"] is True
 
 
 def test_graph_extraction_is_disabled_by_default(tmp_path: Path) -> None:
