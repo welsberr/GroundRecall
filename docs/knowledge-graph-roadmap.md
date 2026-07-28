@@ -183,7 +183,9 @@ links, also in the support/provenance layer. `graph-maintenance` now exposes
 named profiles so existing cron jobs remain on the `safe` strategy set unless
 high-volume support-anchor backfill is explicitly requested with
 `--profile support`. Each profile has a separate default maintenance state file
-to avoid cross-profile rotation cursor confusion.
+to avoid cross-profile rotation cursor confusion. Each invocation also acquires
+an atomic lock next to its state file, skips safely if a previous slice is still
+active, and can recover stale locks after interrupted runs.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -233,6 +235,8 @@ Implementation requirements:
   strategy per invocation, applies a candidate limit, records JSON state, and
   rotates to the next configured strategy after applied runs. Named profiles
   keep high-volume support-anchor strategies out of the default scheduled path.
+  Atomic per-state lock files prevent overlapping cron/systemd invocations from
+  racing state updates or doubling host load.
 
 Acceptance tests:
 

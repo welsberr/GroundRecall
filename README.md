@@ -153,7 +153,11 @@ launches with a small `--limit`, not as a long-running daemon. Its default
 `safe` profile avoids high-volume support-anchor strategies; use
 `--profile support` explicitly to backfill claim/observation/artifact support
 anchors. Each profile uses a separate default state file under
-`.groundrecall/store/.maintenance/` unless `--state-path` is provided.
+`.groundrecall/store/.maintenance/` unless `--state-path` is provided. Each run
+also takes an atomic lock next to the state file so overlapping scheduler
+invocations skip safely by default. Use `--fail-if-locked` when the scheduler
+should report lock contention as an error, and tune `--stale-lock-seconds` if a
+host needs faster or slower recovery after an interrupted maintenance process.
 
 Export assistant-neutral data:
 

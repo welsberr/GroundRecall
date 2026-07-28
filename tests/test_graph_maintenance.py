@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import sys
 
-from groundrecall.graph_maintenance import default_state_path, run_graph_maintenance_slice
+import pytest
+
+from groundrecall.graph_maintenance import (
+    GraphMaintenanceLockError,
+    default_lock_path,
+    default_state_path,
+    run_graph_maintenance_slice,
+)
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord
 from groundrecall.store import GroundRecallStore
 
@@ -85,6 +93,95 @@ def test_graph_maintenance_default_state_path_is_profile_specific(tmp_path: Path
     assert support["state_path"].endswith("graph_maintenance_state__support.json")
     assert safe["state_path"] != support["state_path"]
     assert default_state_path(store.base_dir, "semantic review").name == "graph_maintenance_state__semantic-review.json"
+    assert default_lock_path(safe["state_path"]).name == "graph_maintenance_state__safe.json.lock"
+
+
+def test_graph_maintenance_skips_when_lock_exists(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    state_path = tmp_path / "state.json"
+    lock_path = tmp_path / "state.json.lock"
+    lock_path.write_text("active", encoding="utf-8")
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        state_path=state_path,
+        lock_path=lock_path,
+        strategies=["claim-cooccurrence"],
+        limit=1,
+        apply=True,
+        stale_lock_seconds=0,
+    )
+
+    assert payload["skipped"] is True
+    assert payload["locked"] is True
+    assert payload["skip_reason"] == "lock_active"
+    assert payload["state_advanced"] is False
+    assert payload["run_record"] == {}
+    assert store.list_relations() == []
+    assert lock_path.exists()
+    assert not state_path.exists()
+
+
+def test_graph_maintenance_can_fail_when_lock_exists(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    lock_path = tmp_path / "state.json.lock"
+    lock_path.write_text("active", encoding="utf-8")
+
+    with pytest.raises(GraphMaintenanceLockError):
+        run_graph_maintenance_slice(
+            store.base_dir,
+            state_path=tmp_path / "state.json",
+            lock_path=lock_path,
+            strategies=["claim-cooccurrence"],
+            limit=1,
+            apply=True,
+            skip_if_locked=False,
+            stale_lock_seconds=0,
+        )
+
+
+def test_graph_maintenance_releases_lock_after_success(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    state_path = tmp_path / "state.json"
+    lock_path = tmp_path / "state.json.lock"
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        state_path=state_path,
+        lock_path=lock_path,
+        strategies=["claim-cooccurrence"],
+        limit=1,
+        apply=True,
+    )
+
+    assert payload["skipped"] is False
+    assert payload["locked"] is False
+    assert payload["lock_path"] == str(lock_path)
+    assert payload["state_advanced"] is True
+    assert state_path.exists()
+    assert not lock_path.exists()
+
+
+def test_graph_maintenance_recovers_from_stale_lock(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    lock_path = tmp_path / "state.json.lock"
+    lock_path.write_text("stale", encoding="utf-8")
+    old_timestamp = 1
+    os.utime(lock_path, (old_timestamp, old_timestamp))
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        state_path=tmp_path / "state.json",
+        lock_path=lock_path,
+        strategies=["claim-cooccurrence"],
+        limit=1,
+        apply=False,
+        stale_lock_seconds=1,
+    )
+
+    assert payload["skipped"] is False
+    assert payload["selected_strategy"] == "claim-cooccurrence"
+    assert not lock_path.exists()
 
 
 def test_graph_maintenance_apply_writes_bounded_slice_and_advances_state(tmp_path: Path) -> None:
