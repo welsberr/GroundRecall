@@ -25,6 +25,10 @@ GroundRecall should not hardwire ClaimWright or any other single policy
 framework into the memory substrate. It should expose a bounded policy-plugin
 interface with stable decision points and structured decision results.
 
+The authoritative policy plugin format is
+[policy-plugin-spec.md](policy-plugin-spec.md). ClaimWright and other policy
+frameworks should conform to that GroundRecall-owned contract.
+
 This is the highest-priority architectural dependency for MCP, federation,
 publication gates, contradiction adjudication, and future ClaimWright
 integration. Arbitrary policy content can vary without bound, but GroundRecall
@@ -57,6 +61,8 @@ Initial implementation status:
   `PolicyRequest`, `PolicyDecision`, provider protocol, static provider,
   conservative composition, plugin-config loading, and a ClaimWright directory
   adapter.
+- `docs/policy-plugin-spec.md` defines the authoritative GroundRecall policy
+  plugin request, decision, composition, and YAML config format.
 - `groundrecall-mcp` exposes `evaluate_policy` so MCP-capable assistants can
   ask for a structured policy-plugin decision without receiving memory mutation
   authority.

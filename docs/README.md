@@ -8,6 +8,7 @@ Primary docs:
 - [assistant-protocol.md](assistant-protocol.md)
 - [architecture.md](architecture.md)
 - [memory-lifecycle-roadmap.md](memory-lifecycle-roadmap.md)
+- [policy-plugin-spec.md](policy-plugin-spec.md)
 - [confidence-migration.md](confidence-migration.md)
 - [reasoning-scaffold-operational-principles.md](reasoning-scaffold-operational-principles.md)
 - [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md)

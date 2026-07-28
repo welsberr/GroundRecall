@@ -161,3 +161,65 @@ def test_policy_plugin_loader_composes_claimwright_with_static_policy(tmp_path: 
     assert decision.decision == "hard_gate"
     assert "fabricated_or_unverified_citation" in decision.reasons
     assert "citation-reviewer" in decision.required_reviewers
+
+
+def test_policy_plugin_loader_accepts_authoritative_schema_version(tmp_path: Path) -> None:
+    config = tmp_path / "policy-plugins.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: test.schema",
+                "providers:",
+                "  - type: static",
+                "    policy_id: test.static",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    provider = load_policy_plugins(config)
+
+    assert provider.policy_id == "test.schema"
+
+
+def test_policy_plugin_loader_rejects_unknown_schema_version(tmp_path: Path) -> None:
+    config = tmp_path / "policy-plugins.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: other.policy_plugins.v99",
+                "providers:",
+                "  - type: static",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_policy_plugins(config)
+    except ValueError as exc:
+        assert "unsupported policy plugin schema_version" in str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected schema version validation failure")
+
+
+def test_policy_plugin_loader_rejects_provider_without_type(tmp_path: Path) -> None:
+    config = tmp_path / "policy-plugins.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "providers:",
+                "  - policy_id: missing-type",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        load_policy_plugins(config)
+    except ValueError as exc:
+        assert "missing type" in str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected provider type validation failure")

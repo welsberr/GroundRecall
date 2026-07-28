@@ -74,6 +74,8 @@ DECISION_RANK: dict[PolicyDecisionValue, int] = {
     "deny": 4,
 }
 
+POLICY_PLUGIN_SCHEMA_VERSION = "groundrecall.policy_plugins.v1"
+
 
 class PolicyRequest(BaseModel):
     decision_point: PolicyDecisionPoint
@@ -299,9 +301,17 @@ def load_policy_provider(config: dict[str, Any]) -> PolicyDecisionProvider:
 
 def load_policy_plugins(path: str | Path) -> CompositePolicyProvider:
     payload = _load_yaml(Path(path))
+    schema_version = str(payload.get("schema_version", POLICY_PLUGIN_SCHEMA_VERSION))
+    if schema_version != POLICY_PLUGIN_SCHEMA_VERSION:
+        raise ValueError(f"unsupported policy plugin schema_version: {schema_version}")
     provider_configs = payload.get("providers", [])
     if not isinstance(provider_configs, list):
         raise ValueError("policy plugin config must contain a providers list")
+    for index, config in enumerate(provider_configs):
+        if not isinstance(config, dict):
+            raise ValueError(f"policy provider config at index {index} must be a mapping")
+        if not str(config.get("type", "")).strip():
+            raise ValueError(f"policy provider config at index {index} is missing type")
     providers = [load_policy_provider(config) for config in provider_configs]
     return CompositePolicyProvider(
         policy_id=str(payload.get("policy_id", "groundrecall.composed_policy.v1")),
