@@ -396,11 +396,20 @@ def test_augment_store_relations_from_claim_contradiction_cues_skips_explicit_li
 def test_augment_store_relations_from_claim_contradiction_cues_respects_pair_budget(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
-    for index in range(5):
+    for index in range(3):
         store.save_claim(
             ClaimRecord(
-                claim_id=f"claim_{index}",
-                claim_text=f"Selection changes adaptation in population {index}.",
+                claim_id=f"claim_affirm_{index}",
+                claim_text="Selection changes adaptation in populations.",
+                concept_ids=["concept::selection"],
+                current_status="reviewed",
+            )
+        )
+    for index in range(3):
+        store.save_claim(
+            ClaimRecord(
+                claim_id=f"claim_negate_{index}",
+                claim_text="Selection does not change adaptation in populations.",
                 concept_ids=["concept::selection"],
                 current_status="reviewed",
             )
@@ -415,6 +424,31 @@ def test_augment_store_relations_from_claim_contradiction_cues_respects_pair_bud
 
     assert payload["filter_summary"]["pair_check_count"] == 3
     assert payload["filter_summary"]["pair_check_limit_reached"] is True
+
+
+def test_augment_store_relations_from_claim_contradiction_cues_buckets_pairs(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    for index in range(20):
+        store.save_claim(
+            ClaimRecord(
+                claim_id=f"claim_unrelated_{index}",
+                claim_text=f"Selection changes marker {index} in unrelated notes.",
+                concept_ids=["concept::selection"],
+                current_status="reviewed",
+            )
+        )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-contradiction-cues",
+        max_pair_checks=5,
+        apply=False,
+    )
+
+    assert payload["filter_summary"]["pair_bucket_count"] == 0
+    assert payload["filter_summary"]["pair_check_count"] == 0
+    assert payload["filter_summary"]["pair_check_limit_reached"] is False
 
 
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:

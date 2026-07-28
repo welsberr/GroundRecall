@@ -171,11 +171,20 @@ def test_graph_maintenance_can_run_claim_links_strategy(tmp_path: Path) -> None:
 def test_graph_maintenance_passes_pair_check_budget(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
-    for index in range(4):
+    for index in range(2):
         store.save_claim(
             ClaimRecord(
-                claim_id=f"claim_{index}",
-                claim_text=f"Selection changes adaptation in population {index}.",
+                claim_id=f"claim_affirm_{index}",
+                claim_text="Selection changes adaptation in populations.",
+                concept_ids=["concept::selection"],
+                current_status="reviewed",
+            )
+        )
+    for index in range(2):
+        store.save_claim(
+            ClaimRecord(
+                claim_id=f"claim_negate_{index}",
+                claim_text="Selection does not change adaptation in populations.",
                 concept_ids=["concept::selection"],
                 current_status="reviewed",
             )

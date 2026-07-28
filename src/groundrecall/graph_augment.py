@@ -47,6 +47,7 @@ class AugmentStats:
     skipped_duplicate_keys: set[tuple[str, str, str]] = field(default_factory=set)
     pair_check_count: int = 0
     pair_check_limit_reached: bool = False
+    pair_bucket_count: int = 0
 
     def record_duplicate(self, key: tuple[str, str, str]) -> None:
         self.skipped_duplicate_keys.add(key)
@@ -207,6 +208,7 @@ def augment_store_relations_from_claims(
         "filter_summary": {
             "below_min_evidence_count": len(candidates) - len(eligible),
             "omitted_by_limit_count": omitted_by_limit_count,
+            "pair_bucket_count": stats.pair_bucket_count,
             "pair_check_count": stats.pair_check_count,
             "pair_check_limit_reached": stats.pair_check_limit_reached,
             **stats.skipped_duplicate_counts(),
@@ -366,35 +368,57 @@ def _claim_contradiction_cue_candidates(
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
     seen_pairs: set[tuple[str, str]] = set()
     for concept_claims in claims_by_concept.values():
-        sorted_claims = sorted(concept_claims, key=lambda item: item.claim_id)
-        for index, left in enumerate(sorted_claims):
-            for right in sorted_claims[index + 1 :]:
-                if stats.pair_check_count >= max_pair_checks:
-                    stats.pair_check_limit_reached = True
-                    return candidates
-                stats.pair_check_count += 1
-                pair_key = tuple(sorted([left.claim_id, right.claim_id]))
-                if pair_key in seen_pairs or _explicitly_linked_claims(left, right):
-                    continue
-                seen_pairs.add(pair_key)
-                if not _looks_like_negation_contradiction(left.claim_text, right.claim_text):
-                    continue
-                source_id, target_id = pair_key
-                key = _relation_key(source_id, target_id, relation_type)
-                if key in existing_keys:
-                    stats.record_duplicate(key)
-                    continue
-                candidate = RelationCandidate(
-                    source_id=source_id,
-                    target_id=target_id,
-                    relation_type=relation_type,
-                    claim_ids=[source_id, target_id],
-                    support_ids=[f"{source_id}<->{target_id}"],
-                    evidence_ids=_claim_pair_evidence_ids(left, right),
-                    origin_paths=_claim_pair_origin_paths(left, right),
-                )
-                candidates[key] = candidate
+        buckets = _claim_contradiction_signature_buckets(concept_claims)
+        stats.pair_bucket_count += len(buckets)
+        for bucket in buckets.values():
+            negated_claims = bucket["negated"]
+            affirmative_claims = bucket["affirmative"]
+            for left in affirmative_claims:
+                for right in negated_claims:
+                    if stats.pair_check_count >= max_pair_checks:
+                        stats.pair_check_limit_reached = True
+                        return candidates
+                    stats.pair_check_count += 1
+                    pair_key = tuple(sorted([left.claim_id, right.claim_id]))
+                    if pair_key in seen_pairs or _explicitly_linked_claims(left, right):
+                        continue
+                    seen_pairs.add(pair_key)
+                    if not _looks_like_negation_contradiction(left.claim_text, right.claim_text):
+                        continue
+                    source_id, target_id = pair_key
+                    key = _relation_key(source_id, target_id, relation_type)
+                    if key in existing_keys:
+                        stats.record_duplicate(key)
+                        continue
+                    candidate = RelationCandidate(
+                        source_id=source_id,
+                        target_id=target_id,
+                        relation_type=relation_type,
+                        claim_ids=[source_id, target_id],
+                        support_ids=[f"{source_id}<->{target_id}"],
+                        evidence_ids=_claim_pair_evidence_ids(left, right),
+                        origin_paths=_claim_pair_origin_paths(left, right),
+                    )
+                    candidates[key] = candidate
     return candidates
+
+
+def _claim_contradiction_signature_buckets(claims: list[Any]) -> dict[tuple[str, ...], dict[str, list[Any]]]:
+    buckets: dict[tuple[str, ...], dict[str, list[Any]]] = {}
+    for claim in sorted(claims, key=lambda item: item.claim_id):
+        signature = tuple(sorted(_claim_signature_tokens(claim.claim_text)))
+        if len(signature) < 4:
+            continue
+        bucket = buckets.setdefault(signature, {"affirmative": [], "negated": []})
+        if _has_negation_cue(claim.claim_text):
+            bucket["negated"].append(claim)
+        else:
+            bucket["affirmative"].append(claim)
+    return {
+        signature: bucket
+        for signature, bucket in buckets.items()
+        if bucket["affirmative"] and bucket["negated"]
+    }
 
 
 def _explicitly_linked_claims(left: Any, right: Any) -> bool:
