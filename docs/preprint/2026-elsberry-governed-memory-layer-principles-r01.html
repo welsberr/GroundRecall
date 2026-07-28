@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="author" content="Wesley R. Elsberry, Ph.D. (elsberry@msu.edu)" />
+  <meta name="dcterms.date" content="2026-07-26" />
+  <title>Memory Layers Should Be Governed: Properties for Durable AI Assistant and Agent Memory</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">Memory Layers Should Be Governed: Properties for Durable AI Assistant and Agent Memory</h1>
+<p class="author">Wesley R. Elsberry, Ph.D. (elsberry@msu.edu)</p>
+<p class="date">2026-07-26</p>
+</header>
+<h2 id="abstract">Abstract</h2>
+<p>Current AI memory systems increasingly support long-term recall, graph retrieval, personalization, and memory operating-system abstractions. These systems make assistants and agents more persistent, but persistence also makes familiar failures more durable: unsupported claims, stale context, hidden contradictions, citation drift, private-to-public leakage, unreviewed promotion, and ambiguous authority over shared memory. We argue that memory layers for AI assistants and agents should be governed systems, not only retrieval systems. A governed memory layer preserves provenance, distinguishes historical support from current applicability, exposes confidence and uncertainty, tracks contradiction and adjudication, enforces release boundaries, quarantines imported memory, retains audit history, and integrates explicit policy frameworks for reliable, evidence-driven work. We present these requirements as a manifesto for governed AI memory and describe local-first prototype components that demonstrate several of the required controls: GroundRecall as a provenance-preserving, review-gated, federated memory substrate; ClaimWright as one suitable claim-policy and publication-safety framework; CiteGeist as a bibliography and source-review workbench; and Epistemap as a confidence and knowledge-graph operation layer. These prototypes show that governed-memory controls can be implemented in a local prototype while leaving retrieval benchmarking, robust semantic contradiction detection, hosted review, production identity management, exceptional erasure propagation, distributed synchronization, and broader governance/security literature integration as open work.</p>
+<h2 id="introduction-memory-is-not-just-recall">1. Introduction: Memory Is Not Just Recall</h2>
+<p>Long-lived AI assistants and agents need memory. A system that remembers user preferences, project state, research sources, code decisions, and prior failures can be more useful than a system that starts from zero at every turn. Recent work has therefore explored memory streams, long-term retrieval, graph-structured memory, production memory layers, and memory operating-system abstractions. Generative Agents used a natural-language memory stream, reflection, and retrieval to support believable agent behavior [1]. MemGPT framed long-context interaction as virtual context management across memory tiers [2]. HippoRAG connected LLMs, knowledge graphs, and Personalized PageRank for long-term multi-hop retrieval [3]. A-MEM proposed dynamically linked agentic memory inspired by Zettelkasten-style organization [4]. Mem0 presented a production-oriented long-term memory layer for AI agents [5]. MemoryOS and MemOS made the operating-system analogy explicit through hierarchical storage, lifecycle management, scheduling, and unified memory abstractions [6, 7].</p>
+<p>These systems make AI agents more persistent. Persistence is useful, but it changes the risk profile of assistant and agent systems. If memory persists, unsupported claims persist. Stale assumptions persist. Incorrect citations persist. Private notes can become downstream public context. Contradictions can be smoothed over by retrieval ranking instead of confronted. A signed memory artifact can be mistaken for locally authorized memory. A polished summary can replace the evidence that should have remained available for review.</p>
+<p>The central claim of this paper is that AI assistants and agents do not merely need more memory. They need governed memory layers.</p>
+<p>A governed memory layer is not only a vector database, transcript store, or retrieval cache. It is a durable context substrate whose records carry provenance, confidence, temporal validity, release level, review status, contradiction state, policy constraints, and audit history. It treats memory promotion, memory sharing, contradiction resolution, and public use as governance events. It preserves disagreement and decision history rather than hiding them behind a single retrieval score.</p>
+<p>This paper states the required properties first, then uses prototype systems as implementation evidence. GroundRecall is the main memory-substrate example. ClaimWright, CiteGeist, and Epistemap illustrate companion policy, source-review, and confidence/graph layers that support the same governed-memory stance.</p>
+<h2 id="foreseeable-failure-modes">2. Foreseeable Failure Modes</h2>
+<p>The current memory-layer literature is strong on persistence, retrieval, personalization, graph traversal, memory scheduling, and production deployment. The sources reviewed for this draft foreground governance less often than retrieval and memory-management performance. A system that optimizes for memory availability and relevance can still fail as an evidence-preserving substrate for research, publication, organizational action, or multi-agent collaboration.</p>
+<p>The foreseeable failure modes include:</p>
+<ul>
+<li>ungrounded summaries becoming durable context;</li>
+<li>citations remembered without accepted, rejected, or unresolved review state;</li>
+<li>stale facts reused as current planning assumptions;</li>
+<li>contradictions resolved accidentally by retrieval ranking rather than explicit adjudication;</li>
+<li>public artifacts outrunning private or speculative grounding;</li>
+<li>private, internal, confidential, or privileged context leaking through export or federation;</li>
+<li>valid signatures being mistaken for local authority;</li>
+<li>imported memory overwriting local canonical memory;</li>
+<li>role or key distribution bypassing local policy;</li>
+<li>deletion being used where expiry, supersession, or confidence reduction would better preserve provenance.</li>
+</ul>
+<p>These failures are not exotic. They follow from treating memory as a relevance mechanism without enough attention to authority, review, and lifecycle. If assistants are used to produce reliable, evidence-driven products, memory must encode the conditions under which remembered material may be trusted, used, shared, challenged, revised, or published.</p>
+<p>The threat model here is scoped to memory-layer governance. It does not assume protection against host compromise, complete regulatory compliance, production identity management, or complete erasure propagation. It focuses on making several important governance failures explicit and reviewable at the memory-layer level: stale memory, ungrounded summaries, hidden contradictions, unreviewed imports, access broadening, stale trust, overbroad roles, and loss of audit history.</p>
+<h2 id="required-properties-of-governed-memory-layers">3. Required Properties of Governed Memory Layers</h2>
+<p>A memory layer suitable for durable AI assistant and agent work requires at least the following properties.</p>
+<ul>
+<li><strong>Provenance preservation:</strong> Claims remain linked to observations, sources, citations, and derivation context.</li>
+<li><strong>Review-gated promotion:</strong> Candidate or imported memory does not silently become canonical.</li>
+<li><strong>Confidence structure:</strong> Confidence encodes dimensions and basis, not merely one scalar.</li>
+<li><strong>Temporal validity:</strong> The system distinguishes historical support from current applicability.</li>
+<li><strong>Non-destructive forgetting:</strong> Expiry, supersession, retraction, and confidence reduction preserve evidence history except where exceptional erasure is required.</li>
+<li><strong>Contradiction tracking:</strong> Contradictions become explicit cases, not hidden retrieval noise.</li>
+<li><strong>Adjudication history:</strong> Resolutions are recorded as review state without silently rewriting underlying claims.</li>
+<li><strong>Release classification:</strong> Memory carries public, internal, confidential, privileged, private, or equivalent release levels.</li>
+<li><strong>No access broadening:</strong> Export or federation does not make memory less restrictive without redaction or declassification authority.</li>
+<li><strong>Quarantine before promotion:</strong> Imported memory is verified and quarantined before local acceptance.</li>
+<li><strong>Local authority:</strong> Signed memory, keys, and roles do not override receiver policy.</li>
+<li><strong>Auditability:</strong> Export, import, promotion, adjudication, and policy decisions leave reviewable records.</li>
+<li><strong>Policy integration:</strong> Memory is governed by explicit claim, publication, and action policies.</li>
+</ul>
+<p>These properties are orthogonal to retrieval performance. A memory layer can retrieve relevant material quickly while still lacking the review, provenance, and release controls needed for evidence-driven work. Conversely, a governed memory layer may be slower or more conservative while being better suited to research, legal, organizational, or public-facing tasks.</p>
+<p>The governance level can vary with risk. Private exploratory work may use advisory policy. Durable, expensive, public, privacy-relevant, or authority-bearing actions require stronger gates. The minimum requirement is that memory makes such distinctions possible and inspectable.</p>
+<h2 id="policy-pluralism-and-common-policy-elements">4. Policy Pluralism and Common Policy Elements</h2>
+<p>Governed memory requires a policy stance, but not a single universal policy. Different users, teams, institutions, and jurisdictions will set different thresholds for evidence depth, adversarial review, privacy classification, model/tool risk, cost tolerance, and human sign-off.</p>
+<p>ClaimWright is one suitable policy framework, not the policy framework. Its role in this work is to demonstrate the kind of operational stance that a memory layer can reflect: claim lifecycle states, citation review, confidence dimensions, role cards, public/private gates, and pre-action/post-action checks.</p>
+<p>The generalizable claim is narrower and stronger: reliable AI-assisted work needs explicit policy, and many policy elements are broadly applicable even when thresholds differ.</p>
+<ul>
+<li><strong>Claim lifecycle:</strong> Claims have states such as exploratory, supported, contested, stale, contradicted, private-only, and public-safe or equivalent.</li>
+<li><strong>Evidence traceability:</strong> Public or durable claims identify their source basis and review status.</li>
+<li><strong>Citation review:</strong> Accepted, rejected, and unresolved citation candidates remain inspectable.</li>
+<li><strong>Uncertainty visibility:</strong> Confidence, ambiguity, and limits of applicability are not hidden by polished prose.</li>
+<li><strong>Contradiction review:</strong> Contradicted claims trigger review or adjudication rather than silent selection.</li>
+<li><strong>Staleness review:</strong> New evidence can mark related claims stale or superseded.</li>
+<li><strong>Public/private boundary:</strong> Movement from private exploration to public artifact requires stricter gates.</li>
+<li><strong>Role/authority boundaries:</strong> Agents know whether they are auditing, drafting, publishing, maintaining memory, or escalating to a human.</li>
+<li><strong>Pre-action checks:</strong> Costly, durable, public, destructive, or privacy-relevant actions check reversibility, evidence, assumptions, and authorization.</li>
+<li><strong>Post-action checks:</strong> Outputs are checked for unsupported claims, citation drift, unresolved risks, and downstream memory effects.</li>
+</ul>
+<p>Policy pluralism avoids treating one project’s values and thresholds as universal while still rejecting the idea that persistent AI memory can remain policy-neutral in high-stakes or public-facing use.</p>
+<h2 id="prototype-components">5. Prototype Components</h2>
+<p>The prototype components discussed here are partial implementations and design probes, not a complete governed-agent platform or a validated safety intervention.</p>
+<p>GroundRecall is the main memory substrate. It implements typed records for sources, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, and snapshots. It supports review-gated promotion, query/export surfaces, confidence and temporal-validity metadata, release-level classification, signed federation bundles, quarantine-before-promotion import, local policy checks, audit events, trust registries, signed public keysets, signed role directories, bounded graph backfill and maintenance, and a bounded policy-plugin interface.</p>
+<p>ClaimWright is a companion policy framework. It provides a human-readable collaboration memorandum, machine-readable policy files, claim lifecycle states, confidence dimensions, mixed enforcement defaults, agent role cards, pre-action and post-action checks, citation review patterns, and a public-safe artifact workflow. In the present implementation, GroundRecall owns the policy-plugin contract and includes a ClaimWright-style directory adapter. That adapter lets ClaimWright-like policy content produce bounded GroundRecall decisions on selected enforcement surfaces. ClaimWright remains an example of configurable policy content, not a mandatory or privileged dependency.</p>
+<p>CiteGeist is a bibliography workbench. It supports BibTeX-centered ingestion, reference extraction, verification, enrichment, citation-graph expansion, topic-aware review, and export. For this paper, it was used to seed a memory-layer bibliography and produce a local CiteGeist database and BibTeX export. That seed supports initial related-work framing, not systematic-review completeness. CiteGeist represents the source-review side of governed memory: citations and bibliographic claims remain inspectable rather than merely embedded in prose.</p>
+<p>Epistemap is a confidence and knowledge-graph operation layer. GroundRecall exposes Epistemap-compatible query and confidence surfaces. Its role is to support evidence representation, confidence measures, graph operations, and future contradiction/confidence interactions. The present evidence does not support claims of broad confidence calibration or empirical superiority.</p>
+<p>Together, these prototypes show a feasible decomposition:</p>
+<ul>
+<li>memory substrate: GroundRecall;</li>
+<li>policy stance: ClaimWright-like frameworks;</li>
+<li>source review: CiteGeist;</li>
+<li>confidence and graph operations: Epistemap.</li>
+</ul>
+<h2 id="relation-to-memory-layer-systems">6. Relation to Memory-Layer Systems</h2>
+<p>Recent memory-layer systems establish the importance of durable memory for agents. A recent ACM TOIS survey organizes memory mechanisms for LLM-based agents around memory sources, forms, operations, and evaluation [10]. Generative Agents demonstrated memory streams, reflection, planning, and retrieval over remembered experience [1]. MemGPT framed long-context interaction as virtual context management across memory tiers [2]. HippoRAG combined LLMs, knowledge graphs, and Personalized PageRank for long-term multi-hop retrieval [3]. A-MEM proposed dynamically organized agentic memory with historical memory linking and evolution [4]. Mem0 presented a production-oriented long-term memory layer with extraction, consolidation, retrieval, and a graph-memory variant [5]. MemoryOS and MemOS developed memory operating-system abstractions with memory tiers, lifecycle control, scheduling, and unified memory units [6, 7]. AriGraph used a semantic and episodic knowledge-graph world model for agent planning [8]. Work on knowledge-graph alignment for retrieval-augmented generation also shows that graph representation and linearization choices affect downstream LLM use of graph knowledge [9].</p>
+<p>The governance side of the argument draws on adjacent standards and security literature. The NIST AI RMF frames AI risk management around govern, map, measure, and manage functions and trustworthy-system characteristics [11]. NIST SP 800-53 provides a security and privacy control catalog covering access control, audit and accountability, identification and authentication, privacy, and supply-chain risk management [12]. NIST SP 800-207 frames zero trust as a move away from implicit trust toward resource- and identity-centered policy decisions [13]. W3C PROV defines interoperable provenance concepts for entities, activities, agents, derivation, and bundles [14, 15]. SLSA, Sigstore, and The Update Framework provide software-supply-chain analogues for verifiable provenance, transparency logs, signed metadata, roles, and key-compromise resilience [16, 17, 18]. Recent distributed access-control survey work reinforces that access control remains a core defense for distributed systems and organizational security [19].</p>
+<p>The second bibliography expansion broadens the evaluation and security context. LongMemEval, LoCoMo, MemoryAgentBench, and LoCoMo-Plus provide concrete benchmark targets for long-term interactive memory, very long-term conversational memory, incremental memory-agent competence, selective forgetting or conflict handling, and cognitive-memory stress cases [20, 21, 22, 23]. GraphRAG work adds another relevant axis: entity graphs, community summaries, graph-retrieval surveys, GraphRAG-Bench pipeline evaluation, and agentic GraphRAG all support the claim that graph operations are becoming central to memory and retrieval systems [24, 25, 26, 27]. Privacy and authorization work is also emerging directly around persistent AI memory and RAG: Agent-Memory Protocol proposes purpose-bound memory handling, CAMS addresses memory injection and extraction attacks, and Permission-Aware RAG frames retrieval as an IAM-mediated access decision [28, 29, 30]. Older security foundations remain relevant for the federation design: decentralized information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security surveys provide vocabulary and mechanisms for local authority, no access broadening, auditability, and provenance-aware governance [31, 32, 33, 34, 35, 36].</p>
+<p>Within this reviewed set, the most visible contributions concern recall, personalization, graph retrieval, memory scheduling, and production performance. Governance is less central. Release classification, provenance-preserving review, contradiction adjudication, quarantine-before-promotion federation, local authority, and auditable cross-host exchange appear as complementary controls rather than the main contribution of most reviewed memory-layer systems.</p>
+<p>GroundRecall-style governed memory is therefore complementary to performance-oriented memory layers:</p>
+<blockquote>
+<p>Governed memory supplies review, provenance, contradiction, release-policy, federation, and local-authority controls that performance-oriented memory systems may need even when those controls are not their central contribution.</p>
+</blockquote>
+<p>This framing avoids an unsupported performance comparison. GroundRecall has not been evaluated against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS on long-dialogue recall, multi-hop retrieval, cost, latency, or personalization benchmarks. Its current evidence is engineering evidence for governance properties.</p>
+<h2 id="groundrecall-as-a-governed-memory-substrate">7. GroundRecall as a Governed Memory Substrate</h2>
+<p>GroundRecall’s data model starts from typed durable records rather than raw chat history. Observations carry provenance metadata. Claims reference source observations, supporting fragments, concepts, contradictions, superseded claims, confidence hints, assessments, and lifecycle status. Concepts and relations support graph-oriented query and export. Promotions and adjudications record review decisions. Snapshots provide deterministic export views.</p>
+<p>Graph growth is treated as governed maintenance rather than silent enrichment. The current graph backfill layer can propose reviewable relation candidates from co-occurrence, claim links, claim mentions, contradiction cues, support anchors, artifact anchors, source anchors, source-family relationships, and conservative semantic cues. It is dry-run by default, records relation examples and diagnostics, screens private or no-export records before seeding candidates, and separates candidate relation counts from reviewed relation counts. A resumable maintenance runner can process bounded slices by profile with per-profile state files, lock files, stale-lock recovery, and either heuristic or disabled extraction. These features support graph-maintenance claims, not claims of full semantic understanding or production-scale graph retrieval.</p>
+<p>The canonical lifecycle is:</p>
+<pre class="text"><code>source/artifact
+    ↓
+observation extraction
+    ↓
+claim/concept/relation candidates
+    ↓
+review and promotion
+    ↓
+canonical store
+    ↓
+query/export/federation</code></pre>
+<p>The design principle is that ordinary epistemic maintenance is non-destructive. If a fact expires, is superseded, becomes stale, or is contradicted, the system preserves provenance and decision history while reducing current applicability or confidence. Exceptional erasure remains a separate privacy, legal, or security operation, not the ordinary model for knowledge maintenance.</p>
+<p>GroundRecall’s contradiction-case workflow illustrates this stance. Explicit <code>contradicts_claim_ids</code> links can be materialized into deterministic contradiction case records. A case has participating claim IDs, case kind, status, severity, timestamps, rationale, metadata, and optional adjudication linkage. Diagnostics flag contradiction links without cases, cases referencing missing claims, and open cases involving promoted claims. Adjudication records can target contradiction cases. The CLI synchronizes cases, lists review batches, and adjudicates cases without rewriting the underlying claims.</p>
+<p>This matters because contradiction is a common failure mode of durable memory. A system that retrieves the most relevant or most recent claim can hide disagreement. A governed memory layer exposes disagreement as review state.</p>
+<h2 id="release-levels-federation-and-local-authority">8. Release Levels, Federation, and Local Authority</h2>
+<p>GroundRecall uses a release-level lattice:</p>
+<pre class="text"><code>public &lt; internal &lt; confidential &lt; privileged &lt; private</code></pre>
+<p>The release lattice prevents obvious access broadening. <code>private</code> records are local-only. Public exports block internal, confidential, privileged, private, and unclassified records unless policy allows. Hidden or redacted basis can be represented explicitly as partial basis visibility. Derivatives require redaction or declassification metadata. Privileged federation requires explicit privileged allowance.</p>
+<p>Federation is quarantine-first. A producer exports a signed, content-hashed bundle. A receiver verifies the signature, expected key ID, content hash, accepted release level, and bundle policy. Verification permits quarantine, not canonical acceptance. Promotion remains a separate local decision governed by release acceptance, local policy, conflict checks, and reviewer action.</p>
+<p>This distinction is central:</p>
+<blockquote>
+<p>A valid signed memory artifact proves something about origin and integrity; it does not prove that the receiver should make the memory canonical.</p>
+</blockquote>
+<p>GroundRecall extends this local-authority model to trust and role distribution. Trust registries record key material, active status, expiry, revocation, supersession, release levels, and trusted actions. Signed public keysets and signed role directories can be imported only through receiver-side caps. A hub can propose trust or role structure; the receiver decides the maximum authority it accepts.</p>
+<h2 id="evaluation-evidence">9. Evaluation Evidence</h2>
+<p>The current evidence is engineering evidence. The GroundRecall test suite passed on 2026-07-28 with 234 tests passing. Tests cover store round trips, snapshots, query bundles, confidence profiles, release lattice behavior, federation signatures, quarantine import, promotion, generic policy-plugin decisions, ClaimWright-style policy adaptation, policy-gated MCP/export/federation/promotion/adjudication/relation-review surfaces, scoped grants, audit events, trust registry lifecycle, Ed25519 signatures, signed keysets, signed role directories, contradiction case generation, contradiction diagnostics, federation of contradiction cases, contradiction adjudication workflow, graph augmentation and backfill strategies, graph maintenance state and lock behavior, graph diagnostics layer counts, and private-record screening for graph backfill.</p>
+<p>This evidence supports implementation claims about governed-memory properties in a local prototype. It does not establish improved user productivity, broad safety outcomes, retrieval superiority, or production security. Those claims require different evaluation designs.</p>
+<p>The claim-to-evidence discipline is simple: each paper claim maps to implemented code, test coverage, reproducible demonstration, bibliography/source analysis, or explicit future-work status. Appendix A provides the current claim-to-evidence matrix. A separate ClaimWright review record applies claim-auditor, citation-reviewer, adversarial-reviewer, and publication-gatekeeper procedures to the draft. Claims that do not map to evidence are softened or removed.</p>
+<p>The ClaimWright review result is conditional. The draft is suitable for internal and public draft review, but it is not yet final-public-safe. Before submission or authoritative publication, the paper needs a broader governance/security bibliography pass, stable reproducible demonstrations, and final human publication approval.</p>
+<h2 id="demonstrations-and-reproducibility">10. Demonstrations and Reproducibility</h2>
+<p>The current repository contains documentation artifacts, a CiteGeist-seeded bibliography database, BibTeX exports, HTML renderings of the manuscript planning materials, and a reproducible demonstration runner at <code>examples/preprint/run_preprint_demos.py</code>. The demonstration runner writes JSON summaries under <code>examples/preprint/out/</code>.</p>
+<p>The demonstration set is organized by property:</p>
+<ol type="1">
+<li>Provenance and review:
+<ul>
+<li>create source, observation, and claim records;</li>
+<li>promote to canonical memory;</li>
+<li>query with provenance.</li>
+</ul></li>
+<li>Contradiction handling:
+<ul>
+<li>create contradictory claims;</li>
+<li>synchronize a contradiction case;</li>
+<li>adjudicate without rewriting claims.</li>
+</ul></li>
+<li>Release controls:
+<ul>
+<li>seed public, internal, and private records;</li>
+<li>export a public bundle;</li>
+<li>show excluded records and policy findings.</li>
+</ul></li>
+<li>Federation and local authority:
+<ul>
+<li>export a signed bundle;</li>
+<li>import to quarantine;</li>
+<li>promote only under matching local policy;</li>
+<li>show conflict detection.</li>
+</ul></li>
+<li>ClaimWright operating stance:
+<ul>
+<li>move a claim from exploratory/private toward public-safe status through policy checks.</li>
+</ul></li>
+<li>CiteGeist source review:
+<ul>
+<li>seed a bibliography;</li>
+<li>ingest into CiteGeist;</li>
+<li>export reviewed BibTeX.</li>
+</ul></li>
+<li>Policy-plugin boundary:
+<ul>
+<li>evaluate a static policy plugin;</li>
+<li>evaluate a ClaimWright-style directory adapter;</li>
+<li>show policy preflight blocking canonical promotion, contradiction adjudication, and relation-review writes before durable memory changes occur.</li>
+</ul></li>
+</ol>
+<p>The current generated outputs are <code>provenance_promotion.json</code>, <code>contradiction_adjudication.json</code>, <code>release_filtering.json</code>, <code>federation_quarantine.json</code>, <code>local_authority.json</code>, <code>policy_plugin_boundary.json</code>, and <code>manifest.json</code>. These demonstrations are not a substitute for benchmark evaluation. They are reproducibility artifacts for the paper’s engineering claims.</p>
+<p>The demonstration suite also includes an internal timing indication for two GroundRecall query modes. In a synthetic local store with 191 indexed documents, 24 concepts, 72 claims, and 23 relations, post-index FTS search over the query <code>governed memory policy search</code> had a median latency of 0.739 ms over 31 repetitions. Indexed search plus graph expansion had a median latency of 37.316 ms over the same repetitions, while returning 4 graph bundles containing 11 graph nodes and 7 graph edges. This result is not comparable to external memory-layer products and does not measure recall quality, but it illustrates the expected engineering tradeoff: indexed search is the low-latency lookup path, while graph expansion adds reviewable neighborhood context at additional query cost. The generated artifact is <code>search_mode_timing.json</code>.</p>
+<h2 id="limitations">11. Limitations</h2>
+<p>GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It includes heuristic, review-gated contradiction and semantic cue generation, but it does not provide robust automatic semantic contradiction detection or resolution. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. Its policy-plugin enforcement is real but partial: it covers selected MCP, export, federation, promotion, adjudication, and relation-review surfaces, not every possible memory mutation or enterprise policy system. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.</p>
+<p>These limitations bound the contribution. They do not defeat the core argument. Governed memory properties are necessary and implementable; the current prototypes are partial evidence, not complete systems.</p>
+<h2 id="design-implications">12. Design Implications</h2>
+<p>The design implications follow directly from the property list.</p>
+<p>First, memory layers expose governance state to agents. Retrieval results carry provenance, confidence, release level, temporal status, and contradiction/adjudication state where available.</p>
+<p>Second, public-facing agent work requires publication gates, not just source retrieval. A citation being retrievable is not the same as a citation being reviewed, adequate, current, and safe to use publicly.</p>
+<p>Third, contradiction and staleness handling are ordinary workflows. Durable memory expects claims to become stale, contested, contradicted, superseded, or retracted.</p>
+<p>Fourth, signed exchange is insufficient without local authority. A memory artifact can be authentic and still unsuitable for local promotion.</p>
+<p>Fifth, policy frameworks and memory substrates are designed together. Policy is configurable because different entities adopt different stances. Some explicit policy stance is nevertheless necessary for reliable, evidence-driven assistant and agent work.</p>
+<h2 id="conclusion">13. Conclusion</h2>
+<p>The next generation of AI assistants and agents will remember more. That is useful, but not sufficient. Durable memory should not simply make context persistent; it should make context inspectable, reviewable, scoped, challengeable, and governed.</p>
+<p>This paper has argued for a property-first view of governed memory layers. A suitable memory layer preserves provenance, gates promotion, represents confidence and temporal validity, tracks contradictions and adjudications, enforces release boundaries, quarantines imports, preserves audit history, respects local authority, and integrates explicit policy frameworks.</p>
+<p>GroundRecall, ClaimWright, CiteGeist, and Epistemap provide partial local-first examples of these properties. They are not a complete governed-agent platform. They are evidence that governed memory can be built, inspected, tested, and improved.</p>
+<p>The practical recommendation is direct: when building memory for AI assistants and agents, do not ask only how much the system can remember or how well it retrieves. Ask what the memory is allowed to mean, who reviewed it, where it came from, whether it is current, what it contradicts, who may see it, who may promote it, and what policy governs its use.</p>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<p>The author acknowledges assistance from OpenAI Codex in drafting, editing, source organization, bibliography preparation, demonstration generation, and ClaimWright-style review of this manuscript. The author remains responsible for the claims, judgment, and final publication decisions.</p>
+<h2 id="references">References</h2>
+<ol type="1">
+<li>Joon Sung Park, Joseph C. O’Brien, Carrie J. Cai, Meredith Ringel Morris, Percy Liang, and Michael S. Bernstein. “Generative Agents: Interactive Simulacra of Human Behavior.” <em>Proceedings of the 36th Annual ACM Symposium on User Interface Software and Technology</em>, 2023. DOI: <a href="https://doi.org/10.1145/3586183.3606763">10.1145/3586183.3606763</a>. Source: <a href="https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/" class="uri">https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/</a>.</li>
+<li>Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G. Patil, Ion Stoica, and Joseph E. Gonzalez. “MemGPT: Towards LLMs as Operating Systems.” arXiv:2310.08560, submitted 2023, revised 2024. DOI: <a href="https://doi.org/10.48550/arXiv.2310.08560">10.48550/arXiv.2310.08560</a>. Source: <a href="https://arxiv.org/abs/2310.08560" class="uri">https://arxiv.org/abs/2310.08560</a>.</li>
+<li>Bernal Jiménez Gutiérrez, Yiheng Shu, Yu Gu, Michihiro Yasunaga, and Yu Su. “HippoRAG: Neurobiologically Inspired Long-Term Memory for Large Language Models.” <em>Advances in Neural Information Processing Systems</em>, 2024. DOI: <a href="https://doi.org/10.52202/079017-1902">10.52202/079017-1902</a>. Source: <a href="https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/" class="uri">https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/</a>.</li>
+<li>Wujiang Xu, Zujie Liang, Kai Mei, Hang Gao, Juntao Tan, and Yongfeng Zhang. “A-MEM: Agentic Memory for LLM Agents.” arXiv:2502.12110, 2025. DOI: <a href="https://doi.org/10.48550/arXiv.2502.12110">10.48550/arXiv.2502.12110</a>. Source: <a href="https://arxiv.org/abs/2502.12110" class="uri">https://arxiv.org/abs/2502.12110</a>.</li>
+<li>Prateek Chhikara, Dev Khant, Saket Aryan, Taranjeet Singh, and Deshraj Yadav. “Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory.” arXiv:2504.19413, 2025. DOI: <a href="https://doi.org/10.48550/arXiv.2504.19413">10.48550/arXiv.2504.19413</a>. Source: <a href="https://arxiv.org/abs/2504.19413" class="uri">https://arxiv.org/abs/2504.19413</a>.</li>
+<li>Jiazheng Kang, Mingming Ji, Zhe Zhao, and Ting Bai. “Memory OS of AI Agent.” arXiv:2506.06326, 2025. DOI: <a href="https://doi.org/10.48550/arXiv.2506.06326">10.48550/arXiv.2506.06326</a>. Source: <a href="https://arxiv.org/abs/2506.06326" class="uri">https://arxiv.org/abs/2506.06326</a>.</li>
+<li>Zhiyu Li et al. “MemOS: A Memory OS for AI System.” arXiv:2507.03724, 2025. DOI: <a href="https://doi.org/10.48550/arXiv.2507.03724">10.48550/arXiv.2507.03724</a>. Source: <a href="https://arxiv.org/abs/2507.03724" class="uri">https://arxiv.org/abs/2507.03724</a>.</li>
+<li>Petr Anokhin, Nikita Semenov, Artyom Sorokin, Dmitry Evseev, Andrey Kravchenko, Mikhail Burtsev, and Evgeny Burnaev. “AriGraph: Learning Knowledge Graph World Models with Episodic Memory for LLM Agents.” <em>Proceedings of the Thirty-Fourth International Joint Conference on Artificial Intelligence</em>, 2025, pp. 12–20. DOI: <a href="https://doi.org/10.24963/ijcai.2025/2">10.24963/ijcai.2025/2</a>. Source: <a href="https://www.ijcai.org/proceedings/2025/0002" class="uri">https://www.ijcai.org/proceedings/2025/0002</a>.</li>
+<li>Shiyu Tian, Shuyue Xing, Xingrui Li, Yangyang Luo, Caixia Yuan, Wei Chen, Huixing Jiang, and Xiaojie Wang. “A Systematic Exploration of Knowledge Graph Alignment with Large Language Models in Retrieval Augmented Generation.” <em>Proceedings of the AAAI Conference on Artificial Intelligence</em>, 39(24), 2025, pp. 25291–25299. DOI: <a href="https://doi.org/10.1609/aaai.v39i24.34716">10.1609/aaai.v39i24.34716</a>. Source: <a href="https://ojs.aaai.org/index.php/AAAI/article/view/34716" class="uri">https://ojs.aaai.org/index.php/AAAI/article/view/34716</a>.</li>
+<li>Zeyu Zhang, Quanyu Dai, Xiaohe Bo, Chen Ma, Rui Li, Xu Chen, Jieming Zhu, Zhenhua Dong, and Ji-Rong Wen. “A Survey on the Memory Mechanism of Large Language Model-based Agents.” <em>ACM Transactions on Information Systems</em>, 43(6), article 155, 2025, pp. 1–47. DOI: <a href="https://doi.org/10.1145/3748302">10.1145/3748302</a>. Source: <a href="https://dl.acm.org/doi/10.1145/3748302" class="uri">https://dl.acm.org/doi/10.1145/3748302</a>.</li>
+<li>Elham Tabassi. <em>Artificial Intelligence Risk Management Framework (AI RMF 1.0).</em> National Institute of Standards and Technology, NIST AI 100-1, 2023. DOI: <a href="https://doi.org/10.6028/NIST.AI.100-1">10.6028/NIST.AI.100-1</a>. Source: <a href="https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10" class="uri">https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10</a>.</li>
+<li>Joint Task Force. <em>Security and Privacy Controls for Information Systems and Organizations.</em> National Institute of Standards and Technology, NIST SP 800-53 Rev. 5, 2020. DOI: <a href="https://doi.org/10.6028/NIST.SP.800-53r5">10.6028/NIST.SP.800-53r5</a>. Source: <a href="https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final" class="uri">https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final</a>.</li>
+<li>Scott Rose, Oliver Borchert, Stu Mitchell, and Sean Connelly. <em>Zero Trust Architecture.</em> National Institute of Standards and Technology, NIST SP 800-207, 2020. DOI: <a href="https://doi.org/10.6028/NIST.SP.800-207">10.6028/NIST.SP.800-207</a>. Source: <a href="https://www.nist.gov/publications/zero-trust-architecture-0" class="uri">https://www.nist.gov/publications/zero-trust-architecture-0</a>.</li>
+<li>Paul Groth and Luc Moreau. <em>PROV-Overview: An Overview of the PROV Family of Documents.</em> W3C Working Group Note, 2013. Source: <a href="https://www.w3.org/TR/prov-overview/" class="uri">https://www.w3.org/TR/prov-overview/</a>.</li>
+<li>Luc Moreau and Paolo Missier. <em>PROV-DM: The PROV Data Model.</em> W3C Recommendation, 2013. Source: <a href="https://www.w3.org/TR/prov-dm/" class="uri">https://www.w3.org/TR/prov-dm/</a>.</li>
+<li>SLSA Contributors. <em>SLSA v1.2 Provenance.</em> 2026. Source: <a href="https://slsa.dev/spec/v1.2/provenance" class="uri">https://slsa.dev/spec/v1.2/provenance</a>.</li>
+<li>Sigstore. <em>What is Sigstore?</em> 2026. Source: <a href="https://www.sigstore.dev/docs/what_is_sigstore" class="uri">https://www.sigstore.dev/docs/what_is_sigstore</a>.</li>
+<li>The Update Framework. <em>The Update Framework Specification.</em> 2026. Source: <a href="https://theupdateframework.github.io/specification/" class="uri">https://theupdateframework.github.io/specification/</a>.</li>
+<li>Lewis Golightly, Paolo Modesti, Rémi Garcia, and Victor Chang. “Securing Distributed Systems: A Survey on Access Control Techniques for Cloud, Blockchain, IoT and SDN.” <em>Cyber Security and Applications</em>, 1, article 100015, 2023. DOI: <a href="https://doi.org/10.1016/j.csa.2023.100015">10.1016/j.csa.2023.100015</a>. Source: <a href="https://www.sciencedirect.com/science/article/pii/S2772918423000036" class="uri">https://www.sciencedirect.com/science/article/pii/S2772918423000036</a>.</li>
+<li>Di Wu, Hongwei Wang, Wenhao Yu, Yuwei Zhang, Kai-Wei Chang, and Dong Yu. “LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory.” arXiv:2410.10813, submitted 2024, revised 2025. DOI: <a href="https://doi.org/10.48550/arXiv.2410.10813">10.48550/arXiv.2410.10813</a>. Source: <a href="https://arxiv.org/abs/2410.10813" class="uri">https://arxiv.org/abs/2410.10813</a>.</li>
+<li>Adyasha Maharana, Dong-Ho Lee, Sergey Tulyakov, Mohit Bansal, Francesco Barbieri, and Yuwei Fang. “Evaluating Very Long-Term Conversational Memory of LLM Agents.” <em>Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)</em>, 2024, pp. 13851–13870. DOI: <a href="https://doi.org/10.18653/v1/2024.acl-long.747">10.18653/v1/2024.acl-long.747</a>. Source: <a href="https://aclanthology.org/2024.acl-long.747/" class="uri">https://aclanthology.org/2024.acl-long.747/</a>.</li>
+<li>Yuanzhe Hu, Yu Wang, and Julian McAuley. “Evaluating Memory in LLM Agents via Incremental Multi-Turn Interactions.” <em>International Conference on Learning Representations</em>, 2026. Source: <a href="https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/" class="uri">https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/</a>.</li>
+<li>Yifei Li, Weidong Guo, Lingling Zhang, Rongman Xu, Muye Huang, Hui Liu, Lijiao Xu, Yu Xu, and Jun Liu. “Locomo-Plus: Beyond-Factual Cognitive Memory Evaluation Framework for LLM Agents.” arXiv:2602.10715, 2026. DOI: <a href="https://doi.org/10.48550/arXiv.2602.10715">10.48550/arXiv.2602.10715</a>. Source: <a href="https://arxiv.org/abs/2602.10715" class="uri">https://arxiv.org/abs/2602.10715</a>.</li>
+<li>Darren Edge, Ha Trinh, Newman Cheng, Joshua Bradley, Alex Chao, Apurva Mody, Steven Truitt, Dasha Metropolitansky, Robert Osazuwa Ness, and Jonathan Larson. “From Local to Global: A Graph RAG Approach to Query-Focused Summarization.” arXiv:2404.16130, submitted 2024, revised 2025. DOI: <a href="https://doi.org/10.48550/arXiv.2404.16130">10.48550/arXiv.2404.16130</a>. Source: <a href="https://arxiv.org/abs/2404.16130" class="uri">https://arxiv.org/abs/2404.16130</a>.</li>
+<li>Qinggang Zhang, Shengyuan Chen, Yuanchen Bei, Zheng Yuan, Huachi Zhou, Zijin Hong, Hao Chen, Yilin Xiao, Chuang Zhou, Junnan Dong, Yi Chang, and Xiao Huang. “Graph Retrieval-Augmented Generation: A Survey.” <em>ACM Transactions on Information Systems</em>, 2026. DOI: <a href="https://doi.org/10.1145/3777378">10.1145/3777378</a>. Source: <a href="https://doi.org/10.1145/3777378" class="uri">https://doi.org/10.1145/3777378</a>.</li>
+<li>Zhishang Xiang, Chuanjie Wu, Qinggang Zhang, Shengyuan Chen, Zijin Hong, Xiao Huang, and Jinsong Su. “When to use Graphs in RAG: A Comprehensive Analysis for Graph Retrieval-Augmented Generation.” arXiv:2506.05690, submitted 2025, revised 2026. DOI: <a href="https://doi.org/10.48550/arXiv.2506.05690">10.48550/arXiv.2506.05690</a>. Source: <a href="https://arxiv.org/abs/2506.05690" class="uri">https://arxiv.org/abs/2506.05690</a>.</li>
+<li>Zihan Chen, Lei Zheng, and Di Zhu. “A Survey of Agentic GraphRAG: From Retrieval-Augmented Generation to Graph-native Agents.” SSRN, 2026. DOI: <a href="https://doi.org/10.2139/ssrn.6713979">10.2139/ssrn.6713979</a>. Source: <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979" class="uri">https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979</a>.</li>
+<li>Junde Wu, Minhao Hu, Jiayuan Zhu, Jiaye Wang, and Yueming Jin. “Agent-Memory Protocol: A Privacy-Focused Protocol for LLM Agents and User Memory Interaction.” <em>Proceedings of The Second AAAI Bridge Program on AI for Medicine and Healthcare</em>, Proceedings of Machine Learning Research 317, 2026, pp. 293–301. Source: <a href="https://proceedings.mlr.press/v317/wu26a.html" class="uri">https://proceedings.mlr.press/v317/wu26a.html</a>.</li>
+<li>T. Dhivyasree, S. Saravanan, Arun Kumar Ramamoorthy, and Uma Maheswari Balasubramanian. “Cognitive Autonomous Memory Security (CAMS) against injection and extraction attacks in long-term memory of AI agents.” <em>Egyptian Informatics Journal</em>, 34, article 100983, 2026. DOI: <a href="https://doi.org/10.1016/j.eij.2026.100983">10.1016/j.eij.2026.100983</a>. Source: <a href="https://www.sciencedirect.com/science/article/pii/S1110866526001003" class="uri">https://www.sciencedirect.com/science/article/pii/S1110866526001003</a>.</li>
+<li>Jooyoung Jeong and Sang Goo Lee. “Permission-Aware RAG: Identity and Access Management (IAM)-Based Access Filtering in Multi-Resource Environments.” <em>IEEE Access</em>, 13, 2025, pp. 192819–192835. DOI: <a href="https://doi.org/10.1109/ACCESS.2025.3628960">10.1109/ACCESS.2025.3628960</a>. Source: <a href="https://doi.org/10.1109/ACCESS.2025.3628960" class="uri">https://doi.org/10.1109/ACCESS.2025.3628960</a>.</li>
+<li>Andrew C. Myers and Barbara Liskov. “A Decentralized Model for Information Flow Control.” <em>Proceedings of the Sixteenth ACM Symposium on Operating Systems Principles</em>, 1997, pp. 129–142. DOI: <a href="https://doi.org/10.1145/268998.266669">10.1145/268998.266669</a>. Source: <a href="https://doi.org/10.1145/268998.266669" class="uri">https://doi.org/10.1145/268998.266669</a>.</li>
+<li>Andrew C. Myers and Barbara Liskov. “Protecting Privacy Using the Decentralized Label Model.” <em>ACM Transactions on Software Engineering and Methodology</em>, 9(4), 2000, pp. 410–442. DOI: <a href="https://doi.org/10.1145/363516.363526">10.1145/363516.363526</a>. Source: <a href="https://doi.org/10.1145/363516.363526" class="uri">https://doi.org/10.1145/363516.363526</a>.</li>
+<li>Vineet Rajani, Deepak Garg, and Tamara Rezk. “On Access Control, Capabilities, Their Equivalence, and Confused Deputy Attacks.” <em>2016 IEEE 29th Computer Security Foundations Symposium</em>, 2016, pp. 150–163. DOI: <a href="https://doi.org/10.1109/CSF.2016.18">10.1109/CSF.2016.18</a>. Source: <a href="https://doi.org/10.1109/CSF.2016.18" class="uri">https://doi.org/10.1109/CSF.2016.18</a>.</li>
+<li>Ben Laurie, Emilia Kasper Messeri, and Rob Stradling. <em>Certificate Transparency Version 2.0.</em> RFC 9162, 2021. DOI: <a href="https://doi.org/10.17487/RFC9162">10.17487/RFC9162</a>. Source: <a href="https://www.rfc-editor.org/info/rfc9162" class="uri">https://www.rfc-editor.org/info/rfc9162</a>.</li>
+<li>Alin Tomescu, Vivek Bhupatiraju, Dimitrios Papadopoulos, Charalampos Papamanthou, Nikos Triandopoulos, and Srinivas Devadas. “Transparency Logs via Append-Only Authenticated Dictionaries.” <em>Proceedings of the 2019 ACM SIGSAC Conference on Computer and Communications Security</em>, 2019, pp. 1299–1316. DOI: <a href="https://doi.org/10.1145/3319535.3345652">10.1145/3319535.3345652</a>. Source: <a href="https://doi.org/10.1145/3319535.3345652" class="uri">https://doi.org/10.1145/3319535.3345652</a>.</li>
+<li>Bofeng Pan, Natalia Stakhanova, and Suprio Ray. “Data Provenance in Security and Privacy.” <em>ACM Computing Surveys</em>, 55(14s), article 323, 2023, pp. 1–35. DOI: <a href="https://doi.org/10.1145/3593294">10.1145/3593294</a>. Source: <a href="https://doi.org/10.1145/3593294" class="uri">https://doi.org/10.1145/3593294</a>.</li>
+</ol>
+<h1 id="appendix-a-claim-to-evidence-matrix">Appendix A: Claim-To-Evidence Matrix</h1>
+<p>This appendix substantiates the manuscript discipline that each substantive paper claim maps to one of five evidence classes:</p>
+<ol type="1">
+<li>implemented code;</li>
+<li>test coverage;</li>
+<li>reproducible demonstration;</li>
+<li>bibliography or source analysis;</li>
+<li>explicit future-work status.</li>
+</ol>
+<p>The matrix is also a restraint mechanism. Claims with only normative support are stated as design recommendations. Claims about implementation are limited to current code and tests. Claims about comparative performance, production deployment, robust semantic contradiction detection, and broad safety outcomes are marked as future work or excluded.</p>
+<h3 id="evidence-classes">Evidence Classes</h3>
+<ul>
+<li><strong>Implemented code</strong>
+<ul>
+<li><strong>Meaning in this paper:</strong> A feature exists in the GroundRecall, ClaimWright, CiteGeist, or Epistemap repositories.</li>
+<li><strong>Acceptable manuscript use:</strong> Supports “the prototype implements” or “the system exposes” claims when scoped to the current repository state.</li>
+</ul></li>
+<li><strong>Test coverage</strong>
+<ul>
+<li><strong>Meaning in this paper:</strong> Automated tests exercise the behavior.</li>
+<li><strong>Acceptable manuscript use:</strong> Supports engineering evidence claims, not broad empirical performance claims.</li>
+</ul></li>
+<li><strong>Reproducible demonstration</strong>
+<ul>
+<li><strong>Meaning in this paper:</strong> A command, example, or generated artifact can reproduce a paper-visible behavior.</li>
+<li><strong>Acceptable manuscript use:</strong> Supports manuscript examples and appendix walkthroughs.</li>
+</ul></li>
+<li><strong>Bibliography/source analysis</strong>
+<ul>
+<li><strong>Meaning in this paper:</strong> External literature or source review supports the framing.</li>
+<li><strong>Acceptable manuscript use:</strong> Supports related-work and comparative-positioning claims.</li>
+</ul></li>
+<li><strong>Future-work status</strong>
+<ul>
+<li><strong>Meaning in this paper:</strong> The repository or manuscript explicitly identifies a missing capability.</li>
+<li><strong>Acceptable manuscript use:</strong> Supports limitation and roadmap claims only.</li>
+</ul></li>
+</ul>
+<h3 id="core-manuscript-claims">Core Manuscript Claims</h3>
+<ul>
+<li><strong>Durable AI memory needs governance, not only retrieval.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Bibliography/source analysis; design argument</li>
+<li><strong>Supporting artifacts:</strong> <code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code>; <code>docs/preprint/memory-layer-comparative-analysis.md</code>; <code>docs/preprint/memory-layer-bibliography.md</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><strong>Current status:</strong> Supported as a normative/design thesis.</li>
+<li><strong>Caveat / restraint:</strong> Not an empirical proof that governed memory improves productivity or safety outcomes.</li>
+</ul></li>
+<li><strong>Current memory-layer systems foreground persistence, retrieval, graph organization, personalization, and memory-OS abstractions.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Bibliography/source analysis</li>
+<li><strong>Supporting artifacts:</strong> References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in <code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code></li>
+<li><strong>Current status:</strong> Supported for related-work framing.</li>
+<li><strong>Caveat / restraint:</strong> Bibliography is seeded, not exhaustive.</li>
+</ul></li>
+<li><strong>Governed memory draws on adjacent governance, provenance, access-control, zero-trust, information-flow, capability-security, transparency-log, and supply-chain-security patterns.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Bibliography/source analysis</li>
+<li><strong>Supporting artifacts:</strong> NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access-control, decentralized information-flow control, decentralized label model, capability/confused-deputy, RFC 9162, append-only authenticated dictionary, and provenance-security entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><strong>Current status:</strong> Supported for adjacent-literature framing.</li>
+<li><strong>Caveat / restraint:</strong> Still not a systematic review of all governance/security literature or a comprehensive security proof.</li>
+</ul></li>
+<li><strong>Benchmark literature now provides concrete targets for evaluating long-term memory and graph-RAG behavior.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Bibliography/source analysis; future-work status</li>
+<li><strong>Supporting artifacts:</strong> LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code>; limitations in <code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code></li>
+<li><strong>Current status:</strong> Supported as evaluation-context framing and future evaluation target selection.</li>
+<li><strong>Caveat / restraint:</strong> GroundRecall has not yet been run against those benchmarks.</li>
+</ul></li>
+<li><strong>Persistent AI memory and RAG systems raise privacy, memory-injection, memory-extraction, and retrieval-authorization concerns.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Bibliography/source analysis</li>
+<li><strong>Supporting artifacts:</strong> Agent-Memory Protocol, CAMS, and Permission-Aware RAG entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><strong>Current status:</strong> Supported for problem-framing and comparison.</li>
+<li><strong>Caveat / restraint:</strong> The coverage is initial, not a complete privacy-leakage or authorization survey.</li>
+</ul></li>
+<li><strong>GroundRecall is complementary to performance-oriented memory layers.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Bibliography/source analysis; implemented code</li>
+<li><strong>Supporting artifacts:</strong> <code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code>; <code>docs/preprint/memory-layer-comparative-analysis.md</code>; GroundRecall governance features listed below</li>
+<li><strong>Current status:</strong> Supported as comparative positioning.</li>
+<li><strong>Caveat / restraint:</strong> No benchmark comparison against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS.</li>
+</ul></li>
+<li><strong>ClaimWright is one suitable policy framework, not a universal stance.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; design argument</li>
+<li><strong>Supporting artifacts:</strong> ClaimWright repository policy substrate; <code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code> policy-pluralism section; GroundRecall policy-plugin adapter</li>
+<li><strong>Current status:</strong> Supported as an example policy stance and adapter target.</li>
+<li><strong>Caveat / restraint:</strong> ClaimWright remains optional policy content under GroundRecall’s policy-plugin contract, not a mandatory dependency or externally validated policy authority.</li>
+</ul></li>
+<li><strong>CiteGeist provides a source-review and bibliography workbench relevant to governed memory.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; reproducible artifact; bibliography/source analysis</li>
+<li><strong>Supporting artifacts:</strong> CiteGeist repository; <code>docs/preprint/citegeist-memory-layer.sqlite3</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code>; <code>docs/preprint/memory-layer-bibliography.md</code></li>
+<li><strong>Current status:</strong> Supported for bibliography seeding and source-review framing.</li>
+<li><strong>Caveat / restraint:</strong> The current bibliography is not comprehensive and does not yet include a formal systematic-review protocol.</li>
+</ul></li>
+<li><strong>Epistemap provides a confidence and knowledge-graph operation layer relevant to governed memory.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting artifacts:</strong> Epistemap repository; <code>src/groundrecall/epistemap_adapter.py</code>; <code>tests/test_epistemap_adapter.py</code>; <code>tests/test_claim_evaluation_export.py</code></li>
+<li><strong>Current status:</strong> Supported for adapter/export surfaces.</li>
+<li><strong>Caveat / restraint:</strong> Broad confidence calibration and cross-repository posterior validation remain future work.</li>
+</ul></li>
+</ul>
+<h3 id="groundrecall-implementation-claims">GroundRecall Implementation Claims</h3>
+<ul>
+<li><strong>GroundRecall stores durable memory as typed records rather than raw chat history alone.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/models.py</code>; <code>src/groundrecall/store.py</code>; <code>src/groundrecall/groundrecall_models.py</code>; <code>src/groundrecall/groundrecall_store.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_groundrecall_store.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> File-backed local prototype, not a distributed database.</li>
+</ul></li>
+<li><strong>Observations, claims, concepts, relations, promotions, adjudications, contradiction cases, and snapshots are first-class record types.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/models.py</code>; <code>src/groundrecall/store.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_groundrecall_store.py</code>; <code>tests/test_groundrecall_promotion.py</code>; <code>tests/test_contradictions.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> The supported claim is limited to the implemented record set, not every possible governance object.</li>
+</ul></li>
+<li><strong>Provenance is preserved across source, observation, claim, query, and export flows.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/store.py</code>; <code>src/groundrecall/query.py</code>; <code>src/groundrecall/export.py</code>; <code>src/groundrecall/review_export.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_groundrecall_store.py</code>; <code>tests/test_groundrecall_query.py</code>; <code>tests/test_groundrecall_export.py</code>; <code>tests/test_export_guardrails.py</code></li>
+<li><strong>Current status:</strong> Supported for stored/queryable/exportable provenance metadata.</li>
+<li><strong>Caveat / restraint:</strong> Extraction correctness depends on upstream adapters and review; the store does not guarantee source interpretation quality.</li>
+</ul></li>
+<li><strong>Review-gated promotion prevents candidate material from silently becoming canonical memory.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/promotion.py</code>; <code>src/groundrecall/groundrecall_promotion.py</code>; <code>src/groundrecall/lint.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_groundrecall_promotion.py</code>; <code>tests/test_relation_review.py</code>; <code>tests/test_groundrecall_review_workspace.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Review UI and workflow ergonomics are prototype-level.</li>
+</ul></li>
+<li><strong>GroundRecall can expose query bundles with supporting provenance, graph context, contradictions, and supersessions.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/query.py</code>; <code>src/groundrecall/groundrecall_query.py</code>; <code>src/groundrecall/graph_augment.py</code>; <code>src/groundrecall/graph_diagnostics.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_groundrecall_query.py</code>; <code>tests/test_graph_augment.py</code>; <code>tests/test_groundrecall_namespace.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> This is a retrieval and packaging claim, not a benchmark claim.</li>
+</ul></li>
+<li><strong>Store-level graph enrichment is bounded, resumable, review-gated, and release-aware.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/graph_augment.py</code>; <code>src/groundrecall/graph_maintenance.py</code>; <code>src/groundrecall/graph_diagnostics.py</code>; <code>src/groundrecall/export_guardrails.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_graph_augment.py</code>; <code>tests/test_graph_maintenance.py</code>; <code>tests/test_export_guardrails.py</code>; <code>docs/knowledge-graph-roadmap.md</code></li>
+<li><strong>Current status:</strong> Supported for current heuristic backfill strategies, maintenance profiles, lock/state handling, diagnostics, and private/no-export screening.</li>
+<li><strong>Caveat / restraint:</strong> Backfill candidates remain reviewable proposals; no LLM extractor, production scheduler, or semantic-correctness guarantee is claimed.</li>
+</ul></li>
+<li><strong>Confidence is structured and reviewable rather than only a scalar hint.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/confidence.py</code>; <code>src/groundrecall/epistemap_adapter.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_confidence_profiles.py</code>; <code>tests/test_confidence_migration.py</code>; <code>tests/test_epistemap_adapter.py</code></li>
+<li><strong>Current status:</strong> Supported for confidence profiles, assessments, temporal blocks, and migration/readiness reports.</li>
+<li><strong>Caveat / restraint:</strong> The paper must not claim Bayesian calibration unless Epistemap/GroundRecall implements and validates it explicitly.</li>
+</ul></li>
+<li><strong>Temporal validity and expiry affect current applicability without erasing historical support.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/confidence.py</code>; <code>src/groundrecall/query.py</code>; model metadata fields</li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_confidence_profiles.py</code>; <code>tests/test_groundrecall_query.py</code></li>
+<li><strong>Current status:</strong> Supported for current-applicability handling.</li>
+<li><strong>Caveat / restraint:</strong> Time-qualified contradiction handling and broader temporal benchmark coverage remain future work.</li>
+</ul></li>
+<li><strong>Ordinary epistemic maintenance is non-destructive.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage; design argument</li>
+<li><strong>Supporting code:</strong> Supersession, retraction, expiry, contradiction, and adjudication fields across <code>src/groundrecall/models.py</code>, <code>src/groundrecall/confidence.py</code>, and <code>src/groundrecall/contradictions.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_confidence_profiles.py</code>; <code>tests/test_contradictions.py</code>; <code>tests/test_groundrecall_promotion.py</code></li>
+<li><strong>Current status:</strong> Supported as design and partial implementation.</li>
+<li><strong>Caveat / restraint:</strong> Exceptional erasure remains separate and incomplete.</li>
+</ul></li>
+<li><strong>Contradictions can be represented as explicit reviewable cases.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/contradictions.py</code>; contradiction case models in <code>src/groundrecall/models.py</code>; CLI routes in <code>src/groundrecall/cli.py</code>; heuristic cue generation in <code>src/groundrecall/graph_augment.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_contradictions.py</code>; <code>tests/test_graph_augment.py</code></li>
+<li><strong>Current status:</strong> Supported for explicit contradiction links, deterministic case generation, and heuristic review-gated contradiction cues.</li>
+<li><strong>Caveat / restraint:</strong> Robust automatic semantic contradiction detection and resolution are not claimed.</li>
+</ul></li>
+<li><strong>Contradiction adjudication records decisions without rewriting underlying claims.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/contradictions.py</code>; adjudication records in <code>src/groundrecall/models.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_contradictions.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Adjudication does not yet automatically re-rank every downstream query result.</li>
+</ul></li>
+<li><strong>Release-level classification constrains export and federation.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/federation.py</code>; <code>src/groundrecall/export_guardrails.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code>; <code>tests/test_export_guardrails.py</code></li>
+<li><strong>Current status:</strong> Supported for <code>public &lt; internal &lt; confidential &lt; privileged &lt; private</code> controls and private/local-only behavior.</li>
+<li><strong>Caveat / restraint:</strong> Correctness depends on accurate metadata and review classification.</li>
+</ul></li>
+<li><strong>Export guardrails prevent lower-release bundles from carrying higher-release records or private support references.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/export_guardrails.py</code>; federation filtering in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_export_guardrails.py</code>; <code>tests/test_federation.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> This is not a substitute for end-to-end data-loss-prevention tooling.</li>
+</ul></li>
+<li><strong>Federation bundles are signed and content-hashed.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> signature, hash, tampering, HMAC, and Ed25519 tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Key management is local prototype-level; no key transparency or enterprise PKI integration.</li>
+</ul></li>
+<li><strong>Imported federation bundles are quarantine-first.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>import_federation_bundle_to_quarantine</code> and promotion functions in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> quarantine and promotion tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> No hosted review UI or network polling layer.</li>
+</ul></li>
+<li><strong>Promotion from quarantine is local-policy-gated and conflict-aware.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/federation.py</code> local policy, scoped grants, conflict planning, audit events</li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> policy, scoped grants, conflict, promotion, and audit tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> No enterprise IAM integration.</li>
+</ul></li>
+<li><strong>A valid signature does not by itself create local authority.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage; design argument</li>
+<li><strong>Supporting code:</strong> Local policy evaluation, accepted release levels, trust registries, scoped grants, role directory import caps in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> policy, trust-registry, keyset, and role-directory tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> This is a local-authority design property, not a comprehensive security proof.</li>
+</ul></li>
+<li><strong>Trust registries record active, expired, revoked, and superseded key state.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> Trust registry functions in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> trust registry lifecycle tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Does not include a distributed revocation propagation mechanism.</li>
+</ul></li>
+<li><strong>Signed public keysets and signed role directories can be imported only with receiver-side caps.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> Public keyset and role-directory publication/import functions in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> signed keyset and role-directory tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Requires pinned signer keys and local policy decisions.</li>
+</ul></li>
+<li><strong>Federation of contradiction cases respects release and claim exportability constraints.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> Contradiction-case filtering in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code>; <code>tests/test_contradictions.py</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Cross-host semantic reconciliation remains future work.</li>
+</ul></li>
+<li><strong>Audit events are recorded for federation policy decisions.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage</li>
+<li><strong>Supporting code:</strong> <code>append_federation_audit_event</code> and <code>build_federation_audit_event</code> in <code>src/groundrecall/federation.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_federation.py</code> audit tests</li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Audit storage is local file-backed; no tamper-evident external audit log.</li>
+</ul></li>
+<li><strong>GroundRecall owns a bounded policy-plugin contract that can compose generic and ClaimWright-style policy providers.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage; reproducible demonstration</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/policy.py</code>; <code>docs/policy-plugin-spec.md</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_policy_plugins.py</code>; <code>examples/preprint/out/policy_plugin_boundary.json</code></li>
+<li><strong>Current status:</strong> Supported.</li>
+<li><strong>Caveat / restraint:</strong> Policy content is adapter-provided and policy-specific; GroundRecall constrains request/decision shape but does not validate every policy framework’s normative adequacy.</li>
+</ul></li>
+<li><strong>Policy plugins can gate selected MCP, export, federation, promotion, adjudication, and relation-review surfaces.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Implemented code; test coverage; reproducible demonstration</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/mcp.py</code>; <code>src/groundrecall/export.py</code>; <code>src/groundrecall/federation.py</code>; <code>src/groundrecall/promotion.py</code>; <code>src/groundrecall/contradictions.py</code>; <code>src/groundrecall/relation_review.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>tests/test_mcp.py</code>; <code>tests/test_export_guardrails.py</code>; <code>tests/test_federation.py</code>; <code>tests/test_groundrecall_promotion.py</code>; <code>tests/test_contradictions.py</code>; <code>tests/test_relation_review.py</code>; <code>examples/preprint/out/policy_plugin_boundary.json</code></li>
+<li><strong>Current status:</strong> Supported for selected enforcement surfaces.</li>
+<li><strong>Caveat / restraint:</strong> This is not complete production IAM, complete policy coverage of every mutation path, or a security proof.</li>
+</ul></li>
+<li><strong>Indexed search is lower-latency than indexed search plus graph expansion in the local demonstration fixture.</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration; implemented code</li>
+<li><strong>Supporting code:</strong> <code>src/groundrecall/search_index.py</code>; <code>src/groundrecall/query.py</code>; <code>examples/preprint/run_preprint_demos.py</code></li>
+<li><strong>Supporting tests / artifacts:</strong> <code>examples/preprint/out/search_mode_timing.json</code>; <code>tests/test_search_index.py</code>; <code>tests/test_groundrecall_query.py</code></li>
+<li><strong>Current status:</strong> Supported as an internal engineering timing indication.</li>
+<li><strong>Caveat / restraint:</strong> Not comparable to external memory-layer products; not a benchmark of recall quality, latency under load, or production deployment.</li>
+</ul></li>
+</ul>
+<h3 id="claims-that-are-explicitly-not-made">Claims That Are Explicitly Not Made</h3>
+<ul>
+<li><strong>GroundRecall outperforms Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS on memory benchmarks.</strong>
+<ul>
+<li><strong>Status:</strong> Not claimed.</li>
+<li><strong>Reason:</strong> No comparative benchmark has been run.</li>
+</ul></li>
+<li><strong>GroundRecall has been evaluated on LongMemEval, LoCoMo, MemoryAgentBench, or GraphRAG-Bench.</strong>
+<ul>
+<li><strong>Status:</strong> Not claimed.</li>
+<li><strong>Reason:</strong> These sources identify future evaluation targets; no benchmark run is reported.</li>
+</ul></li>
+<li><strong>Governed memory has been shown to improve user productivity or reduce all AI-agent risk.</strong>
+<ul>
+<li><strong>Status:</strong> Not claimed.</li>
+<li><strong>Reason:</strong> Current evidence is engineering evidence, not user-study or broad safety evidence.</li>
+</ul></li>
+<li><strong>GroundRecall robustly detects and resolves semantic contradictions automatically.</strong>
+<ul>
+<li><strong>Status:</strong> Future work.</li>
+<li><strong>Reason:</strong> Current contradiction workflow starts from explicit contradiction links, with heuristic review-gated cue generation as candidate support only.</li>
+</ul></li>
+<li><strong>GroundRecall provides production identity management or enterprise access control.</strong>
+<ul>
+<li><strong>Status:</strong> Future work.</li>
+<li><strong>Reason:</strong> Current controls are local policy, key, role, and release-level mechanisms.</li>
+</ul></li>
+<li><strong>GroundRecall provides complete exceptional-erasure propagation.</strong>
+<ul>
+<li><strong>Status:</strong> Future work.</li>
+<li><strong>Reason:</strong> Ordinary epistemic maintenance is non-destructive; exceptional erasure remains a separate incomplete mechanism.</li>
+</ul></li>
+<li><strong>GroundRecall is a complete distributed memory platform.</strong>
+<ul>
+<li><strong>Status:</strong> Future work.</li>
+<li><strong>Reason:</strong> No network transport, polling layer, CRDT merge, hosted review UI, or release-pack publication workflow is implemented.</li>
+</ul></li>
+<li><strong>ClaimWright is the only acceptable policy framework.</strong>
+<ul>
+<li><strong>Status:</strong> Not claimed.</li>
+<li><strong>Reason:</strong> The manuscript treats ClaimWright as one suitable operational stance under policy pluralism.</li>
+</ul></li>
+<li><strong>GroundRecall confidence measures are fully Bayesian or empirically calibrated.</strong>
+<ul>
+<li><strong>Status:</strong> Not claimed.</li>
+<li><strong>Reason:</strong> Current implementation supports structured confidence profiles and Epistemap-compatible exports; validated Bayesian updating remains outside current evidence.</li>
+</ul></li>
+</ul>
+<h3 id="demonstration-register">Demonstration Register</h3>
+<p>The current manuscript can cite implementation, tests, and a stable demonstration runner. The runner lives at <code>examples/preprint/run_preprint_demos.py</code> and writes JSON summaries under <code>examples/preprint/out/</code>.</p>
+<ul>
+<li><strong>Provenance and promotion walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/provenance_promotion.json</code></li>
+<li><strong>Claim supported:</strong> Candidate observations and claims can be reviewed, promoted, and queried with provenance.</li>
+</ul></li>
+<li><strong>Contradiction adjudication walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/contradiction_adjudication.json</code></li>
+<li><strong>Claim supported:</strong> Contradictions become explicit cases and can be adjudicated without rewriting claims.</li>
+</ul></li>
+<li><strong>Release filtering walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/release_filtering.json</code></li>
+<li><strong>Claim supported:</strong> Public export excludes internal/private records and reports findings.</li>
+</ul></li>
+<li><strong>Federation quarantine walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/federation_quarantine.json</code></li>
+<li><strong>Claim supported:</strong> Signed import verifies origin/integrity but still lands in quarantine before local promotion.</li>
+</ul></li>
+<li><strong>Local authority walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/local_authority.json</code></li>
+<li><strong>Claim supported:</strong> A valid signed bundle is insufficient for promotion without receiver-side local policy.</li>
+</ul></li>
+<li><strong>Policy-plugin boundary walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/policy_plugin_boundary.json</code></li>
+<li><strong>Claim supported:</strong> Static and ClaimWright-style policy plugins can produce bounded decisions, and hard-gate decisions block promotion, adjudication, and relation-review writes before durable memory changes occur.</li>
+</ul></li>
+<li><strong>Search-mode timing walkthrough</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible demonstration</li>
+<li><strong>Artifact:</strong> <code>examples/preprint/out/search_mode_timing.json</code></li>
+<li><strong>Claim supported:</strong> In a synthetic local fixture, indexed search is faster than indexed search plus graph expansion, while graph expansion returns additional graph context.</li>
+</ul></li>
+<li><strong>CiteGeist bibliography expansion</strong>
+<ul>
+<li><strong>Evidence class:</strong> Reproducible artifact</li>
+<li><strong>Artifact:</strong> <code>docs/preprint/citegeist-memory-layer.sqlite3</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><strong>Claim supported:</strong> Source review and BibTeX export remain inspectable.</li>
+</ul></li>
+</ul>
+<h3 id="appendix-use-in-the-manuscript">Appendix Use in the Manuscript</h3>
+<p>The main paper can cite this appendix when making engineering claims. The safest formulation is:</p>
+<blockquote>
+<p>Appendix A maps each substantive manuscript claim to code, tests, source analysis, reproducible artifacts, or future-work status.</p>
+</blockquote>
+<p>That statement is stronger and more auditable than saying only that the project follows a claim-to-evidence discipline.</p>
+<h1 id="appendix-b-claimwright-review-record">Appendix B: ClaimWright Review Record</h1>
+<h3 id="review-scope">Review Scope</h3>
+<p>Reviewed artifacts:</p>
+<ul>
+<li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code></li>
+<li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.html</code></li>
+<li><code>docs/preprint/claim-evidence-matrix.md</code></li>
+<li><code>docs/preprint/claim-evidence-matrix.html</code></li>
+</ul>
+<p>Applied ClaimWright materials:</p>
+<ul>
+<li><code>MOU.md</code></li>
+<li><code>policies/principles.yaml</code></li>
+<li><code>policies/enforcement.yaml</code></li>
+<li><code>policies/claim_states.yaml</code></li>
+<li><code>checks/pre_action.yaml</code></li>
+<li><code>checks/post_action.yaml</code></li>
+<li><code>roles/claim-auditor.md</code></li>
+<li><code>roles/citation-reviewer.md</code></li>
+<li><code>roles/adversarial-reviewer.md</code></li>
+<li><code>roles/publication-gatekeeper.md</code></li>
+</ul>
+<h3 id="pre-action-check">Pre-Action Check</h3>
+<ul>
+<li><strong>Action classification:</strong> Non-trivial review of public-facing draft artifacts.</li>
+<li><strong>Public/private status:</strong> Public-facing manuscript and appendix materials; local paths and private material require hard-gate screening.</li>
+<li><strong>Reversibility:</strong> Reversible through git.</li>
+<li><strong>Evidence standard:</strong> Implementation claims require code/test anchors; related-work claims require verified source or bibliography support; future-work claims require explicit limitation language.</li>
+<li><strong>Reputational risk:</strong> Moderate. Overclaiming implementation, comparative performance, or citation support would weaken the paper.</li>
+<li><strong>Adversarial review need:</strong> Required because the draft makes a design manifesto claim and uses local prototypes as evidence.</li>
+<li><strong>Model/tool suitability:</strong> Local repository inspection, grep, Pandoc rendering, and pytest are appropriate.</li>
+<li><strong>Capacity risk:</strong> Low. Full local test suite ran quickly.</li>
+<li><strong>Durable memory touch:</strong> Documentation and review artifacts only; no GroundRecall memory store changed.</li>
+<li><strong>Scientific virtues:</strong> Review emphasized veracity, skepticism, humility to evidence, provenance fairness, and public defensibility.</li>
+</ul>
+<h3 id="claim-auditor-findings">Claim Auditor Findings</h3>
+<ul>
+<li><strong>Governed memory as a necessary property set</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_but_contested</code></li>
+<li><strong>Evidence:</strong> Design argument, related-work comparison, and implemented governance features</li>
+<li><strong>Required restraint:</strong> Present as a normative/design thesis, not an empirical proof.</li>
+</ul></li>
+<li><strong>GroundRecall typed provenance-preserving record model</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code></li>
+<li><strong>Evidence:</strong> <code>src/groundrecall/models.py</code>, <code>src/groundrecall/store.py</code>, <code>tests/test_groundrecall_store.py</code></li>
+<li><strong>Required restraint:</strong> Scope to current file-backed prototype.</li>
+</ul></li>
+<li><strong>Review-gated promotion</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code></li>
+<li><strong>Evidence:</strong> <code>src/groundrecall/promotion.py</code>, <code>tests/test_groundrecall_promotion.py</code></li>
+<li><strong>Required restraint:</strong> Do not imply complete hosted review workflow.</li>
+</ul></li>
+<li><strong>Structured confidence and temporal applicability</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code></li>
+<li><strong>Evidence:</strong> <code>src/groundrecall/confidence.py</code>, <code>tests/test_confidence_profiles.py</code>, <code>tests/test_confidence_migration.py</code></li>
+<li><strong>Required restraint:</strong> Do not claim full Bayesian calibration or empirical confidence validation.</li>
+</ul></li>
+<li><strong>Contradiction cases and adjudication</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code></li>
+<li><strong>Evidence:</strong> <code>src/groundrecall/contradictions.py</code>, <code>tests/test_contradictions.py</code>, <code>src/groundrecall/graph_augment.py</code>, <code>tests/test_graph_augment.py</code></li>
+<li><strong>Required restraint:</strong> State that heuristic cue generation is review-gated and that robust semantic auto-detection/resolution remains future work.</li>
+</ul></li>
+<li><strong>Release controls and federation quarantine</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code></li>
+<li><strong>Evidence:</strong> <code>src/groundrecall/federation.py</code>, <code>src/groundrecall/export_guardrails.py</code>, <code>tests/test_federation.py</code>, <code>tests/test_export_guardrails.py</code></li>
+<li><strong>Required restraint:</strong> Do not present as enterprise IAM or complete DLP.</li>
+</ul></li>
+<li><strong>ClaimWright as policy framework</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code> for existence and selected adapter enforcement</li>
+<li><strong>Evidence:</strong> ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter</li>
+<li><strong>Required restraint:</strong> State that ClaimWright is an example policy framework under GroundRecall’s bounded plugin contract, not a mandatory dependency or complete policy engine.</li>
+</ul></li>
+<li><strong>CiteGeist bibliography support</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code> for seed artifacts</li>
+<li><strong>Evidence:</strong> <code>docs/preprint/citegeist-memory-layer.sqlite3</code>, BibTeX export, bibliography notes</li>
+<li><strong>Required restraint:</strong> State that bibliography is seeded, not systematic or complete.</li>
+</ul></li>
+<li><strong>Epistemap confidence/graph layer</strong>
+<ul>
+<li><strong>State recommendation:</strong> <code>supported_by_primary_evidence</code> for adapter surfaces</li>
+<li><strong>Evidence:</strong> <code>src/groundrecall/epistemap_adapter.py</code>, <code>tests/test_epistemap_adapter.py</code></li>
+<li><strong>Required restraint:</strong> Do not imply broad posterior validation.</li>
+</ul></li>
+</ul>
+<h3 id="citation-reviewer-findings">Citation Reviewer Findings</h3>
+<ul>
+<li><strong>Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph</strong>
+<ul>
+<li><strong>Tier:</strong> A</li>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Notes:</strong> Directly supports the claim that recent systems foreground durable memory, retrieval, graph memory, production memory, and memory-OS abstractions.</li>
+</ul></li>
+<li><strong>KG/RAG alignment paper</strong>
+<ul>
+<li><strong>Tier:</strong> B</li>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Notes:</strong> Supports the narrower point that graph representation and linearization affect downstream LLM use of graph knowledge.</li>
+</ul></li>
+<li><strong>ACM TOIS memory-mechanism survey</strong>
+<ul>
+<li><strong>Tier:</strong> A</li>
+<li><strong>Status:</strong> Accepted</li>
+<li><strong>Notes:</strong> Supports general framing that LLM-agent memory is an identifiable technical subsystem with sources, forms, operations, and evaluation concerns.</li>
+</ul></li>
+<li><strong>ClaimWright local policy substrate</strong>
+<ul>
+<li><strong>Tier:</strong> A for example-policy claim</li>
+<li><strong>Status:</strong> Accepted with access caveat</li>
+<li><strong>Notes:</strong> Supports the existence and contents of the example policy framework, not external validation of ClaimWright.</li>
+</ul></li>
+<li><strong>CiteGeist local bibliography artifacts</strong>
+<ul>
+<li><strong>Tier:</strong> A for seed-bibliography claim</li>
+<li><strong>Status:</strong> Accepted with completeness caveat</li>
+<li><strong>Notes:</strong> Supports that bibliography seeding exists; does not support systematic-review completeness.</li>
+</ul></li>
+<li><strong>Privacy, provenance governance, distributed systems, IAM, and security literature</strong>
+<ul>
+<li><strong>Tier:</strong> B</li>
+<li><strong>Status:</strong> Expanded source pass accepted with caveats</li>
+<li><strong>Notes:</strong> Added NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access control, Permission-Aware RAG, information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security sources. This supports adjacent-literature framing but remains short of a systematic review or security proof.</li>
+</ul></li>
+<li><strong>Long-memory and GraphRAG benchmark literature</strong>
+<ul>
+<li><strong>Tier:</strong> B</li>
+<li><strong>Status:</strong> Expansion accepted for evaluation framing</li>
+<li><strong>Notes:</strong> Added LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG sources. These support benchmark-target and related-work framing, not claims that GroundRecall has been benchmarked on them.</li>
+</ul></li>
+<li><strong>Persistent AI-memory privacy/security literature</strong>
+<ul>
+<li><strong>Tier:</strong> B</li>
+<li><strong>Status:</strong> Initial expansion accepted</li>
+<li><strong>Notes:</strong> Added Agent-Memory Protocol, CAMS, and Permission-Aware RAG. These support privacy, memory-injection, memory-extraction, purpose-bound memory, and retrieval-authorization framing, while leaving deeper privacy-leakage review as future bibliography work.</li>
+</ul></li>
+</ul>
+<h3 id="adversarial-review-memo">Adversarial Review Memo</h3>
+<p>The strongest objections are predictable and should remain visible:</p>
+<ol type="1">
+<li>The paper could sound as if it proves safety benefits. The current evidence does not do that. The draft now confines itself to engineering evidence and design argument.</li>
+<li>The related-work section could be criticized as selective. The bibliography is explicitly seeded and should be expanded before submission.</li>
+<li>The phrase “memory layers should be governed” is normative. That is acceptable in manifesto mode, but the claim should not be disguised as a benchmark result.</li>
+<li>GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.</li>
+<li>ClaimWright-style policy content is now enforceable through GroundRecall’s bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.</li>
+<li>Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.</li>
+<li>Contradiction handling depends primarily on explicit contradiction links. Heuristic contradiction cueing can propose review candidates, but robust automatic semantic contradiction detection and resolution remain future work.</li>
+<li>Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.</li>
+</ol>
+<h3 id="publication-gate-result">Publication Gate Result</h3>
+<ul>
+<li><strong>Unresolved high-risk public claims</strong>
+<ul>
+<li><strong>Result:</strong> Pass with caveats</li>
+<li><strong>Notes:</strong> High-risk claims are either scoped, caveated, or listed as not made/future work.</li>
+</ul></li>
+<li><strong>Fabricated or unverified citations</strong>
+<ul>
+<li><strong>Result:</strong> Pass for current cited set</li>
+<li><strong>Notes:</strong> Current references have DOI/source links. Broader bibliography remains an expansion task.</li>
+</ul></li>
+<li><strong>Private material in public output</strong>
+<ul>
+<li><strong>Result:</strong> Pass after correction</li>
+<li><strong>Notes:</strong> Absolute local paths were removed from the appendix.</li>
+</ul></li>
+<li><strong>Destructive irreversible action</strong>
+<ul>
+<li><strong>Result:</strong> Pass</li>
+<li><strong>Notes:</strong> Documentation-only changes; git revertable.</li>
+</ul></li>
+<li><strong>Contradicted or stale claims</strong>
+<ul>
+<li><strong>Result:</strong> Pass with caveats</li>
+<li><strong>Notes:</strong> No known contradicted/stale claims relied on for public argument; future literature expansion may create revision duties.</li>
+</ul></li>
+</ul>
+<p>Release status: conditionally suitable for internal/public draft review, pending human publication approval. The draft is closer to final-public-safe after initial bibliography expansion and reproducible demonstrations, but it is not final-public-safe because the bibliography is still not systematic and final human publication approval remains open.</p>
+<h3 id="review-results-applied">Review Results Applied</h3>
+<ul>
+<li><strong>Avoid implying proof of safety benefits.:</strong> Abstract and prototype sections now say the systems demonstrate implementable local controls, not validated safety outcomes.</li>
+<li><strong>Avoid overbroad claims about the literature.:</strong> Related-work language now refers to “the sources reviewed for this draft” and “within this reviewed set” rather than all memory-layer literature.</li>
+<li><strong>Keep GroundRecall claims local/prototype-scoped.:</strong> Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features.</li>
+<li><strong>Keep ClaimWright integration scoped.:</strong> Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent.</li>
+<li><strong>Avoid Bayesian confidence overclaim.:</strong> Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added.</li>
+<li><strong>Keep robust semantic contradiction detection as future work.:</strong> Contradiction caveats now distinguish implemented heuristic review-gated cueing from unclaimed robust semantic detection/resolution.</li>
+<li><strong>Expose final-public-safety status.:</strong> The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved.</li>
+<li><strong>Resolve public/private path issue.:</strong> Repository-level references remain in the appendix; no absolute local paths are used for public evidence references.</li>
+<li><strong>Broaden bibliography.:</strong> Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references.</li>
+<li><strong>Complete second bibliography expansion targets.:</strong> Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix.</li>
+<li><strong>Add empirical demonstrations.:</strong> Added <code>examples/preprint/run_preprint_demos.py</code>, <code>examples/preprint/README.md</code>, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, local authority, and the policy-plugin boundary.</li>
+<li><strong>Add search-mode timing indication.:</strong> Added <code>search_mode_timing.json</code> as an internal synthetic-store timing indication for indexed search versus indexed search plus graph expansion. The draft states that this is not a comparison with external memory-layer products or a recall-quality benchmark.</li>
+<li><strong>Update graph-maintenance evidence after knowledge-graph backfill work.:</strong> Added bounded graph backfill and maintenance language to the draft and claim-evidence matrix, including review-gated relation candidates, private/no-export screening, diagnostics, maintenance profiles, state files, locks, stale-lock recovery, and extractor-mode caveats.</li>
+</ul>
+<h3 id="post-action-check">Post-Action Check</h3>
+<ul>
+<li><strong>Files changed:</strong> Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs.</li>
+<li><strong>Claims introduced/modified:</strong> Test-suite claim changed to a dated concrete result: 234 tests passed on 2026-07-28. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication. Graph-maintenance claims are backed by current code/tests and are scoped to bounded, heuristic, review-gated backfill.</li>
+<li><strong>Citations recorded:</strong> Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey.</li>
+<li><strong>Assumptions visible:</strong> The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright.</li>
+<li><strong>Unresolved risks:</strong> Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; robust semantic contradiction detection/resolution remains future work; graph backfill uses heuristic candidates rather than validated semantic extraction; human publication approval remains open.</li>
+<li><strong>Tasks opened:</strong> Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories.</li>
+<li><strong>Capacity used:</strong> Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use.</li>
+<li><strong>Branch outcome:</strong> Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims.</li>
+<li><strong>Broader review trigger:</strong> Yes. Before submission, run a broader literature/security/governance review and add reproducible demonstrations.</li>
+<li><strong>Scientific virtues:</strong> The pass preserved veracity, skepticism, humility to evidence, public defensibility, and provenance fairness by weakening unsupported implications and making gaps explicit.</li>
+</ul>
+<h1 id="appendix-c-memory-layer-bibliography-notes">Appendix C: Memory-Layer Bibliography Notes</h1>
+<h2 id="memory-layer-technology-seed-bibliography">Memory-Layer Technology Seed Bibliography</h2>
+<p>Date: 2026-07-27</p>
+<p>This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The first 2026-07-27 expansion added adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources. The second 2026-07-27 expansion added long-memory benchmarks, GraphRAG surveys and benchmarks, AI-memory privacy/security work, permission-aware retrieval, information-flow control, capability security, transparency logs, and provenance-security literature.</p>
+<p>The bibliography was started as a BibTeX seed file at <code>docs/preprint/memory-layer-seed.bib</code> and ingested into a dedicated CiteGeist database at <code>docs/preprint/citegeist-memory-layer.sqlite3</code>.</p>
+<h3 id="how-to-use-this-bibliography-in-the-preprint">How To Use This Bibliography In The Preprint</h3>
+<p>GroundRecall should position itself relative to this literature as a governance-oriented memory control plane:</p>
+<ul>
+<li>more provenance/governance-focused than memory-stream systems;</li>
+<li>more release-policy and federation-focused than most agent memory layers;</li>
+<li>compatible with graph/RAG memory trends, but stricter about review, access, contradiction handling, and local authority;</li>
+<li>not claiming automatic semantic contradiction detection or production IAM.</li>
+</ul>
+<h3 id="annotated-sources">Annotated Sources</h3>
+<ul>
+<li><strong><code>park2023generativeagents</code></strong>
+<ul>
+<li><strong>Source:</strong> Park et al., 2023, <em>Generative Agents</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Establishes memory streams, reflection, and retrieval as an agent architecture pattern. GroundRecall differs by centering durable provenance, review gates, release controls, and federation.</li>
+</ul></li>
+<li><strong><code>packer2023memgpt</code></strong>
+<ul>
+<li><strong>Source:</strong> Packer et al., 2023/2024, <em>MemGPT</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Frames LLM memory as an operating-system-style virtual context problem. GroundRecall extends the OS analogy toward governance, provenance, release policy, contradiction cases, and audit.</li>
+</ul></li>
+<li><strong><code>gutierrez2024hipporag</code></strong>
+<ul>
+<li><strong>Source:</strong> Gutiérrez et al., 2024, <em>HippoRAG</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Shows graph-based long-term retrieval can improve multi-hop memory use. GroundRecall’s graph operations and contradiction diagnostics fit this direction but add review and policy controls.</li>
+</ul></li>
+<li><strong><code>xu2025amem</code></strong>
+<ul>
+<li><strong>Source:</strong> Xu et al., 2025, <em>A-MEM</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Uses dynamically linked memory notes and memory evolution. GroundRecall should cite it as evidence that adaptive graph memory is a current research direction, while contrasting GroundRecall’s non-destructive adjudication/history model.</li>
+</ul></li>
+<li><strong><code>chhikara2025mem0</code></strong>
+<ul>
+<li><strong>Source:</strong> Chhikara et al., 2025, <em>Mem0</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Represents production-oriented long-term agent memory, including consolidation/retrieval and graph-memory variant. GroundRecall should contrast its governance controls with production memory performance claims.</li>
+</ul></li>
+<li><strong><code>kang2025memoryos</code></strong>
+<ul>
+<li><strong>Source:</strong> Kang et al., 2025, <em>Memory OS of AI Agent</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Hierarchical short/mid/long-term personal memory architecture. Useful for comparing memory tiers and update policies.</li>
+</ul></li>
+<li><strong><code>li2025memos</code></strong>
+<ul>
+<li><strong>Source:</strong> Li et al., 2025, <em>MemOS</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Memory OS abstraction treating memory as a manageable system resource across plaintext, activation, and parameter memories. Strong conceptual neighbor for GroundRecall’s memory control-plane framing.</li>
+</ul></li>
+<li><strong><code>anokhin2025arigraph</code></strong>
+<ul>
+<li><strong>Source:</strong> Anokhin et al., 2025, <em>AriGraph</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Uses semantic and episodic knowledge graph memory for agent planning. Useful for graph-memory comparison.</li>
+</ul></li>
+<li><strong><code>zhang2025memorysurvey</code></strong>
+<ul>
+<li><strong>Source:</strong> Zhang et al., 2025, <em>A Survey on the Memory Mechanism of LLM-based Agents</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides survey/taxonomy support for the claim that memory mechanisms are a defined LLM-agent subsystem.</li>
+</ul></li>
+<li><strong><code>tian2025kgalignment</code></strong>
+<ul>
+<li><strong>Source:</strong> Tian et al., 2025, <em>Knowledge Graph Alignment with LLMs in RAG</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports the point that KG representation/linearization choices matter for downstream LLM use.</li>
+</ul></li>
+<li><strong><code>tabassi2023airmf</code></strong>
+<ul>
+<li><strong>Source:</strong> NIST AI RMF 1.0</li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports the governance/risk-management framing, especially govern/map/measure/manage and trustworthy-system characteristics.</li>
+</ul></li>
+<li><strong><code>jointtaskforce2020sp80053r5</code></strong>
+<ul>
+<li><strong>Source:</strong> NIST SP 800-53 Rev. 5</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides security and privacy control context for access control, audit/accountability, identification/authentication, privacy, and supply-chain risk management.</li>
+</ul></li>
+<li><strong><code>rose2020zerotrust</code></strong>
+<ul>
+<li><strong>Source:</strong> NIST SP 800-207, <em>Zero Trust Architecture</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports the local-authority/no-implicit-trust framing for federation and role/key distribution.</li>
+</ul></li>
+<li><strong><code>groth2013provoverview</code></strong>
+<ul>
+<li><strong>Source:</strong> W3C PROV Overview</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides provenance terminology and interoperability framing for entities, activities, agents, and trustworthiness assessment.</li>
+</ul></li>
+<li><strong><code>moreau2013provdm</code></strong>
+<ul>
+<li><strong>Source:</strong> W3C PROV-DM</li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports the claim that provenance can be modeled as structured entities, activities, agents, derivations, and bundles.</li>
+</ul></li>
+<li><strong><code>slsa2026provenance</code></strong>
+<ul>
+<li><strong>Source:</strong> SLSA v1.2 Provenance</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides a supply-chain provenance analogue: verifiable information about where, when, and how artifacts were produced.</li>
+</ul></li>
+<li><strong><code>sigstore2026overview</code></strong>
+<ul>
+<li><strong>Source:</strong> Sigstore overview</li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports comparison to signing, transparency logs, provenance, integrity, and explicit trust decisions.</li>
+</ul></li>
+<li><strong><code>theupdateframework2026spec</code></strong>
+<ul>
+<li><strong>Source:</strong> The Update Framework specification</li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports role/key/signature and key-compromise-resilience analogies for federation trust metadata.</li>
+</ul></li>
+<li><strong><code>golightly2023accesscontrolsurvey</code></strong>
+<ul>
+<li><strong>Source:</strong> Golightly et al., 2023, distributed access-control survey</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides current distributed-systems access-control context for protected-resource access and organizational security.</li>
+</ul></li>
+<li><strong><code>wu2024longmemeval</code></strong>
+<ul>
+<li><strong>Source:</strong> Wu et al., 2024/2025, <em>LongMemEval</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides a benchmark for long-term interactive memory abilities: extraction, multi-session reasoning, temporal reasoning, knowledge updates, and abstention.</li>
+</ul></li>
+<li><strong><code>maharana2024locomo</code></strong>
+<ul>
+<li><strong>Source:</strong> Maharana et al., 2024, <em>LoCoMo</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides an ACL benchmark for very long-term conversational memory, including QA, event summarization, and dialogue generation.</li>
+</ul></li>
+<li><strong><code>hu2026memoryagentbench</code></strong>
+<ul>
+<li><strong>Source:</strong> Hu et al., 2026, <em>MemoryAgentBench</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides an ICLR benchmark for incremental multi-turn memory agents, including selective forgetting and conflict-resolution competencies.</li>
+</ul></li>
+<li><strong><code>li2026locomoplus</code></strong>
+<ul>
+<li><strong>Source:</strong> Li et al., 2026, <em>LoCoMo-Plus</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Extends benchmark coverage toward cognitive memory, latent constraints, and cue-triggered semantic disconnects.</li>
+</ul></li>
+<li><strong><code>edge2024graphrag</code></strong>
+<ul>
+<li><strong>Source:</strong> Edge et al., 2024/2025, <em>From Local to Global</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Establishes the GraphRAG local-to-global summarization pattern using entity graphs and community summaries.</li>
+</ul></li>
+<li><strong><code>zhang2026graphragsurvey</code></strong>
+<ul>
+<li><strong>Source:</strong> Zhang et al., 2026, <em>Graph Retrieval-Augmented Generation: A Survey</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides formal survey support for GraphRAG foundations, methods, applications, challenges, and directions.</li>
+</ul></li>
+<li><strong><code>xiang2025graphragbench</code></strong>
+<ul>
+<li><strong>Source:</strong> Xiang et al., 2025/2026, <em>GraphRAG-Bench</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Evaluates when graph structure helps or hurts RAG across construction, retrieval, and generation stages.</li>
+</ul></li>
+<li><strong><code>chen2026agenticgraphragsurvey</code></strong>
+<ul>
+<li><strong>Source:</strong> Chen et al., 2026, <em>Agentic GraphRAG</em> survey</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides source support for agentic GraphRAG and graph-native agent framing, with a venue caveat because the located source is SSRN.</li>
+</ul></li>
+<li><strong><code>wu2026agentmemoryprotocol</code></strong>
+<ul>
+<li><strong>Source:</strong> Wu et al., 2026, <em>Agent-Memory Protocol</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides a privacy-focused protocol for purpose-bound memory packing and identifier hydration at the user boundary.</li>
+</ul></li>
+<li><strong><code>dhivyasree2026cams</code></strong>
+<ul>
+<li><strong>Source:</strong> Dhivyasree et al., 2026, <em>CAMS</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Addresses memory injection and extraction attacks, zero-trust memory, drift monitoring, and tamper-evident provenance for AI-agent long-term memory.</li>
+</ul></li>
+<li><strong><code>jeong2025permissionawarerag</code></strong>
+<ul>
+<li><strong>Source:</strong> Jeong and Lee, 2025, <em>Permission-Aware RAG</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides formal support for retrieval authorization using provider-controlled IAM checks across governed resources.</li>
+</ul></li>
+<li><strong><code>myers1997ifc</code></strong>
+<ul>
+<li><strong>Source:</strong> Myers and Liskov, 1997, decentralized IFC</li>
+<li><strong>Why it matters for GroundRecall:</strong> Foundational support for decentralized authority, fine-grained information-flow labels, and declassification.</li>
+</ul></li>
+<li><strong><code>myers2000dlmprivacy</code></strong>
+<ul>
+<li><strong>Source:</strong> Myers and Liskov, 2000, decentralized label model</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides journal treatment of decentralized labels for privacy-preserving information-flow policy.</li>
+</ul></li>
+<li><strong><code>rajani2016capabilities</code></strong>
+<ul>
+<li><strong>Source:</strong> Rajani, Garg, and Rezk, 2016, capabilities and confused deputy</li>
+<li><strong>Why it matters for GroundRecall:</strong> Supports capability-based authority reasoning and confused-deputy risk framing.</li>
+</ul></li>
+<li><strong><code>laurie2021rfc9162</code></strong>
+<ul>
+<li><strong>Source:</strong> RFC 9162, Certificate Transparency 2.0</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides standards support for append-only Merkle-tree transparency logs and signed timestamps.</li>
+</ul></li>
+<li><strong><code>tomescu2019transparencylogs</code></strong>
+<ul>
+<li><strong>Source:</strong> Tomescu et al., 2019, append-only authenticated dictionaries</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides formal systems/security support for efficient append-only transparency-log auditing.</li>
+</ul></li>
+<li><strong><code>pan2023provenancesecurity</code></strong>
+<ul>
+<li><strong>Source:</strong> Pan, Stakhanova, and Ray, 2023, provenance in security/privacy</li>
+<li><strong>Why it matters for GroundRecall:</strong> Provides survey support for provenance as a security and privacy mechanism.</li>
+</ul></li>
+</ul>
+<h3 id="source-links-used-for-verification">Source Links Used For Verification</h3>
+<ul>
+<li>Park et al., <em>Generative Agents</em>: https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/</li>
+<li>arXiv <code>2304.03442</code>: https://arxiv.org/abs/2304.03442</li>
+<li>arXiv <code>2310.08560</code>: https://arxiv.org/abs/2310.08560</li>
+<li>HippoRAG ML Anthology page: https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/</li>
+<li>arXiv <code>2502.12110</code>: https://arxiv.org/abs/2502.12110</li>
+<li>arXiv <code>2504.19413</code>: https://arxiv.org/abs/2504.19413</li>
+<li>arXiv <code>2506.06326</code>: https://arxiv.org/abs/2506.06326</li>
+<li>arXiv <code>2507.03724</code>: https://arxiv.org/abs/2507.03724</li>
+<li>IJCAI AriGraph page: https://www.ijcai.org/proceedings/2025/0002</li>
+<li>ACM TOIS memory survey DOI: https://doi.org/10.1145/3748302</li>
+<li>AAAI KG alignment paper: https://ojs.aaai.org/index.php/AAAI/article/view/34716</li>
+<li>NIST AI RMF 1.0: https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10</li>
+<li>NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final</li>
+<li>NIST SP 800-207 Zero Trust Architecture: https://www.nist.gov/publications/zero-trust-architecture-0</li>
+<li>W3C PROV Overview: https://www.w3.org/TR/prov-overview/</li>
+<li>W3C PROV-DM: https://www.w3.org/TR/prov-dm/</li>
+<li>SLSA v1.2 provenance: https://slsa.dev/spec/v1.2/provenance</li>
+<li>Sigstore overview: https://www.sigstore.dev/docs/what_is_sigstore</li>
+<li>The Update Framework specification: https://theupdateframework.github.io/specification/</li>
+<li>Golightly et al. access-control survey: https://www.sciencedirect.com/science/article/pii/S2772918423000036</li>
+<li>LongMemEval: https://arxiv.org/abs/2410.10813</li>
+<li>LoCoMo ACL paper: https://aclanthology.org/2024.acl-long.747/</li>
+<li>LoCoMo project repository: https://github.com/snap-research/locomo</li>
+<li>MemoryAgentBench: https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/</li>
+<li>LoCoMo-Plus: https://arxiv.org/abs/2602.10715</li>
+<li>GraphRAG local-to-global summarization: https://arxiv.org/abs/2404.16130</li>
+<li>GraphRAG survey DOI: https://doi.org/10.1145/3777378</li>
+<li>GraphRAG survey arXiv record: https://arxiv.org/abs/2501.13958</li>
+<li>GraphRAG-Bench: https://arxiv.org/abs/2506.05690</li>
+<li>GraphRAG-Bench project: https://graphrag-bench.github.io/</li>
+<li>Agentic GraphRAG survey: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979</li>
+<li>Agent-Memory Protocol: https://proceedings.mlr.press/v317/wu26a.html</li>
+<li>CAMS memory security article: https://www.sciencedirect.com/science/article/pii/S1110866526001003</li>
+<li>Permission-Aware RAG DOI: https://doi.org/10.1109/ACCESS.2025.3628960</li>
+<li>Permission-Aware RAG source page: https://snu.elsevierpure.com/en/publications/permission-aware-rag-identity-and-access-management-iam-based-acc/</li>
+<li>Decentralized information-flow control DOI: https://doi.org/10.1145/268998.266669</li>
+<li>Decentralized information-flow control author page: https://www.cs.cornell.edu/andru/papers/iflow-sosp97/paper.html</li>
+<li>Decentralized Label Model privacy article DOI: https://doi.org/10.1145/363516.363526</li>
+<li>Capabilities and confused deputy DOI: https://doi.org/10.1109/CSF.2016.18</li>
+<li>Capabilities and confused deputy repository page: https://kar.kent.ac.uk/90601/</li>
+<li>RFC 9162 Certificate Transparency 2.0: https://www.rfc-editor.org/info/rfc9162</li>
+<li>Transparency logs via append-only authenticated dictionaries DOI: https://doi.org/10.1145/3319535.3345652</li>
+<li>Data provenance in security and privacy DOI: https://doi.org/10.1145/3593294</li>
+</ul>
+<h3 id="next-bibliography-expansion-targets">Next Bibliography Expansion Targets</h3>
+<ul>
+<li>Add a systematic-review protocol if the preprint moves from manifesto/position-paper framing toward survey claims.</li>
+<li>Deepen privacy-leakage coverage beyond initial AI-memory security and permission-aware RAG sources.</li>
+<li>Add distributed revocation/key-transparency sources specific to cross-host memory federation.</li>
+<li>Replace or supplement SSRN/preprint-only sources with peer-reviewed versions as they appear.</li>
+<li>Design benchmark evaluations against LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, and project-specific governance/federation demonstrations.</li>
+</ul>
+</body>
+</html>

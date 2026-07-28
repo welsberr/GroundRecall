@@ -7,8 +7,8 @@ date: 2026-07-28
 
 Reviewed artifacts:
 
-- `docs/preprint/preprint-draft.md`
-- `docs/preprint/preprint-draft.html`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.html`
 - `docs/preprint/claim-evidence-matrix.md`
 - `docs/preprint/claim-evidence-matrix.html`
 

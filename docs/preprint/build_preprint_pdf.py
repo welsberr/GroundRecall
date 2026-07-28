@@ -6,9 +6,11 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
-MAIN_DRAFT = BASE_DIR / "preprint-draft.md"
-COMBINED_DRAFT = BASE_DIR / "preprint-full-draft.md"
-PDF_OUT = BASE_DIR / "preprint-full-draft.pdf"
+PREPRINT_STEM = "2026-elsberry-governed-memory-layer-principles-r01"
+MAIN_DRAFT = BASE_DIR / f"{PREPRINT_STEM}-source.md"
+COMBINED_DRAFT = BASE_DIR / f"{PREPRINT_STEM}.md"
+HTML_OUT = BASE_DIR / f"{PREPRINT_STEM}.html"
+PDF_OUT = BASE_DIR / f"{PREPRINT_STEM}.pdf"
 
 APPENDICES = [
     ("# Appendix A: Claim-To-Evidence Matrix", BASE_DIR / "claim-evidence-matrix.md"),
@@ -111,8 +113,23 @@ def build_pdf() -> None:
     )
 
 
+def build_html() -> None:
+    subprocess.run(
+        [
+            "pandoc",
+            str(COMBINED_DRAFT.name),
+            "-s",
+            "-o",
+            str(HTML_OUT.name),
+        ],
+        cwd=BASE_DIR,
+        check=True,
+    )
+
+
 def main() -> None:
     build_combined_markdown()
+    build_html()
     build_pdf()
     print(PDF_OUT)
 

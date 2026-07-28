@@ -326,12 +326,12 @@ The matrix is also a restraint mechanism. Claims with only normative support are
 
 - **Durable AI memory needs governance, not only retrieval.**
   - **Evidence class:** Bibliography/source analysis; design argument
-  - **Supporting artifacts:** `docs/preprint/preprint-draft.md`; `docs/preprint/memory-layer-comparative-analysis.md`; `docs/preprint/memory-layer-bibliography.md`; `docs/preprint/memory-layer-citegeist-export.bib`
+  - **Supporting artifacts:** `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`; `docs/preprint/memory-layer-comparative-analysis.md`; `docs/preprint/memory-layer-bibliography.md`; `docs/preprint/memory-layer-citegeist-export.bib`
   - **Current status:** Supported as a normative/design thesis.
   - **Caveat / restraint:** Not an empirical proof that governed memory improves productivity or safety outcomes.
 - **Current memory-layer systems foreground persistence, retrieval, graph organization, personalization, and memory-OS abstractions.**
   - **Evidence class:** Bibliography/source analysis
-  - **Supporting artifacts:** References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in `docs/preprint/preprint-draft.md`
+  - **Supporting artifacts:** References to Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and an ACM TOIS memory-mechanism survey in `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`
   - **Current status:** Supported for related-work framing.
   - **Caveat / restraint:** Bibliography is seeded, not exhaustive.
 - **Governed memory draws on adjacent governance, provenance, access-control, zero-trust, information-flow, capability-security, transparency-log, and supply-chain-security patterns.**
@@ -341,7 +341,7 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Caveat / restraint:** Still not a systematic review of all governance/security literature or a comprehensive security proof.
 - **Benchmark literature now provides concrete targets for evaluating long-term memory and graph-RAG behavior.**
   - **Evidence class:** Bibliography/source analysis; future-work status
-  - **Supporting artifacts:** LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG entries in `docs/preprint/memory-layer-citegeist-export.bib`; limitations in `docs/preprint/preprint-draft.md`
+  - **Supporting artifacts:** LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG entries in `docs/preprint/memory-layer-citegeist-export.bib`; limitations in `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`
   - **Current status:** Supported as evaluation-context framing and future evaluation target selection.
   - **Caveat / restraint:** GroundRecall has not yet been run against those benchmarks.
 - **Persistent AI memory and RAG systems raise privacy, memory-injection, memory-extraction, and retrieval-authorization concerns.**
@@ -351,12 +351,12 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Caveat / restraint:** The coverage is initial, not a complete privacy-leakage or authorization survey.
 - **GroundRecall is complementary to performance-oriented memory layers.**
   - **Evidence class:** Bibliography/source analysis; implemented code
-  - **Supporting artifacts:** `docs/preprint/preprint-draft.md`; `docs/preprint/memory-layer-comparative-analysis.md`; GroundRecall governance features listed below
+  - **Supporting artifacts:** `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`; `docs/preprint/memory-layer-comparative-analysis.md`; GroundRecall governance features listed below
   - **Current status:** Supported as comparative positioning.
   - **Caveat / restraint:** No benchmark comparison against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS.
 - **ClaimWright is one suitable policy framework, not a universal stance.**
   - **Evidence class:** Implemented code; design argument
-  - **Supporting artifacts:** ClaimWright repository policy substrate; `docs/preprint/preprint-draft.md` policy-pluralism section; GroundRecall policy-plugin adapter
+  - **Supporting artifacts:** ClaimWright repository policy substrate; `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md` policy-pluralism section; GroundRecall policy-plugin adapter
   - **Current status:** Supported as an example policy stance and adapter target.
   - **Caveat / restraint:** ClaimWright remains optional policy content under GroundRecall's policy-plugin contract, not a mandatory dependency or externally validated policy authority.
 - **CiteGeist provides a source-review and bibliography workbench relevant to governed memory.**
@@ -604,8 +604,8 @@ That statement is stronger and more auditable than saying only that the project 
 
 Reviewed artifacts:
 
-- `docs/preprint/preprint-draft.md`
-- `docs/preprint/preprint-draft.html`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.html`
 - `docs/preprint/claim-evidence-matrix.md`
 - `docs/preprint/claim-evidence-matrix.html`
 

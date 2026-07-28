@@ -458,7 +458,7 @@ Contents:
 
 Deliverable:
 
-- `docs/preprint/preprint-draft.md` or a paper source directory.
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md` or a paper source directory.
 
 Exit criteria:
 
