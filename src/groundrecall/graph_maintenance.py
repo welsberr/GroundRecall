@@ -29,6 +29,7 @@ def run_graph_maintenance_slice(
     concept_prefixes: list[str] | None = None,
     limit: int = 10,
     min_evidence: int = 2,
+    max_pair_checks: int = 50000,
     apply: bool = False,
     advance_on_dry_run: bool = False,
 ) -> dict[str, Any]:
@@ -50,6 +51,7 @@ def run_graph_maintenance_slice(
         min_evidence=min_evidence,
         strategy=strategy,
         limit=max(0, int(limit)),
+        max_pair_checks=max(0, int(max_pair_checks)),
         apply=apply,
     )
     run_record = {
@@ -58,6 +60,7 @@ def run_graph_maintenance_slice(
         "applied": apply,
         "limit": max(0, int(limit)),
         "min_evidence": augmentation.get("min_evidence", min_evidence),
+        "max_pair_checks": max(0, int(max_pair_checks)),
         "candidate_relation_count": augmentation.get("candidate_relation_count", 0),
         "relation_type_counts": augmentation.get("relation_type_counts", {}),
         "filter_summary": augmentation.get("filter_summary", {}),
@@ -118,6 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concept-prefix", action="append", default=[])
     parser.add_argument("--limit", type=int, default=10, help="Maximum candidate relations to process in this slice.")
     parser.add_argument("--min-evidence", type=int, default=2)
+    parser.add_argument("--max-pair-checks", type=int, default=50000, help="Maximum claim-pair checks for semantic pair-scanning strategies.")
     parser.add_argument("--apply", action="store_true", help="Write triaged relations and review candidates, then advance state.")
     parser.add_argument("--advance-on-dry-run", action="store_true", help="Advance maintenance state even without writes.")
     return parser
@@ -132,6 +136,7 @@ def main() -> None:
         concept_prefixes=list(args.concept_prefix or []),
         limit=args.limit,
         min_evidence=args.min_evidence,
+        max_pair_checks=args.max_pair_checks,
         apply=args.apply,
         advance_on_dry_run=args.advance_on_dry_run,
     )

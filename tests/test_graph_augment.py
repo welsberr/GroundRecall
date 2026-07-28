@@ -314,6 +314,109 @@ def test_augment_store_relations_from_claim_links_reports_directed_duplicates(tm
     assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"claim_contradicts_claim": 1}
 
 
+def test_augment_store_relations_from_claim_contradiction_cues(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_affirm",
+            claim_text="Selection increases adaptation in populations.",
+            concept_ids=["concept::selection"],
+            source_observation_ids=["obs_affirm"],
+            provenance=ProvenanceRecord(origin_path="sources/affirm.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_negate",
+            claim_text="Selection does not increase adaptation in populations.",
+            concept_ids=["concept::selection"],
+            source_observation_ids=["obs_negate"],
+            provenance=ProvenanceRecord(origin_path="sources/negate.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_other",
+            claim_text="Selection changes allele frequencies.",
+            concept_ids=["concept::selection"],
+            source_observation_ids=["obs_other"],
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-contradiction-cues",
+        apply=True,
+    )
+
+    relations = store.list_relations()
+    assert payload["candidate_relation_count"] == 1
+    assert payload["relation_type_counts"] == {"claim_may_contradict_claim": 1}
+    assert relations[0].source_id == "claim_affirm"
+    assert relations[0].target_id == "claim_negate"
+    assert relations[0].relation_type == "claim_may_contradict_claim"
+    assert relations[0].evidence_ids == ["obs_affirm", "obs_negate"]
+    assert store.list_review_candidates()[0].finding_codes == ["relation_inferred", "claim_contradiction_cues"]
+
+
+def test_augment_store_relations_from_claim_contradiction_cues_skips_explicit_links(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_affirm",
+            claim_text="Selection increases adaptation in populations.",
+            concept_ids=["concept::selection"],
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_negate",
+            claim_text="Selection does not increase adaptation in populations.",
+            concept_ids=["concept::selection"],
+            contradicts_claim_ids=["claim_affirm"],
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-contradiction-cues",
+        apply=False,
+    )
+
+    assert payload["candidate_relation_count"] == 0
+
+
+def test_augment_store_relations_from_claim_contradiction_cues_respects_pair_budget(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    for index in range(5):
+        store.save_claim(
+            ClaimRecord(
+                claim_id=f"claim_{index}",
+                claim_text=f"Selection changes adaptation in population {index}.",
+                concept_ids=["concept::selection"],
+                current_status="reviewed",
+            )
+        )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-contradiction-cues",
+        max_pair_checks=3,
+        apply=False,
+    )
+
+    assert payload["filter_summary"]["pair_check_count"] == 3
+    assert payload["filter_summary"]["pair_check_limit_reached"] is True
+
+
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))

@@ -20,7 +20,15 @@ SOURCE_FAMILY_EXTRACTOR_NAME = "groundrecall.store_source_family.v1"
 CLAIM_MENTIONS_EXTRACTOR_NAME = "groundrecall.store_claim_mentions.v1"
 OBSERVATION_COOCCURRENCE_EXTRACTOR_NAME = "groundrecall.store_observation_cooccurrence.v1"
 CLAIM_LINKS_EXTRACTOR_NAME = "groundrecall.store_claim_links.v1"
-VALID_STRATEGIES = {"claim-cooccurrence", "claim-links", "claim-mentions", "observation-cooccurrence", "source-family"}
+CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME = "groundrecall.store_claim_contradiction_cues.v1"
+VALID_STRATEGIES = {
+    "claim-contradiction-cues",
+    "claim-cooccurrence",
+    "claim-links",
+    "claim-mentions",
+    "observation-cooccurrence",
+    "source-family",
+}
 
 
 @dataclass
@@ -37,6 +45,8 @@ class RelationCandidate:
 @dataclass
 class AugmentStats:
     skipped_duplicate_keys: set[tuple[str, str, str]] = field(default_factory=set)
+    pair_check_count: int = 0
+    pair_check_limit_reached: bool = False
 
     def record_duplicate(self, key: tuple[str, str, str]) -> None:
         self.skipped_duplicate_keys.add(key)
@@ -59,6 +69,7 @@ def augment_store_relations_from_claims(
     min_evidence: int = 2,
     strategy: str = "claim-cooccurrence",
     limit: int | None = None,
+    max_pair_checks: int = 50000,
     apply: bool = False,
 ) -> dict[str, Any]:
     if strategy not in VALID_STRATEGIES:
@@ -88,6 +99,18 @@ def augment_store_relations_from_claims(
             stats=stats,
         )
         extractor = CLAIM_LINKS_EXTRACTOR_NAME
+    elif strategy == "claim-contradiction-cues":
+        relation_type = "claim_may_contradict_claim"
+        candidates = _claim_contradiction_cue_candidates(
+            store,
+            concepts=concepts,
+            existing_keys=existing_keys,
+            stats=stats,
+            prefixes=prefixes,
+            relation_type=relation_type,
+            max_pair_checks=max(0, int(max_pair_checks)),
+        )
+        extractor = CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME
     elif strategy == "claim-mentions":
         relation_type = "mentions_topic"
         candidates = _claim_mentions_candidates(
@@ -121,7 +144,7 @@ def augment_store_relations_from_claims(
         )
         extractor = SOURCE_FAMILY_EXTRACTOR_NAME
 
-    effective_min_evidence = 1 if strategy in {"claim-links", "claim-mentions", "source-family"} else max(1, int(min_evidence))
+    effective_min_evidence = 1 if strategy in {"claim-contradiction-cues", "claim-links", "claim-mentions", "source-family"} else max(1, int(min_evidence))
     eligible = [
         candidate
         for candidate in candidates.values()
@@ -184,6 +207,8 @@ def augment_store_relations_from_claims(
         "filter_summary": {
             "below_min_evidence_count": len(candidates) - len(eligible),
             "omitted_by_limit_count": omitted_by_limit_count,
+            "pair_check_count": stats.pair_check_count,
+            "pair_check_limit_reached": stats.pair_check_limit_reached,
             **stats.skipped_duplicate_counts(),
         },
         "write_summary": {
@@ -319,6 +344,81 @@ def _claim_link_candidates(
                 claims=claims,
             )
     return candidates
+
+
+def _claim_contradiction_cue_candidates(
+    store: GroundRecallStore,
+    *,
+    concepts: dict[str, Any],
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+    prefixes: list[str],
+    relation_type: str,
+    max_pair_checks: int,
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    claims = [claim for claim in store.list_claims() if claim.current_status != "rejected"]
+    claims_by_concept: dict[str, list[Any]] = {}
+    for claim in claims:
+        for concept_id in claim.concept_ids:
+            if concept_id in concepts and _matches_prefixes(concept_id, prefixes):
+                claims_by_concept.setdefault(concept_id, []).append(claim)
+
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+    seen_pairs: set[tuple[str, str]] = set()
+    for concept_claims in claims_by_concept.values():
+        sorted_claims = sorted(concept_claims, key=lambda item: item.claim_id)
+        for index, left in enumerate(sorted_claims):
+            for right in sorted_claims[index + 1 :]:
+                if stats.pair_check_count >= max_pair_checks:
+                    stats.pair_check_limit_reached = True
+                    return candidates
+                stats.pair_check_count += 1
+                pair_key = tuple(sorted([left.claim_id, right.claim_id]))
+                if pair_key in seen_pairs or _explicitly_linked_claims(left, right):
+                    continue
+                seen_pairs.add(pair_key)
+                if not _looks_like_negation_contradiction(left.claim_text, right.claim_text):
+                    continue
+                source_id, target_id = pair_key
+                key = _relation_key(source_id, target_id, relation_type)
+                if key in existing_keys:
+                    stats.record_duplicate(key)
+                    continue
+                candidate = RelationCandidate(
+                    source_id=source_id,
+                    target_id=target_id,
+                    relation_type=relation_type,
+                    claim_ids=[source_id, target_id],
+                    support_ids=[f"{source_id}<->{target_id}"],
+                    evidence_ids=_claim_pair_evidence_ids(left, right),
+                    origin_paths=_claim_pair_origin_paths(left, right),
+                )
+                candidates[key] = candidate
+    return candidates
+
+
+def _explicitly_linked_claims(left: Any, right: Any) -> bool:
+    left_links = set(left.contradicts_claim_ids) | set(left.supersedes_claim_ids)
+    right_links = set(right.contradicts_claim_ids) | set(right.supersedes_claim_ids)
+    return right.claim_id in left_links or left.claim_id in right_links
+
+
+def _claim_pair_evidence_ids(left: Any, right: Any) -> list[str]:
+    values: list[str] = []
+    for claim in (left, right):
+        for evidence_id in claim.source_observation_ids or [claim.claim_id]:
+            if evidence_id not in values:
+                values.append(evidence_id)
+    return values
+
+
+def _claim_pair_origin_paths(left: Any, right: Any) -> list[str]:
+    values: list[str] = []
+    for claim in (left, right):
+        origin_path = claim.provenance.origin_path
+        if origin_path and origin_path not in values:
+            values.append(origin_path)
+    return values
 
 
 def _append_claim_link_candidate(
@@ -498,6 +598,92 @@ def _relation_type_counts(relation_payloads: list[dict[str, Any]]) -> dict[str, 
     return dict(sorted(counts.items()))
 
 
+_NEGATION_PATTERNS = [
+    re.compile(r"\bdoes\s+not\b", re.IGNORECASE),
+    re.compile(r"\bdo\s+not\b", re.IGNORECASE),
+    re.compile(r"\bdid\s+not\b", re.IGNORECASE),
+    re.compile(r"\bis\s+not\b", re.IGNORECASE),
+    re.compile(r"\bare\s+not\b", re.IGNORECASE),
+    re.compile(r"\bwas\s+not\b", re.IGNORECASE),
+    re.compile(r"\bwere\s+not\b", re.IGNORECASE),
+    re.compile(r"\bcannot\b", re.IGNORECASE),
+    re.compile(r"\bcan\s+not\b", re.IGNORECASE),
+    re.compile(r"\bwill\s+not\b", re.IGNORECASE),
+    re.compile(r"\bno\b", re.IGNORECASE),
+    re.compile(r"\bnot\b", re.IGNORECASE),
+]
+
+_NEGATION_REMOVAL_PATTERN = re.compile(
+    r"\b(does|do|did|is|are|was|were|can|will)\s+not\b|\bcannot\b|\bno\b|\bnot\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_like_negation_contradiction(left_text: str, right_text: str) -> bool:
+    left_negated = _has_negation_cue(left_text)
+    right_negated = _has_negation_cue(right_text)
+    if left_negated == right_negated:
+        return False
+    left_tokens = _claim_signature_tokens(left_text)
+    right_tokens = _claim_signature_tokens(right_text)
+    if len(left_tokens | right_tokens) < 4:
+        return False
+    overlap = len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
+    return overlap >= 0.72
+
+
+def _has_negation_cue(text: str) -> bool:
+    return any(pattern.search(text) for pattern in _NEGATION_PATTERNS)
+
+
+def _claim_signature_tokens(text: str) -> set[str]:
+    stripped = _NEGATION_REMOVAL_PATTERN.sub(" ", text.lower())
+    stop_words = {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "be",
+        "by",
+        "can",
+        "does",
+        "do",
+        "did",
+        "for",
+        "from",
+        "in",
+        "is",
+        "it",
+        "may",
+        "of",
+        "or",
+        "that",
+        "the",
+        "to",
+        "was",
+        "were",
+        "will",
+        "with",
+    }
+    return {
+        normalized
+        for token in re.findall(r"[a-z0-9][a-z0-9-]*", stripped)
+        for normalized in [_normalize_claim_token(token)]
+        if len(normalized) > 2 and normalized not in stop_words
+    }
+
+
+def _normalize_claim_token(token: str) -> str:
+    if len(token) > 5 and token.endswith("ies"):
+        return f"{token[:-3]}y"
+    if len(token) > 5 and token.endswith("es"):
+        return token[:-1]
+    if len(token) > 4 and token.endswith("s"):
+        return token[:-1]
+    return token
+
+
 def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[str, str, str]:
     if relation_type in {"claim_contradicts_claim", "claim_supersedes_claim", "provides_evidence_for", "distinguishes", "qualifies"}:
         return (source_id, target_id, relation_type)
@@ -662,6 +848,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--relation-type", default=DEFAULT_RELATION_TYPE)
     parser.add_argument("--min-evidence", type=int, default=2)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--max-pair-checks", type=int, default=50000, help="Maximum claim-pair checks for semantic pair-scanning strategies.")
     parser.add_argument("--apply", action="store_true", help="Write inferred relations and review candidates to the store")
     return parser
 
@@ -675,6 +862,7 @@ def main() -> None:
         min_evidence=args.min_evidence,
         strategy=args.strategy,
         limit=args.limit,
+        max_pair_checks=args.max_pair_checks,
         apply=args.apply,
     )
     print(json.dumps(payload, indent=2))

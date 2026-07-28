@@ -168,7 +168,12 @@ Augmentation output now reports raw candidate counts, candidates below evidence
 threshold, skipped duplicate relation counts, limit omissions, relation type
 counts, and write counts. The `claim-links` strategy now emits directed
 claim-to-claim contradiction and supersession relation candidates from explicit
-stored claim fields.
+stored claim fields. The opt-in `claim-contradiction-cues` strategy now emits
+reviewable `claim_may_contradict_claim` candidates for same-concept claim pairs
+with opposing negation cues and high normalized text overlap. Because semantic
+pair scanning can be expensive on large stores, the strategy is opt-in and
+bounded by `--max-pair-checks`; it is not part of the default periodic
+maintenance strategy list.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -188,6 +193,9 @@ Implementation requirements:
   - concept co-mentions in observations;
   - explicit claim-to-claim contradiction and supersession fields; initial
     implementation exists through `--strategy claim-links`;
+  - conservative semantic contradiction cues; initial opt-in implementation
+    exists through `--strategy claim-contradiction-cues` with a pair-check
+    budget;
   - source/artifact/observation anchors for claim support;
   - citation/source-anchor links;
   - definition, qualification, distinction, dependency, and temporal-validity

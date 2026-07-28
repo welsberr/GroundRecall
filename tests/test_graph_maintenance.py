@@ -166,3 +166,28 @@ def test_graph_maintenance_can_run_claim_links_strategy(tmp_path: Path) -> None:
     assert payload["selected_strategy"] == "claim-links"
     assert payload["run_record"]["relation_type_counts"] == {"claim_contradicts_claim": 1}
     assert len(store.list_relations()) == 1
+
+
+def test_graph_maintenance_passes_pair_check_budget(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    for index in range(4):
+        store.save_claim(
+            ClaimRecord(
+                claim_id=f"claim_{index}",
+                claim_text=f"Selection changes adaptation in population {index}.",
+                concept_ids=["concept::selection"],
+                current_status="reviewed",
+            )
+        )
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        strategies=["claim-contradiction-cues"],
+        max_pair_checks=2,
+        apply=False,
+    )
+
+    assert payload["run_record"]["max_pair_checks"] == 2
+    assert payload["run_record"]["filter_summary"]["pair_check_count"] == 2
+    assert payload["run_record"]["filter_summary"]["pair_check_limit_reached"] is True
