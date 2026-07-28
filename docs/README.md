@@ -29,6 +29,7 @@ Preprint preparation:
 - [preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md](preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md)
 - [preprint/threat-model.md](preprint/threat-model.md)
 - [preprint/claim-evidence-matrix.md](preprint/claim-evidence-matrix.md)
+- [preprint/claimwright-action-priorities.md](preprint/claimwright-action-priorities.md)
 - [preprint/memory-layer-bibliography.md](preprint/memory-layer-bibliography.md)
 - [preprint/memory-layer-comparative-analysis.md](preprint/memory-layer-comparative-analysis.md)
 

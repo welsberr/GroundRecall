@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <meta name="dcterms.date" content="2026-07-28" />
+  <title>ClaimWright Review Action Priorities</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">ClaimWright Review Action Priorities</h1>
+<p class="date">2026-07-28</p>
+</header>
+<h1 id="claimwright-review-action-priorities">ClaimWright Review Action Priorities</h1>
+<p>This note converts the ClaimWright review of the governed-memory preprint into an implementation-priority list. The ordering favors work that improves GroundRecall’s practical governed-memory capability while also improving the paper’s evidence position.</p>
+<h2 id="priority-criteria">Priority Criteria</h2>
+<p>Items are ranked higher when they:</p>
+<ol type="1">
+<li>close a functional governance gap in GroundRecall;</li>
+<li>convert a paper limitation into an evidence-backed implementation claim;</li>
+<li>reduce public-facing overclaim risk;</li>
+<li>can be demonstrated with tests or reproducible examples;</li>
+<li>avoid premature production claims, benchmark claims, or broad security proofs.</li>
+</ol>
+<h2 id="p0-policy-coverage-and-audit-completeness">P0: Policy Coverage And Audit Completeness</h2>
+<p>ClaimWright review basis:</p>
+<ul>
+<li>policy-plugin enforcement covers selected surfaces, not all mutation paths;</li>
+<li>the paper must not imply production IAM or complete policy coverage;</li>
+<li>public-facing agent use depends on enforceable publication and action gates.</li>
+</ul>
+<p>Functional value:</p>
+<ul>
+<li>makes the policy-plugin boundary operationally meaningful beyond a few selected routes;</li>
+<li>reduces risk that an assistant or adapter can mutate durable memory through an ungated path;</li>
+<li>provides a concrete foundation for MCP, federation, public export, adjudication, and exceptional-erasure workflows.</li>
+</ul>
+<p>Paper value:</p>
+<ul>
+<li>supports a stronger claim that GroundRecall owns a bounded, testable policy interface for governed memory operations;</li>
+<li>narrows the current caveat from “selected surfaces only” toward a documented coverage matrix;</li>
+<li>supplies reproducible audit artifacts for the preprint appendices.</li>
+</ul>
+<p>Recommended implementation sequence:</p>
+<ol type="1">
+<li>Add a policy-enforcement coverage matrix for every read/write/export/import route: MCP tools, CLI commands, Python APIs, federation, promotion, relation review, contradiction adjudication, graph backfill, review queue, and future erasure.</li>
+<li>Add deny/hard-gate audit events for every gated write attempt, including blocked attempts before durable memory changes occur.</li>
+<li>Add regression tests proving that each covered write path fails closed when a policy plugin denies or hard-gates the operation.</li>
+<li>Expose coverage status in diagnostics, for example <code>groundrecall inspect --policy-coverage</code>, so paper claims can cite a generated artifact rather than prose.</li>
+<li>Update the claim-evidence matrix only after the coverage artifact and tests exist.</li>
+</ol>
+<p>Acceptance criteria:</p>
+<ul>
+<li>each durable mutation route is classified as covered, intentionally ungated, or not yet covered;</li>
+<li>covered write routes have deny/hard-gate tests;</li>
+<li>denied write routes leave audit evidence without writing protected records;</li>
+<li>the preprint can cite the coverage artifact without claiming production IAM.</li>
+</ul>
+<h2 id="p1-contradiction-workflow-depth">P1: Contradiction Workflow Depth</h2>
+<p>ClaimWright review basis:</p>
+<ul>
+<li>contradiction cases and adjudication are implemented;</li>
+<li>heuristic cue generation exists;</li>
+<li>robust automatic semantic contradiction detection and resolution are still future work.</li>
+</ul>
+<p>Functional value:</p>
+<ul>
+<li>makes contradictions less dependent on manual links;</li>
+<li>improves review queues by turning candidate contradiction cues into inspectable cases;</li>
+<li>reduces the chance that graph search hides unresolved disagreement behind a single high-ranking result.</li>
+</ul>
+<p>Paper value:</p>
+<ul>
+<li>converts the current caveat into a more precise claim: GroundRecall supports explicit cases, adjudication, diagnostics, and review-gated cue promotion;</li>
+<li>strengthens the manifesto point that durable memory should preserve disagreement and adjudication history.</li>
+</ul>
+<p>Recommended implementation sequence:</p>
+<ol type="1">
+<li>Add a <code>contradictions candidates</code> or review-queue view that surfaces <code>claim_may_contradict_claim</code> relation candidates generated by graph backfill.</li>
+<li>Add a review action that promotes an accepted contradiction candidate into explicit <code>contradicts_claim_ids</code> links and then materializes a first-class contradiction case.</li>
+<li>Add query output fields that distinguish:
+<ul>
+<li>explicit contradiction cases;</li>
+<li>candidate contradiction cues;</li>
+<li>adjudicated/resolved contradiction cases;</li>
+<li>stale or superseded claims.</li>
+</ul></li>
+<li>Add tests for candidate-to-case promotion, rejection, audit metadata, and no silent rewriting of underlying claims.</li>
+<li>Add a reproducible preprint demonstration showing candidate cue → review → case → adjudication.</li>
+</ol>
+<p>Acceptance criteria:</p>
+<ul>
+<li>candidate contradiction cues are visible in review output;</li>
+<li>accepting a cue creates explicit review state, not a hidden relation-only signal;</li>
+<li>adjudication state appears in query bundles;</li>
+<li>the paper still avoids claiming full semantic contradiction resolution.</li>
+</ul>
+<h2 id="p2-privacy-revocation-and-exceptional-erasure-lifecycle">P2: Privacy, Revocation, And Exceptional-Erasure Lifecycle</h2>
+<p>ClaimWright review basis:</p>
+<ul>
+<li>privacy-leakage and distributed-revocation coverage should deepen;</li>
+<li>exceptional erasure remains incomplete;</li>
+<li>release controls and federation quarantine are implemented but are not DLP or production IAM.</li>
+</ul>
+<p>Functional value:</p>
+<ul>
+<li>gives GroundRecall a concrete answer for exposed secrets, legal/privacy deletion requests, and unsafe re-imports;</li>
+<li>complements non-destructive epistemic maintenance with a separate destructive security/privacy path;</li>
+<li>improves federation safety by making revocation and erasure visible without rewriting ordinary provenance history.</li>
+</ul>
+<p>Paper value:</p>
+<ul>
+<li>clarifies the difference between ordinary forgetting, expiry, supersession, revocation, and exceptional erasure;</li>
+<li>supports a stronger governance/security appendix without claiming complete enterprise compliance.</li>
+</ul>
+<p>Recommended implementation sequence:</p>
+<ol type="1">
+<li>Define an exceptional-erasure request and tombstone schema that records reason class, authority, timestamp, affected IDs, and non-sensitive re-import prevention metadata.</li>
+<li>Implement a dry-run erasure planner that reports affected canonical records, indexes, exports, graph candidates, snapshots, and federation quarantine objects.</li>
+<li>Implement erasure execution for records and rebuildable local projections under an explicit policy-plugin gate.</li>
+<li>Add re-import blocking for erased content hashes or origin IDs.</li>
+<li>Add revocation event export/import tests for federation bundles without claiming complete distributed propagation.</li>
+</ol>
+<p>Acceptance criteria:</p>
+<ul>
+<li>erasure is separately authorized from ordinary epistemic maintenance;</li>
+<li>protected content is absent from covered local storage after execution;</li>
+<li>a minimal tombstone prevents silent re-import;</li>
+<li>tests distinguish erasure from expiry, supersession, and retraction.</li>
+</ul>
+<h2 id="p3-reproducible-evaluation-fixtures">P3: Reproducible Evaluation Fixtures</h2>
+<p>ClaimWright review basis:</p>
+<ul>
+<li>benchmark evaluation design remains open;</li>
+<li>current timing demonstrations are internal engineering indications, not external benchmarks;</li>
+<li>GroundRecall has not been run against LongMemEval, LoCoMo, MemoryAgentBench, or GraphRAG-Bench.</li>
+</ul>
+<p>Functional value:</p>
+<ul>
+<li>prevents performance and graph-quality discussions from relying on one local store;</li>
+<li>provides regression fixtures for temporal updates, contradiction, authorization, abstention, and graph expansion;</li>
+<li>gives the project a stable way to compare search modes as graph density changes.</li>
+</ul>
+<p>Paper value:</p>
+<ul>
+<li>supports stronger empirical claims without comparing against external memory products prematurely;</li>
+<li>makes the paper’s engineering-evidence stance more reproducible.</li>
+</ul>
+<p>Recommended implementation sequence:</p>
+<ol type="1">
+<li>Freeze a small governed-memory fixture with claims, sources, release levels, contradictions, supersessions, and graph candidates.</li>
+<li>Add a runner that reports FTS-only, graph-expanded, and policy-filtered query outputs plus latency summaries.</li>
+<li>Add quality checks for expected provenance, contradiction visibility, abstention, and access filtering.</li>
+<li>Keep external benchmark adaptation as a later step after the local fixture is stable.</li>
+<li>Record generated JSON outputs under <code>examples/preprint/out/</code> and cite them from the claim-evidence matrix.</li>
+</ol>
+<p>Acceptance criteria:</p>
+<ul>
+<li>fixture generation is deterministic;</li>
+<li>outputs include both latency and governance-quality checks;</li>
+<li>results remain explicitly scoped as engineering demonstrations.</li>
+</ul>
+<h2 id="p4-bibliography-completeness-protocol">P4: Bibliography Completeness Protocol</h2>
+<p>ClaimWright review basis:</p>
+<ul>
+<li>the bibliography is broader but not systematic;</li>
+<li>privacy-leakage and distributed-revocation literature should deepen before submission;</li>
+<li>final human publication approval remains open.</li>
+</ul>
+<p>Functional value:</p>
+<ul>
+<li>lower direct product value than P0-P3, but improves source-review discipline;</li>
+<li>gives CiteGeist a concrete use case for topic coverage and source status.</li>
+</ul>
+<p>Paper value:</p>
+<ul>
+<li>reduces related-work selectivity risk;</li>
+<li>supports a defensible “seeded review” or “bounded review protocol” statement.</li>
+</ul>
+<p>Recommended implementation sequence:</p>
+<ol type="1">
+<li>Define search strings, inclusion/exclusion criteria, source tiers, and stop conditions for a bounded bibliography pass.</li>
+<li>Use CiteGeist to track candidate sources, reviewed sources, rejected sources, and coverage gaps.</li>
+<li>Add privacy leakage, persistent memory attacks, distributed revocation, provenance-aware governance, and policy-composition sources.</li>
+<li>Update the bibliography notes and claim-evidence matrix with the protocol, not just new citations.</li>
+</ol>
+<p>Acceptance criteria:</p>
+<ul>
+<li>the paper can state what was searched and why the bibliography is bounded;</li>
+<li>source gaps remain explicit;</li>
+<li>no unsupported systematic-review claim is made.</li>
+</ul>
+<h2 id="recommended-order">Recommended Order</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Rank</th>
+<th>Workstream</th>
+<th>Why now</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td>Policy coverage and audit completeness</td>
+<td>Highest functional governance value; directly reduces paper overclaim risk.</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td>Contradiction workflow depth</td>
+<td>Central governed-memory capability; improves graph, query, and paper claims.</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td>Privacy, revocation, and exceptional erasure</td>
+<td>Important governance/security gap; needs clear separation from ordinary forgetting.</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td>Reproducible evaluation fixtures</td>
+<td>Converts local claims into repeatable engineering evidence.</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td>Bibliography completeness protocol</td>
+<td>Needed before submission, but less functional than P0-P3.</td>
+</tr>
+</tbody>
+</table>
+<p>The next coding model should start with P0 unless there is an immediate paper deadline requiring bibliography protocol work first. P0 creates the strongest shared benefit: better software behavior, better auditability, and a more defensible preprint claim boundary.</p>
+</body>
+</html>
