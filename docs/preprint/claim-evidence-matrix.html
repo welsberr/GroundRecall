@@ -352,6 +352,14 @@
 <td>Supported for selected enforcement surfaces.</td>
 <td>This is not complete production IAM, complete policy coverage of every mutation path, or a security proof.</td>
 </tr>
+<tr class="odd">
+<td>Indexed search is lower-latency than indexed search plus graph expansion in the local demonstration fixture.</td>
+<td>Reproducible demonstration; implemented code</td>
+<td><code>src/groundrecall/search_index.py</code>; <code>src/groundrecall/query.py</code>; <code>examples/preprint/run_preprint_demos.py</code></td>
+<td><code>examples/preprint/out/search_mode_timing.json</code>; <code>tests/test_search_index.py</code>; <code>tests/test_groundrecall_query.py</code></td>
+<td>Supported as an internal engineering timing indication.</td>
+<td>Not comparable to external memory-layer products; not a benchmark of recall quality, latency under load, or production deployment.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="claims-that-are-explicitly-not-made">Claims That Are Explicitly Not Made</h2>
@@ -471,6 +479,12 @@
 <td>Static and ClaimWright-style policy plugins can produce bounded decisions, and hard-gate decisions block promotion, adjudication, and relation-review writes before durable memory changes occur.</td>
 </tr>
 <tr class="odd">
+<td>Search-mode timing walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/out/search_mode_timing.json</code></td>
+<td>In a synthetic local fixture, indexed search is faster than indexed search plus graph expansion, while graph expansion returns additional graph context.</td>
+</tr>
+<tr class="even">
 <td>CiteGeist bibliography expansion</td>
 <td>Reproducible artifact</td>
 <td><code>docs/preprint/citegeist-memory-layer.sqlite3</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code></td>

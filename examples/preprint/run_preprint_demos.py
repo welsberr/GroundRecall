@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from statistics import median
 import tempfile
+from time import perf_counter_ns
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +37,9 @@ from groundrecall.models import (
 from groundrecall.policy import PolicyRequest, load_policy_plugins
 from groundrecall.promotion import PromotionGateError, promote_import_to_store
 from groundrecall.query import query_concept
+from groundrecall.query import build_graph_search_bundle
 from groundrecall.relation_review import RelationReviewPolicyError, apply_relation_review_batch
+from groundrecall.search_index import build_search_index, search_index
 from groundrecall.store import GroundRecallStore
 
 
@@ -544,6 +548,113 @@ def demo_policy_plugin_boundary(work_dir: Path) -> dict[str, Any]:
     }
 
 
+def demo_search_mode_timing(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "search_timing_store")
+    topic_count = 24
+    claims_per_topic = 3
+    for index in range(topic_count):
+        concept_id = f"concept::search_topic_{index:02d}"
+        store.save_concept(
+            ConceptRecord(
+                concept_id=concept_id,
+                title=f"Governed memory search topic {index:02d}",
+                aliases=["governed memory", "policy search"] if index < 6 else [],
+                description="Synthetic preprint benchmark concept for governed memory policy search.",
+                current_status="promoted",
+            )
+        )
+        if index > 0:
+            store.save_relation(
+                RelationRecord(
+                    relation_id=f"rel_search_topic_{index - 1:02d}_{index:02d}",
+                    source_id=f"concept::search_topic_{index - 1:02d}",
+                    target_id=concept_id,
+                    relation_type="supports",
+                    current_status="reviewed",
+                )
+            )
+        for claim_index in range(claims_per_topic):
+            observation_id = f"obs_search_{index:02d}_{claim_index:02d}"
+            store.save_observation(
+                ObservationRecord(
+                    observation_id=observation_id,
+                    role="benchmark_evidence",
+                    text=(
+                        "Governed memory policy search preserves provenance, review state, "
+                        f"and graph context for topic {index:02d} claim {claim_index:02d}."
+                    ),
+                    provenance=ProvenanceRecord(support_kind="direct_source", grounding_status="grounded"),
+                    current_status="reviewed",
+                )
+            )
+            store.save_claim(
+                ClaimRecord(
+                    claim_id=f"claim_search_{index:02d}_{claim_index:02d}",
+                    claim_text=(
+                        "Indexed search can find governed memory policy evidence while graph search "
+                        f"adds neighborhood context for topic {index:02d}."
+                    ),
+                    source_observation_ids=[observation_id],
+                    concept_ids=[concept_id],
+                    current_status="promoted",
+                )
+            )
+
+    index_payload = build_search_index(store.base_dir)
+    query = "governed memory policy search"
+    repetitions = 31
+
+    def measure(callable_obj):
+        durations: list[int] = []
+        payload: dict[str, Any] = {}
+        for _ in range(repetitions):
+            start = perf_counter_ns()
+            payload = callable_obj()
+            durations.append(perf_counter_ns() - start)
+        return durations, payload
+
+    indexed_durations, indexed_payload = measure(lambda: search_index(store.base_dir, query, limit=12, expand=False))
+    graph_durations, graph_payload = measure(lambda: build_graph_search_bundle(store.base_dir, query, limit=12, graph_limit=4, depth=1))
+    indexed_median_ms = round(median(indexed_durations) / 1_000_000, 3)
+    graph_median_ms = round(median(graph_durations) / 1_000_000, 3)
+    graph_bundle_count = len(graph_payload.get("graph_bundles", []))
+    graph_node_count = sum(len(bundle.get("nodes", [])) for bundle in graph_payload.get("graph_bundles", []))
+    graph_edge_count = sum(len(bundle.get("edges", [])) for bundle in graph_payload.get("graph_bundles", []))
+
+    return {
+        "demo": "search_mode_timing",
+        "measurement_scope": "local synthetic GroundRecall store; post-index query timing only; not comparable to external memory-layer products",
+        "query": query,
+        "document_count": index_payload["document_count"],
+        "concept_count": topic_count,
+        "claim_count": topic_count * claims_per_topic,
+        "relation_count": max(0, topic_count - 1),
+        "repetitions": repetitions,
+        "indexed_search": {
+            "median_ms": indexed_median_ms,
+            "min_ms": round(min(indexed_durations) / 1_000_000, 3),
+            "max_ms": round(max(indexed_durations) / 1_000_000, 3),
+            "match_count": len(indexed_payload.get("matches", [])),
+        },
+        "indexed_plus_graph_search": {
+            "median_ms": graph_median_ms,
+            "min_ms": round(min(graph_durations) / 1_000_000, 3),
+            "max_ms": round(max(graph_durations) / 1_000_000, 3),
+            "match_count": len(graph_payload.get("matches", [])),
+            "root_concept_count": len(graph_payload.get("root_concepts", [])),
+            "graph_bundle_count": graph_bundle_count,
+            "graph_node_count": graph_node_count,
+            "graph_edge_count": graph_edge_count,
+        },
+        "median_graph_over_indexed_ratio": round(graph_median_ms / indexed_median_ms, 3) if indexed_median_ms else None,
+        "interpretation": (
+            "Indexed search is the lower-latency lookup path in this local fixture; indexed plus graph search "
+            "adds graph neighborhoods and review context at additional query cost."
+        ),
+        "result": "pass",
+    }
+
+
 def run(output_dir: Path) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="groundrecall-preprint-demos-") as tmp:
         work_dir = Path(tmp)
@@ -554,6 +665,7 @@ def run(output_dir: Path) -> dict[str, Any]:
             demo_federation_quarantine(work_dir),
             demo_local_authority(work_dir),
             demo_policy_plugin_boundary(work_dir),
+            demo_search_mode_timing(work_dir),
         ]
     for payload in demos:
         _write_json(output_dir / f"{payload['demo']}.json", payload)

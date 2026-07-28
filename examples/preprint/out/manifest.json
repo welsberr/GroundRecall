@@ -1,5 +1,5 @@
 {
-  "demo_count": 6,
+  "demo_count": 7,
   "demo_suite": "groundrecall_preprint_governed_memory_demos",
   "generated_at": "2026-07-27T00:00:00Z",
   "outputs": [
@@ -8,7 +8,8 @@
     "release_filtering.json",
     "federation_quarantine.json",
     "local_authority.json",
-    "policy_plugin_boundary.json"
+    "policy_plugin_boundary.json",
+    "search_mode_timing.json"
   ],
   "results": {
     "contradiction_adjudication": "pass",
@@ -16,6 +17,7 @@
     "local_authority": "pass",
     "policy_plugin_boundary": "pass",
     "provenance_promotion": "pass",
-    "release_filtering": "pass"
+    "release_filtering": "pass",
+    "search_mode_timing": "pass"
   }
 }

@@ -314,6 +314,11 @@ Minimum demonstrations to prepare:
    - evaluate a static policy plugin;
    - evaluate a ClaimWright-style directory adapter;
    - show hard-gate preflight blocking before promotion, adjudication, and relation-review writes.
+8. Search-mode timing indication:
+   - seed a synthetic local GroundRecall store;
+   - measure post-index FTS search;
+   - measure indexed search plus graph expansion;
+   - report timing and graph-context size without comparing against external products.
 
 Needed work:
 

@@ -212,6 +212,8 @@ The demonstration set is organized by property:
 
 The current generated outputs are `provenance_promotion.json`, `contradiction_adjudication.json`, `release_filtering.json`, `federation_quarantine.json`, `local_authority.json`, `policy_plugin_boundary.json`, and `manifest.json`. These demonstrations are not a substitute for benchmark evaluation. They are reproducibility artifacts for the paper’s engineering claims.
 
+The demonstration suite also includes an internal timing indication for two GroundRecall query modes. In a synthetic local store with 191 indexed documents, 24 concepts, 72 claims, and 23 relations, post-index FTS search over the query `governed memory policy search` had a median latency of 0.739 ms over 31 repetitions. Indexed search plus graph expansion had a median latency of 37.316 ms over the same repetitions, while returning 4 graph bundles containing 11 graph nodes and 7 graph edges. This result is not comparable to external memory-layer products and does not measure recall quality, but it illustrates the expected engineering tradeoff: indexed search is the low-latency lookup path, while graph expansion adds reviewable neighborhood context at additional query cost. The generated artifact is `search_mode_timing.json`.
+
 ## 11. Limitations
 
 GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. Its policy-plugin enforcement is real but partial: it covers selected MCP, export, federation, promotion, adjudication, and relation-review surfaces, not every possible memory mutation or enterprise policy system. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.
@@ -501,6 +503,12 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Supporting tests / artifacts:** `tests/test_mcp.py`; `tests/test_export_guardrails.py`; `tests/test_federation.py`; `tests/test_groundrecall_promotion.py`; `tests/test_contradictions.py`; `tests/test_relation_review.py`; `examples/preprint/out/policy_plugin_boundary.json`
   - **Current status:** Supported for selected enforcement surfaces.
   - **Caveat / restraint:** This is not complete production IAM, complete policy coverage of every mutation path, or a security proof.
+- **Indexed search is lower-latency than indexed search plus graph expansion in the local demonstration fixture.**
+  - **Evidence class:** Reproducible demonstration; implemented code
+  - **Supporting code:** `src/groundrecall/search_index.py`; `src/groundrecall/query.py`; `examples/preprint/run_preprint_demos.py`
+  - **Supporting tests / artifacts:** `examples/preprint/out/search_mode_timing.json`; `tests/test_search_index.py`; `tests/test_groundrecall_query.py`
+  - **Current status:** Supported as an internal engineering timing indication.
+  - **Caveat / restraint:** Not comparable to external memory-layer products; not a benchmark of recall quality, latency under load, or production deployment.
 
 
 ### Claims That Are Explicitly Not Made
@@ -562,6 +570,10 @@ The current manuscript can cite implementation, tests, and a stable demonstratio
   - **Evidence class:** Reproducible demonstration
   - **Artifact:** `examples/preprint/out/policy_plugin_boundary.json`
   - **Claim supported:** Static and ClaimWright-style policy plugins can produce bounded decisions, and hard-gate decisions block promotion, adjudication, and relation-review writes before durable memory changes occur.
+- **Search-mode timing walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/search_mode_timing.json`
+  - **Claim supported:** In a synthetic local fixture, indexed search is faster than indexed search plus graph expansion, while graph expansion returns additional graph context.
 - **CiteGeist bibliography expansion**
   - **Evidence class:** Reproducible artifact
   - **Artifact:** `docs/preprint/citegeist-memory-layer.sqlite3`; `docs/preprint/memory-layer-citegeist-export.bib`
@@ -739,12 +751,13 @@ Release status: conditionally suitable for internal/public draft review, pending
 - **Broaden bibliography.:** Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references.
 - **Complete second bibliography expansion targets.:** Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix.
 - **Add empirical demonstrations.:** Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, local authority, and the policy-plugin boundary.
+- **Add search-mode timing indication.:** Added `search_mode_timing.json` as an internal synthetic-store timing indication for indexed search versus indexed search plus graph expansion. The draft states that this is not a comparison with external memory-layer products or a recall-quality benchmark.
 
 
 ### Post-Action Check
 
 - **Files changed:** Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs.
-- **Claims introduced/modified:** Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the new policy-plugin boundary walkthrough.
+- **Claims introduced/modified:** Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication.
 - **Citations recorded:** Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey.
 - **Assumptions visible:** The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright.
 - **Unresolved risks:** Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; semantic contradiction detection remains future work; human publication approval remains open.

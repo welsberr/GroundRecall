@@ -28,4 +28,10 @@ Generated summaries:
 - `federation_quarantine.json`
 - `local_authority.json`
 - `policy_plugin_boundary.json`
+- `search_mode_timing.json`
 - `manifest.json`
+
+`search_mode_timing.json` reports a local synthetic-store timing comparison
+between post-index FTS search and indexed search plus graph expansion. It is an
+engineering indication for GroundRecall's query-mode tradeoff, not a benchmark
+against external memory-layer products.
