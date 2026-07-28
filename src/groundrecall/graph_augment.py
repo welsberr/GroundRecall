@@ -23,6 +23,7 @@ CLAIM_LINKS_EXTRACTOR_NAME = "groundrecall.store_claim_links.v1"
 CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME = "groundrecall.store_claim_contradiction_cues.v1"
 CLAIM_SUPPORT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_claim_support_anchors.v1"
 OBSERVATION_ARTIFACT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_observation_artifact_anchors.v1"
+SOURCE_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_source_anchors.v1"
 VALID_STRATEGIES = {
     "claim-contradiction-cues",
     "claim-cooccurrence",
@@ -31,6 +32,7 @@ VALID_STRATEGIES = {
     "claim-support-anchors",
     "observation-artifact-anchors",
     "observation-cooccurrence",
+    "source-anchors",
     "source-family",
 }
 
@@ -134,6 +136,13 @@ def augment_store_relations_from_claims(
             relation_type=relation_type,
         )
         extractor = OBSERVATION_ARTIFACT_ANCHORS_EXTRACTOR_NAME
+    elif strategy == "source-anchors":
+        candidates = _source_anchor_candidates(
+            store,
+            existing_keys=existing_keys,
+            stats=stats,
+        )
+        extractor = SOURCE_ANCHORS_EXTRACTOR_NAME
     elif strategy == "claim-mentions":
         relation_type = "mentions_topic"
         candidates = _claim_mentions_candidates(
@@ -176,6 +185,7 @@ def augment_store_relations_from_claims(
             "claim-mentions",
             "claim-support-anchors",
             "observation-artifact-anchors",
+            "source-anchors",
             "source-family",
         }
         else max(1, int(min_evidence))
@@ -505,6 +515,102 @@ def _observation_artifact_anchor_candidates(
     return candidates
 
 
+def _source_anchor_candidates(
+    store: GroundRecallStore,
+    *,
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    sources = {
+        source.source_id: source
+        for source in store.list_sources()
+        if source.current_status != "rejected"
+    }
+    fragments = {
+        fragment.fragment_id: fragment
+        for fragment in store.list_fragments()
+        if fragment.current_status != "rejected" and fragment.source_id in sources
+    }
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+
+    for fragment in fragments.values():
+        _set_source_anchor_candidate(
+            candidates,
+            existing_keys=existing_keys,
+            stats=stats,
+            source_id=fragment.source_id,
+            target_id=fragment.fragment_id,
+            relation_type="source_contains_fragment",
+            support_ids=[f"{fragment.source_id}->{fragment.fragment_id}"],
+            evidence_ids=[fragment.fragment_id],
+            origin_paths=_source_fragment_origin_paths(sources[fragment.source_id], fragment),
+        )
+
+    for claim in store.list_claims():
+        if claim.current_status == "rejected":
+            continue
+        for fragment_id in claim.supporting_fragment_ids:
+            if fragment_id not in fragments:
+                continue
+            _set_source_anchor_candidate(
+                candidates,
+                existing_keys=existing_keys,
+                stats=stats,
+                source_id=fragment_id,
+                target_id=claim.claim_id,
+                relation_type="fragment_supports_claim",
+                claim_ids=[claim.claim_id],
+                support_ids=[f"{fragment_id}->{claim.claim_id}"],
+                evidence_ids=[fragment_id],
+                origin_paths=_claim_fragment_origin_paths(claim, fragments[fragment_id], sources[fragments[fragment_id].source_id]),
+            )
+    return candidates
+
+
+def _set_source_anchor_candidate(
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate],
+    *,
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+    source_id: str,
+    target_id: str,
+    relation_type: str,
+    claim_ids: list[str] | None = None,
+    support_ids: list[str] | None = None,
+    evidence_ids: list[str] | None = None,
+    origin_paths: list[str] | None = None,
+) -> None:
+    key = _relation_key(source_id, target_id, relation_type)
+    if key in existing_keys:
+        stats.record_duplicate(key)
+        return
+    candidates[key] = RelationCandidate(
+        source_id=source_id,
+        target_id=target_id,
+        relation_type=relation_type,
+        claim_ids=list(claim_ids or []),
+        support_ids=list(support_ids or []),
+        evidence_ids=list(evidence_ids or []),
+        origin_paths=list(origin_paths or []),
+    )
+
+
+def _source_fragment_origin_paths(source: Any, fragment: Any) -> list[str]:
+    values: list[str] = []
+    for origin_path in (getattr(source, "path", ""), getattr(source, "url", ""), getattr(fragment, "source_id", "")):
+        if origin_path and origin_path not in values:
+            values.append(origin_path)
+    return values
+
+
+def _claim_fragment_origin_paths(claim: Any, fragment: Any, source: Any) -> list[str]:
+    values: list[str] = []
+    for origin_path in (claim.provenance.origin_path, getattr(source, "path", ""), getattr(source, "url", ""), getattr(fragment, "source_id", "")):
+        if origin_path and origin_path not in values:
+            values.append(origin_path)
+    return values
+
+
 def _observation_artifact_origin_paths(observation: Any, artifact: Any) -> list[str]:
     values: list[str] = []
     for origin_path in (observation.provenance.origin_path, artifact.path):
@@ -832,8 +938,10 @@ def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[s
         "claim_may_contradict_claim",
         "claim_supersedes_claim",
         "artifact_contains_observation",
+        "fragment_supports_claim",
         "observation_supports_claim",
         "provides_evidence_for",
+        "source_contains_fragment",
         "distinguishes",
         "qualifies",
     }:

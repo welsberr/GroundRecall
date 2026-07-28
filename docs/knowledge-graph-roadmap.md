@@ -179,9 +179,12 @@ source-observation links and keeps that relation type in the support/provenance
 diagnostic layer rather than the concept-semantic graph layer. The
 `observation-artifact-anchors` strategy now emits
 `artifact_contains_observation` candidates from existing observation artifact
-links, also in the support/provenance layer. `graph-maintenance` now exposes
+links, also in the support/provenance layer. The `source-anchors` strategy now
+emits `source_contains_fragment` and `fragment_supports_claim` candidates from
+existing source/fragment/claim links, again as reviewable support/provenance
+edges rather than reviewed citation support. `graph-maintenance` now exposes
 named profiles so existing cron jobs remain on the `safe` strategy set unless
-high-volume support-anchor backfill is explicitly requested with
+high-volume support/provenance backfill is explicitly requested with
 `--profile support`. Each profile has a separate default maintenance state file
 to avoid cross-profile rotation cursor confusion. Each invocation also acquires
 an atomic lock next to its state file, skips safely if a previous slice is still
@@ -211,8 +214,8 @@ Implementation requirements:
   - conservative semantic contradiction cues; initial opt-in implementation
     exists through `--strategy claim-contradiction-cues` with normalized
     signature buckets and a pair-check budget;
-  - source/artifact/observation anchors for claim support;
-  - citation/source-anchor links;
+  - citation/source-anchor links; initial source/fragment/claim anchor
+    implementation exists through `--strategy source-anchors`;
   - definition, qualification, distinction, dependency, and temporal-validity
     cues where deterministic patterns are strong enough.
 - Record extraction method, evidence ids, support kind, grounding status,
@@ -234,7 +237,7 @@ Implementation requirements:
   implementation exists as `groundrecall graph-maintenance`: it chooses one
   strategy per invocation, applies a candidate limit, records JSON state, and
   rotates to the next configured strategy after applied runs. Named profiles
-  keep high-volume support-anchor strategies out of the default scheduled path.
+  keep high-volume support/provenance strategies out of the default scheduled path.
   Atomic per-state lock files prevent overlapping cron/systemd invocations from
   racing state updates or doubling host load.
 

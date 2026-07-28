@@ -55,6 +55,9 @@ should maintain separate default state files so a support-anchor run does not
 reuse the rotation cursor from the default safe cron path. Each maintenance
 launch should acquire an atomic per-state lock and skip cleanly when another
 slice is active, with stale-lock recovery for interrupted host processes.
+The support profile now covers observation/artifact anchors and source/fragment
+claim anchors as reviewable provenance edges, while the default safe profile
+continues to avoid that higher-volume support/provenance pass.
 
 The detailed path is maintained in
 [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).

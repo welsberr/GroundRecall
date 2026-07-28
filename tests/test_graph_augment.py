@@ -4,7 +4,15 @@ from pathlib import Path
 import sys
 
 from groundrecall.graph_augment import augment_store_relations_from_claims
-from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord
+from groundrecall.models import (
+    ArtifactRecord,
+    ClaimRecord,
+    ConceptRecord,
+    FragmentRecord,
+    ObservationRecord,
+    ProvenanceRecord,
+    SourceRecord,
+)
 from groundrecall.store import GroundRecallStore
 
 
@@ -591,6 +599,125 @@ def test_augment_store_relations_from_observation_artifact_anchors_reports_dupli
     assert second["candidate_relation_count"] == 0
     assert second["filter_summary"]["skipped_duplicate_relation_count"] == 1
     assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"artifact_contains_observation": 1}
+
+
+def test_augment_store_relations_from_source_anchors(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_source(
+        SourceRecord(
+            source_id="src_evo",
+            title="Evolution Source",
+            path="sources/evo.md",
+            current_status="reviewed",
+        )
+    )
+    store.save_fragment(
+        FragmentRecord(
+            fragment_id="frag_evo_selection",
+            source_id="src_evo",
+            text="Selection changes populations.",
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_selection",
+            claim_text="Selection changes populations.",
+            supporting_fragment_ids=["frag_evo_selection", "frag_missing"],
+            provenance=ProvenanceRecord(origin_path="sources/claim.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="source-anchors",
+        apply=True,
+    )
+
+    relations = sorted(store.list_relations(), key=lambda item: item.relation_type)
+    assert payload["candidate_relation_count"] == 2
+    assert payload["relation_type_counts"] == {
+        "fragment_supports_claim": 1,
+        "source_contains_fragment": 1,
+    }
+    assert [(relation.source_id, relation.target_id, relation.relation_type) for relation in relations] == [
+        ("frag_evo_selection", "claim_selection", "fragment_supports_claim"),
+        ("src_evo", "frag_evo_selection", "source_contains_fragment"),
+    ]
+    assert relations[0].evidence_ids == ["frag_evo_selection"]
+    assert relations[0].provenance.origin_path == "sources/claim.md"
+    assert {candidate.finding_codes[-1] for candidate in store.list_review_candidates()} == {"source_anchors"}
+
+
+def test_augment_store_relations_from_source_anchors_skips_rejected_records(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_source(SourceRecord(source_id="src_rejected", title="Rejected", current_status="rejected"))
+    store.save_fragment(
+        FragmentRecord(
+            fragment_id="frag_rejected_source",
+            source_id="src_rejected",
+            text="Should not anchor.",
+            current_status="reviewed",
+        )
+    )
+    store.save_source(SourceRecord(source_id="src_ok", title="OK", current_status="reviewed"))
+    store.save_fragment(
+        FragmentRecord(
+            fragment_id="frag_rejected",
+            source_id="src_ok",
+            text="Should not anchor.",
+            current_status="rejected",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_rejected",
+            claim_text="Rejected claim.",
+            supporting_fragment_ids=["frag_rejected_source", "frag_rejected"],
+            current_status="rejected",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="source-anchors",
+        apply=True,
+    )
+
+    assert payload["candidate_relation_count"] == 0
+    assert store.list_relations() == []
+
+
+def test_augment_store_relations_from_source_anchors_reports_duplicates(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_source(SourceRecord(source_id="src_evo", title="Evolution Source", current_status="reviewed"))
+    store.save_fragment(
+        FragmentRecord(
+            fragment_id="frag_evo_selection",
+            source_id="src_evo",
+            text="Selection changes populations.",
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_selection",
+            claim_text="Selection changes populations.",
+            supporting_fragment_ids=["frag_evo_selection"],
+            current_status="reviewed",
+        )
+    )
+    augment_store_relations_from_claims(store.base_dir, strategy="source-anchors", apply=True)
+
+    second = augment_store_relations_from_claims(store.base_dir, strategy="source-anchors", apply=False)
+
+    assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_count"] == 2
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {
+        "fragment_supports_claim": 1,
+        "source_contains_fragment": 1,
+    }
 
 
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:

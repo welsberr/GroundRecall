@@ -128,6 +128,7 @@ groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu
 groundrecall graph-backfill .groundrecall/store --strategy claim-links
 groundrecall graph-backfill .groundrecall/store --strategy claim-support-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy observation-artifact-anchors --limit 25
+groundrecall graph-backfill .groundrecall/store --strategy source-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy claim-contradiction-cues --concept-prefix concept::evo-edu --max-pair-checks 5000
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
 groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurrence --min-evidence 2
@@ -152,7 +153,8 @@ state under the store by default. It is intended for cron/systemd-style periodic
 launches with a small `--limit`, not as a long-running daemon. Its default
 `safe` profile avoids high-volume support-anchor strategies; use
 `--profile support` explicitly to backfill claim/observation/artifact support
-anchors. Each profile uses a separate default state file under
+anchors and source/fragment/claim provenance anchors. Each profile uses a
+separate default state file under
 `.groundrecall/store/.maintenance/` unless `--state-path` is provided. Each run
 also takes an atomic lock next to the state file so overlapping scheduler
 invocations skip safely by default. Use `--fail-if-locked` when the scheduler

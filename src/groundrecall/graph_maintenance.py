@@ -16,7 +16,7 @@ from .graph_augment import VALID_STRATEGIES, augment_store_relations_from_claims
 DEFAULT_STRATEGIES = ["claim-cooccurrence", "claim-mentions", "observation-cooccurrence", "source-family"]
 PROFILE_STRATEGIES = {
     "safe": DEFAULT_STRATEGIES,
-    "support": ["claim-support-anchors", "observation-artifact-anchors"],
+    "support": ["claim-support-anchors", "observation-artifact-anchors", "source-anchors"],
     "semantic": ["claim-links", "claim-contradiction-cues", "claim-mentions"],
     "all": [
         "claim-cooccurrence",
@@ -26,6 +26,7 @@ PROFILE_STRATEGIES = {
         "source-family",
         "claim-support-anchors",
         "observation-artifact-anchors",
+        "source-anchors",
         "claim-contradiction-cues",
     ],
 }

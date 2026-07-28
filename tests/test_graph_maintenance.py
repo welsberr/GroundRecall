@@ -250,12 +250,20 @@ def test_graph_maintenance_support_profile_runs_support_anchors(tmp_path: Path) 
         limit=1,
         apply=True,
     )
+    third = run_graph_maintenance_slice(
+        store.base_dir,
+        state_path=state_path,
+        profile="support",
+        limit=1,
+        apply=True,
+    )
 
     state = json.loads(state_path.read_text(encoding="utf-8"))
     assert first["selected_strategy"] == "claim-support-anchors"
     assert second["selected_strategy"] == "observation-artifact-anchors"
+    assert third["selected_strategy"] == "source-anchors"
     assert state["profile"] == "support"
-    assert state["strategies"] == ["claim-support-anchors", "observation-artifact-anchors"]
+    assert state["strategies"] == ["claim-support-anchors", "observation-artifact-anchors", "source-anchors"]
     assert len(store.list_relations()) == 2
 
 
