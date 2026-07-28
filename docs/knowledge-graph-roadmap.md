@@ -176,7 +176,10 @@ signature-bucketed, and bounded by `--max-pair-checks`; it is not part of the
 default periodic maintenance strategy list. The `claim-support-anchors`
 strategy now emits `observation_supports_claim` candidates from existing claim
 source-observation links and keeps that relation type in the support/provenance
-diagnostic layer rather than the concept-semantic graph layer.
+diagnostic layer rather than the concept-semantic graph layer. The
+`observation-artifact-anchors` strategy now emits
+`artifact_contains_observation` candidates from existing observation artifact
+links, also in the support/provenance layer.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -197,7 +200,8 @@ Implementation requirements:
   - explicit claim-to-claim contradiction and supersession fields; initial
     implementation exists through `--strategy claim-links`;
   - source/artifact/observation anchors for claim support; initial observation
-    support implementation exists through `--strategy claim-support-anchors`;
+    support implementation exists through `--strategy claim-support-anchors`
+    and `--strategy observation-artifact-anchors`;
   - conservative semantic contradiction cues; initial opt-in implementation
     exists through `--strategy claim-contradiction-cues` with normalized
     signature buckets and a pair-check budget;

@@ -127,6 +127,7 @@ groundrecall query .groundrecall/store "reliable communication" --kind graph-sea
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu --min-evidence 2
 groundrecall graph-backfill .groundrecall/store --strategy claim-links
 groundrecall graph-backfill .groundrecall/store --strategy claim-support-anchors --limit 25
+groundrecall graph-backfill .groundrecall/store --strategy observation-artifact-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy claim-contradiction-cues --concept-prefix concept::evo-edu --max-pair-checks 5000
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
 groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurrence --min-evidence 2

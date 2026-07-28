@@ -121,16 +121,26 @@ def test_graph_diagnostics_separate_source_family_from_semantic_edges(tmp_path: 
             current_status="triaged",
         )
     )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_artifact_observation",
+            source_id="art_alpha",
+            target_id="obs_alpha",
+            relation_type="artifact_contains_observation",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
 
     payload = inspect_store(store.base_dir, include_graph=True)
     summary = payload["graph_diagnostics"]["summary"]
 
-    assert summary["total_relation_count"] == 2
-    assert summary["provenance_relation_count"] == 2
+    assert summary["total_relation_count"] == 3
+    assert summary["provenance_relation_count"] == 3
     assert summary["relation_count"] == 0
     assert summary["connected_component_count"] == 2
     assert payload["graph_diagnostics"]["relation_quality"]["inferred_relation_count"] == 0
-    assert payload["graph_diagnostics"]["provenance_relation_quality"]["inferred_relation_count"] == 2
+    assert payload["graph_diagnostics"]["provenance_relation_quality"]["inferred_relation_count"] == 3
 
 
 def test_groundrecall_cli_inspect_dispatches(tmp_path: Path, capsys) -> None:

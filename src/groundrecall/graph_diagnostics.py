@@ -10,6 +10,7 @@ PROVENANCE_RELATION_TYPES = {
     "claim_contradicts_claim",
     "claim_may_contradict_claim",
     "claim_supersedes_claim",
+    "artifact_contains_observation",
     "observation_supports_claim",
     "same_source_family",
 }

@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 from groundrecall.graph_augment import augment_store_relations_from_claims
-from groundrecall.models import ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord
+from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord
 from groundrecall.store import GroundRecallStore
 
 
@@ -516,6 +516,81 @@ def test_augment_store_relations_from_claim_support_anchors_reports_duplicates(t
     assert second["candidate_relation_count"] == 0
     assert second["filter_summary"]["skipped_duplicate_relation_count"] == 1
     assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"observation_supports_claim": 1}
+
+
+def test_augment_store_relations_from_observation_artifact_anchors(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_artifact(
+        ArtifactRecord(
+            artifact_id="art_source",
+            artifact_kind="source_note",
+            title="Source Note",
+            path="sources/source.md",
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_source",
+            artifact_id="art_source",
+            role="evidence",
+            text="Observed support.",
+            provenance=ProvenanceRecord(origin_path="sources/source.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_missing_artifact",
+            artifact_id="art_missing",
+            role="evidence",
+            text="Missing artifact.",
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="observation-artifact-anchors",
+        apply=True,
+    )
+
+    relations = store.list_relations()
+    assert payload["candidate_relation_count"] == 1
+    assert payload["relation_type_counts"] == {"artifact_contains_observation": 1}
+    assert relations[0].source_id == "art_source"
+    assert relations[0].target_id == "obs_source"
+    assert relations[0].relation_type == "artifact_contains_observation"
+    assert relations[0].evidence_ids == ["obs_source"]
+    assert relations[0].provenance.origin_path == "sources/source.md"
+    assert store.list_review_candidates()[0].finding_codes == ["relation_inferred", "observation_artifact_anchors"]
+
+
+def test_augment_store_relations_from_observation_artifact_anchors_reports_duplicates(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_artifact(
+        ArtifactRecord(
+            artifact_id="art_source",
+            artifact_kind="source_note",
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_source",
+            artifact_id="art_source",
+            role="evidence",
+            text="Observed support.",
+            current_status="reviewed",
+        )
+    )
+    augment_store_relations_from_claims(store.base_dir, strategy="observation-artifact-anchors", apply=True)
+
+    second = augment_store_relations_from_claims(store.base_dir, strategy="observation-artifact-anchors", apply=False)
+
+    assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_count"] == 1
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"artifact_contains_observation": 1}
 
 
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:

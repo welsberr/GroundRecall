@@ -22,12 +22,14 @@ OBSERVATION_COOCCURRENCE_EXTRACTOR_NAME = "groundrecall.store_observation_cooccu
 CLAIM_LINKS_EXTRACTOR_NAME = "groundrecall.store_claim_links.v1"
 CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME = "groundrecall.store_claim_contradiction_cues.v1"
 CLAIM_SUPPORT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_claim_support_anchors.v1"
+OBSERVATION_ARTIFACT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_observation_artifact_anchors.v1"
 VALID_STRATEGIES = {
     "claim-contradiction-cues",
     "claim-cooccurrence",
     "claim-links",
     "claim-mentions",
     "claim-support-anchors",
+    "observation-artifact-anchors",
     "observation-cooccurrence",
     "source-family",
 }
@@ -123,6 +125,15 @@ def augment_store_relations_from_claims(
             relation_type=relation_type,
         )
         extractor = CLAIM_SUPPORT_ANCHORS_EXTRACTOR_NAME
+    elif strategy == "observation-artifact-anchors":
+        relation_type = "artifact_contains_observation"
+        candidates = _observation_artifact_anchor_candidates(
+            store,
+            existing_keys=existing_keys,
+            stats=stats,
+            relation_type=relation_type,
+        )
+        extractor = OBSERVATION_ARTIFACT_ANCHORS_EXTRACTOR_NAME
     elif strategy == "claim-mentions":
         relation_type = "mentions_topic"
         candidates = _claim_mentions_candidates(
@@ -158,7 +169,15 @@ def augment_store_relations_from_claims(
 
     effective_min_evidence = (
         1
-        if strategy in {"claim-contradiction-cues", "claim-links", "claim-mentions", "claim-support-anchors", "source-family"}
+        if strategy
+        in {
+            "claim-contradiction-cues",
+            "claim-links",
+            "claim-mentions",
+            "claim-support-anchors",
+            "observation-artifact-anchors",
+            "source-family",
+        }
         else max(1, int(min_evidence))
     )
     eligible = [
@@ -452,6 +471,46 @@ def _claim_support_anchor_candidates(
                 origin_paths=_support_anchor_origin_paths(observation, claim),
             )
     return candidates
+
+
+def _observation_artifact_anchor_candidates(
+    store: GroundRecallStore,
+    *,
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+    relation_type: str,
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    artifacts = {
+        artifact.artifact_id: artifact
+        for artifact in store.list_artifacts()
+        if artifact.current_status != "rejected"
+    }
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+    for observation in store.list_observations():
+        if observation.current_status == "rejected" or not observation.artifact_id or observation.artifact_id not in artifacts:
+            continue
+        key = _relation_key(observation.artifact_id, observation.observation_id, relation_type)
+        if key in existing_keys:
+            stats.record_duplicate(key)
+            continue
+        artifact = artifacts[observation.artifact_id]
+        candidates[key] = RelationCandidate(
+            source_id=observation.artifact_id,
+            target_id=observation.observation_id,
+            relation_type=relation_type,
+            support_ids=[f"{observation.artifact_id}->{observation.observation_id}"],
+            evidence_ids=[observation.observation_id],
+            origin_paths=_observation_artifact_origin_paths(observation, artifact),
+        )
+    return candidates
+
+
+def _observation_artifact_origin_paths(observation: Any, artifact: Any) -> list[str]:
+    values: list[str] = []
+    for origin_path in (observation.provenance.origin_path, artifact.path):
+        if origin_path and origin_path not in values:
+            values.append(origin_path)
+    return values
 
 
 def _support_anchor_origin_paths(observation: Any, claim: Any) -> list[str]:
@@ -772,6 +831,7 @@ def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[s
         "claim_contradicts_claim",
         "claim_may_contradict_claim",
         "claim_supersedes_claim",
+        "artifact_contains_observation",
         "observation_supports_claim",
         "provides_evidence_for",
         "distinguishes",
