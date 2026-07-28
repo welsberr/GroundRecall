@@ -201,6 +201,9 @@ relations and report reviewed versus candidate relation counts separately for
 semantic and provenance layers. Graph augmentation now applies the same
 private/no-export/secret-like metadata screen used by public export guardrails
 before records can seed inferred candidate edges.
+Store-level `graph-backfill` and `graph-maintenance` now expose
+`--extractor-mode none|heuristic`, matching the implemented import extraction
+modes and leaving `llm` as a future optional mode.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -273,7 +276,9 @@ Acceptance tests:
   evidence when appropriate.
 - Diagnostics distinguish sparse reviewed semantics from available projection
   structure and candidate semantic structure.
-- Support extractor modes: `none`, `heuristic`, and later `llm`.
+- Support extractor modes: `none`, `heuristic`, and later `llm`. Import,
+  store-level backfill, and scheduled maintenance now support `none` and
+  `heuristic`; `llm` remains future work.
 - Keep inferred candidates in draft/triage state.
 - Current heuristic mode emits draft `co_occurs_with` relation candidates from
   existing concept co-mentions in imported observations, with observation

@@ -10,7 +10,7 @@ import time
 import uuid
 from typing import Any
 
-from .graph_augment import VALID_STRATEGIES, augment_store_relations_from_claims
+from .graph_augment import VALID_EXTRACTOR_MODES, VALID_STRATEGIES, augment_store_relations_from_claims
 
 
 DEFAULT_STRATEGIES = ["claim-cooccurrence", "claim-mentions", "observation-cooccurrence", "source-family"]
@@ -61,6 +61,7 @@ def run_graph_maintenance_slice(
     stale_lock_seconds: int = 3600,
     strategies: list[str] | None = None,
     profile: str = "safe",
+    extractor_mode: str = "heuristic",
     concept_prefixes: list[str] | None = None,
     limit: int = 10,
     min_evidence: int = 2,
@@ -100,6 +101,7 @@ def run_graph_maintenance_slice(
             "selected_strategy": "",
             "next_strategy": "",
             "profile": profile,
+            "extractor_mode": extractor_mode,
             "strategies": active_strategies,
             "run_record": {},
             "augmentation": {},
@@ -115,6 +117,7 @@ def run_graph_maintenance_slice(
             concept_prefixes=list(concept_prefixes or []),
             min_evidence=min_evidence,
             strategy=strategy,
+            extractor_mode=extractor_mode,
             limit=max(0, int(limit)),
             max_pair_checks=max(0, int(max_pair_checks)),
             apply=apply,
@@ -122,6 +125,7 @@ def run_graph_maintenance_slice(
         run_record = {
             "ran_at": _now(),
             "strategy": strategy,
+            "extractor_mode": extractor_mode,
             "applied": apply,
             "limit": max(0, int(limit)),
             "min_evidence": augmentation.get("min_evidence", min_evidence),
@@ -160,6 +164,7 @@ def run_graph_maintenance_slice(
             "selected_strategy": strategy,
             "next_strategy": active_strategies[next_strategy_index],
             "profile": profile,
+            "extractor_mode": extractor_mode,
             "strategies": active_strategies,
             "run_record": run_record,
             "augmentation": augmentation,
@@ -244,6 +249,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--state-path", default=None)
     parser.add_argument("--lock-path", default=None)
     parser.add_argument("--profile", choices=sorted(PROFILE_STRATEGIES), default="safe")
+    parser.add_argument("--extractor-mode", choices=sorted(VALID_EXTRACTOR_MODES), default="heuristic")
     parser.add_argument("--strategy", action="append", choices=sorted(VALID_STRATEGIES), default=[])
     parser.add_argument("--concept-prefix", action="append", default=[])
     parser.add_argument("--limit", type=int, default=10, help="Maximum candidate relations to process in this slice.")
@@ -266,6 +272,7 @@ def main() -> None:
         stale_lock_seconds=args.stale_lock_seconds,
         strategies=list(args.strategy or []),
         profile=args.profile,
+        extractor_mode=args.extractor_mode,
         concept_prefixes=list(args.concept_prefix or []),
         limit=args.limit,
         min_evidence=args.min_evidence,

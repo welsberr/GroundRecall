@@ -58,6 +58,28 @@ def test_graph_maintenance_dry_run_does_not_write_or_advance_state(tmp_path: Pat
     assert not state_path.exists()
 
 
+def test_graph_maintenance_extractor_mode_none_can_advance_without_candidates(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+    state_path = tmp_path / "state.json"
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        state_path=state_path,
+        strategies=["claim-cooccurrence", "source-family"],
+        extractor_mode="none",
+        limit=1,
+        apply=True,
+    )
+
+    state = json.loads(state_path.read_text(encoding="utf-8"))
+    assert payload["extractor_mode"] == "none"
+    assert payload["augmentation"]["extractor_mode"] == "none"
+    assert payload["augmentation"]["candidate_relation_count"] == 0
+    assert payload["next_strategy"] == "source-family"
+    assert state["last_run"]["extractor_mode"] == "none"
+    assert store.list_relations() == []
+
+
 def test_graph_maintenance_default_profile_remains_safe(tmp_path: Path) -> None:
     store = _seed_claim_cooccurrence_store(tmp_path / "store")
 

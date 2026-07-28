@@ -82,6 +82,24 @@ def test_augment_store_relations_from_claims_apply_writes_reviewable_relation(tm
     assert payload["diagnostic_layers"]["candidate_semantic_relations"] == 1
 
 
+def test_augment_store_relations_extractor_mode_none_disables_candidate_generation(tmp_path: Path) -> None:
+    store = _seed_store(tmp_path / "store")
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        concept_prefixes=["concept::evo-edu"],
+        min_evidence=2,
+        extractor_mode="none",
+        apply=True,
+    )
+
+    assert payload["extractor_mode"] == "none"
+    assert payload["extractor"] == "none"
+    assert payload["candidate_relation_count"] == 0
+    assert payload["write_summary"]["relation_write_count"] == 0
+    assert store.list_relations() == []
+
+
 def test_augment_store_relations_from_claims_is_idempotent(tmp_path: Path) -> None:
     store = _seed_store(tmp_path / "store")
 

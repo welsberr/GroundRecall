@@ -130,6 +130,7 @@ groundrecall graph-backfill .groundrecall/store --strategy claim-support-anchors
 groundrecall graph-backfill .groundrecall/store --strategy observation-artifact-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy source-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy claim-semantic-cues --limit 25
+groundrecall graph-backfill .groundrecall/store --strategy claim-cooccurrence --extractor-mode none
 groundrecall graph-backfill .groundrecall/store --strategy claim-contradiction-cues --concept-prefix concept::evo-edu --max-pair-checks 5000
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
 groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurrence --min-evidence 2
@@ -164,6 +165,9 @@ host needs faster or slower recovery after an interrupted maintenance process.
 Use `--profile semantic` for opt-in claim links, contradiction cues, topic
 mentions, and deterministic semantic cue backfill for definitions,
 qualifications, distinctions, dependencies, and temporal scope.
+Use `--extractor-mode none` on `graph-backfill` or `graph-maintenance` when a
+scheduled run should exercise filtering/state behavior without generating
+candidates; `heuristic` is the default implemented extractor mode.
 
 Export assistant-neutral data:
 

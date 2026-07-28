@@ -38,6 +38,7 @@ VALID_STRATEGIES = {
     "source-anchors",
     "source-family",
 }
+VALID_EXTRACTOR_MODES = {"heuristic", "none"}
 
 
 @dataclass
@@ -78,12 +79,15 @@ def augment_store_relations_from_claims(
     relation_type: str = DEFAULT_RELATION_TYPE,
     min_evidence: int = 2,
     strategy: str = "claim-cooccurrence",
+    extractor_mode: str = "heuristic",
     limit: int | None = None,
     max_pair_checks: int = 50000,
     apply: bool = False,
 ) -> dict[str, Any]:
     if strategy not in VALID_STRATEGIES:
         raise ValueError(f"Unknown graph augmentation strategy: {strategy}")
+    if extractor_mode not in VALID_EXTRACTOR_MODES:
+        raise ValueError(f"Unknown graph augmentation extractor mode: {extractor_mode}")
     store = GroundRecallStore(store_dir)
     concepts = {item.concept_id: item for item in store.list_concepts() if _is_graph_backfill_eligible(item, "concept", item.concept_id)}
     existing_keys = {
@@ -92,7 +96,10 @@ def augment_store_relations_from_claims(
     }
     stats = AugmentStats()
     prefixes = [item for item in (concept_prefixes or []) if item]
-    if strategy == "claim-cooccurrence":
+    if extractor_mode == "none":
+        candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+        extractor = "none"
+    elif strategy == "claim-cooccurrence":
         candidates = _claim_cooccurrence_candidates(
             store,
             concepts=concepts,
@@ -255,6 +262,7 @@ def augment_store_relations_from_claims(
         "store_dir": str(store.base_dir),
         "applied": apply,
         "extractor": extractor,
+        "extractor_mode": extractor_mode,
         "strategy": strategy,
         "relation_type": relation_type,
         "concept_prefixes": prefixes,
@@ -1307,6 +1315,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("store_dir")
     parser.add_argument("--concept-prefix", action="append", default=[])
     parser.add_argument("--strategy", choices=sorted(VALID_STRATEGIES), default="claim-cooccurrence")
+    parser.add_argument("--extractor-mode", choices=sorted(VALID_EXTRACTOR_MODES), default="heuristic")
     parser.add_argument("--relation-type", default=DEFAULT_RELATION_TYPE)
     parser.add_argument("--min-evidence", type=int, default=2)
     parser.add_argument("--limit", type=int, default=None)
@@ -1323,6 +1332,7 @@ def main() -> None:
         relation_type=args.relation_type,
         min_evidence=args.min_evidence,
         strategy=args.strategy,
+        extractor_mode=args.extractor_mode,
         limit=args.limit,
         max_pair_checks=args.max_pair_checks,
         apply=args.apply,
