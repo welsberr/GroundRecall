@@ -68,6 +68,9 @@ Initial implementation status:
   policy-plugin configs alongside the existing federation grant policy. Plugin
   hard-gate and deny decisions block export/import/promotion, and plugin
   decisions are recorded in federation audit metadata.
+- Canonical public export accepts optional policy-plugin configs. Plugin
+  hard-gate and deny decisions block export before output directories are
+  created; softer decisions are recorded in export and provenance manifests.
 - `tests/test_policy_plugins.py` covers structured decisions, conservative
   composition, ClaimWright-style hard gates, conditional public claim review,
   and plugin loading.

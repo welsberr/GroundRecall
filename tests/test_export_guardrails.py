@@ -4,7 +4,9 @@ import json
 from pathlib import Path
 
 from groundrecall.assistant_export import export_assistant_bundle
-from groundrecall.export import export_canonical_bundle, export_graph_bundle, export_query_bundle
+import pytest
+
+from groundrecall.export import ExportPolicyError, export_canonical_bundle, export_graph_bundle, export_query_bundle
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, RelationRecord, SourceRecord
 from groundrecall.store import GroundRecallStore
 
@@ -169,6 +171,69 @@ def test_canonical_export_filters_private_draft_and_secret_records(tmp_path: Pat
     assert "metadata:metadata.release_status:no_export" in reasons
     assert "secret_like_content" in reasons
     assert "status:draft" in reasons
+
+
+def test_canonical_export_policy_plugin_hard_gate_blocks_before_output(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_public_base(store)
+    policy_plugins = tmp_path / "policy-plugins.yaml"
+    policy_plugins.write_text(
+        "\n".join(
+            [
+                "policy_id: public-export.blocking.policy",
+                "providers:",
+                "  - type: static",
+                "    policy_id: public-export.static.hard_gate",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "exports"
+
+    with pytest.raises(ExportPolicyError, match="policy_plugin_hard_gate:default_hard_gate"):
+        export_canonical_bundle(
+            store.base_dir,
+            out_dir,
+            concept_refs=["channel-capacity"],
+            policy_plugins_path=policy_plugins,
+            requester_id="agent-1",
+        )
+
+    assert not out_dir.exists()
+
+
+def test_canonical_export_policy_plugin_soft_gate_is_recorded(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_public_base(store)
+    policy_plugins = tmp_path / "policy-plugins.yaml"
+    policy_plugins.write_text(
+        "\n".join(
+            [
+                "policy_id: public-export.soft.policy",
+                "providers:",
+                "  - type: static",
+                "    policy_id: public-export.static.soft_gate",
+                "    default_decision: soft_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "exports"
+
+    payload = export_canonical_bundle(
+        store.base_dir,
+        out_dir,
+        concept_refs=["channel-capacity"],
+        policy_plugins_path=policy_plugins,
+        requester_id="agent-1",
+    )
+
+    manifest = json.loads((out_dir / "export_manifest.json").read_text(encoding="utf-8"))
+    provenance = json.loads((out_dir / "provenance_manifest.json").read_text(encoding="utf-8"))
+    assert payload["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert manifest["policy_plugin_decision"]["policy_id"] == "public-export.soft.policy"
+    assert provenance["policy_plugin_decision"]["decision"] == "soft_gate"
 
 
 def test_query_bundle_prunes_private_support_references(tmp_path: Path) -> None:

@@ -19,6 +19,7 @@ from epistemap import (
 
 from .export_guardrails import filter_query_payload_for_public_export, filter_snapshot_for_public_export
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .query import build_graph_bundle_for_concept, build_query_bundle_for_concept
 from .store import GroundRecallStore
 
@@ -36,6 +37,42 @@ def _write_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     if text:
         text += "\n"
     path.write_text(text, encoding="utf-8")
+
+
+class ExportPolicyError(PermissionError):
+    """Raised when a generic policy plugin blocks a public export."""
+
+
+def _evaluate_export_policy(
+    policy_plugins_path: str | Path | None,
+    *,
+    requester_id: str = "",
+    policy_request: dict[str, Any] | None = None,
+) -> PolicyDecision | None:
+    if policy_plugins_path is None:
+        return None
+    request_payload: dict[str, Any] = {
+        "decision_point": "publish",
+        "subject_id": requester_id,
+        "action": "export_canonical_bundle",
+        "target_release_level": "public",
+        "public_facing": True,
+    }
+    request_payload.update(policy_request or {})
+    provider = load_policy_plugins(policy_plugins_path)
+    return provider.evaluate(PolicyRequest(**request_payload))
+
+
+def _blocked_export_policy_reasons(decision: PolicyDecision | None) -> list[str]:
+    if decision is None or decision.decision not in {"deny", "hard_gate"}:
+        return []
+    return [f"policy_plugin_{decision.decision}:{reason}" for reason in (decision.reasons or [decision.policy_id])]
+
+
+def _policy_decision_payload(decision: PolicyDecision | None) -> dict[str, Any]:
+    if decision is None:
+        return {}
+    return {"policy_plugin_decision": decision.model_dump(mode="json")}
 
 
 def _graph_interchange_bundle(snapshot, diagnostics: dict[str, Any]) -> dict[str, Any]:
@@ -114,6 +151,7 @@ def export_canonical_snapshot(
     metadata: dict[str, Any] | None = None,
     include_graph_diagnostics: bool = False,
     include_graph_interchange: bool = False,
+    policy_decision: PolicyDecision | None = None,
 ) -> dict[str, str]:
     store = GroundRecallStore(store_dir)
     target = Path(out_dir)
@@ -157,6 +195,7 @@ def export_canonical_snapshot(
         "artifact_count": len(snapshot.artifacts),
         "observation_count": len(snapshot.observations),
         "export_guardrails": guardrail_report,
+        **_policy_decision_payload(policy_decision),
         "graph_diagnostics": str(graph_diagnostics_path) if include_graph_diagnostics else "",
         "graph_interchange": str(graph_interchange_path) if include_graph_interchange else "",
     }
@@ -165,6 +204,7 @@ def export_canonical_snapshot(
         "export_kind": "canonical",
         "snapshot_id": snapshot.snapshot_id,
         "export_guardrails": guardrail_report,
+        **_policy_decision_payload(policy_decision),
         "files": [
             "groundrecall_snapshot.json",
             "claims.jsonl",
@@ -317,7 +357,18 @@ def export_canonical_bundle(
     include_graph_interchange: bool = False,
     snapshot_id: str | None = None,
     pack_ready_concept: str | None = None,
+    policy_plugins_path: str | Path | None = None,
+    requester_id: str = "",
+    policy_request: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    policy_decision = _evaluate_export_policy(
+        policy_plugins_path,
+        requester_id=requester_id,
+        policy_request=policy_request,
+    )
+    block_reasons = _blocked_export_policy_reasons(policy_decision)
+    if block_reasons:
+        raise ExportPolicyError(";".join(block_reasons))
     target = Path(out_dir)
     target.mkdir(parents=True, exist_ok=True)
     outputs = export_canonical_snapshot(
@@ -326,6 +377,7 @@ def export_canonical_bundle(
         snapshot_id=snapshot_id,
         include_graph_diagnostics=include_graph_diagnostics,
         include_graph_interchange=include_graph_interchange,
+        policy_decision=policy_decision,
     )
     query_bundle_paths: list[str] = []
     for concept_ref in concept_refs or []:
@@ -345,6 +397,7 @@ def export_canonical_bundle(
     manifest = json.loads((target / "export_manifest.json").read_text(encoding="utf-8"))
     manifest["query_bundles"] = query_bundle_paths
     manifest["graph_bundles"] = graph_bundle_paths
+    manifest.update(_policy_decision_payload(policy_decision))
     if pack_ready_bundle is not None:
         manifest["groundrecall_query_bundle"] = pack_ready_bundle["bundle_path"]
         if pack_ready_bundle.get("epistemap_graph_path"):
@@ -363,6 +416,7 @@ def export_canonical_bundle(
         "query_bundles": query_bundle_paths,
         "graph_bundles": graph_bundle_paths,
         "groundrecall_query_bundle": pack_ready_bundle,
+        **_policy_decision_payload(policy_decision),
     }
 
 
@@ -377,6 +431,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--include-graph-diagnostics", action="store_true")
     parser.add_argument("--include-graph-interchange", action="store_true")
     parser.add_argument("--pack-ready-concept", default=None)
+    parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
+    parser.add_argument("--requester-id", default="", help="Subject/principal requesting export.")
     return parser
 
 
@@ -392,5 +448,7 @@ def main() -> None:
         include_graph_interchange=args.include_graph_interchange,
         snapshot_id=args.snapshot_id,
         pack_ready_concept=args.pack_ready_concept,
+        policy_plugins_path=args.policy_plugins,
+        requester_id=args.requester_id,
     )
     print(json.dumps(payload, indent=2))
