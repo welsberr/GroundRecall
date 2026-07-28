@@ -6,7 +6,11 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from groundrecall.contradictions import adjudicate_contradiction_case, sync_contradiction_cases_for_store
+from groundrecall.contradictions import (
+    ContradictionPolicyError,
+    adjudicate_contradiction_case,
+    sync_contradiction_cases_for_store,
+)
 from groundrecall.federation import (
     FederationLocalPolicy,
     FederationPolicyGrant,
@@ -16,6 +20,7 @@ from groundrecall.federation import (
     plan_quarantine_promotion,
     promote_quarantined_bundle,
 )
+from groundrecall.ingest import run_groundrecall_import
 from groundrecall.models import (
     ArtifactRecord,
     ClaimRecord,
@@ -24,8 +29,13 @@ from groundrecall.models import (
     PromotionRecord,
     ProvenanceRecord,
     SourceRecord,
+    RelationRecord,
+    ReviewCandidateRecord,
 )
+from groundrecall.policy import PolicyRequest, load_policy_plugins
+from groundrecall.promotion import PromotionGateError, promote_import_to_store
 from groundrecall.query import query_concept
+from groundrecall.relation_review import RelationReviewPolicyError, apply_relation_review_batch
 from groundrecall.store import GroundRecallStore
 
 
@@ -351,6 +361,189 @@ def demo_local_authority(work_dir: Path) -> dict[str, Any]:
     }
 
 
+def _write_static_policy_config(path: Path, *, policy_id: str, decision: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                f"policy_id: {policy_id}",
+                "providers:",
+                "  - type: groundrecall.static",
+                f"    policy_id: {policy_id}.static",
+                f"    default_decision: {decision}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _write_claimwright_style_policy(root: Path) -> Path:
+    policy_dir = root / "policies"
+    policy_dir.mkdir(parents=True, exist_ok=True)
+    (policy_dir / "enforcement.yaml").write_text(
+        "\n".join(
+            [
+                "version: 0.1",
+                "defaults:",
+                "  durable_memory_changes: soft_gate",
+                "  public_release: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (policy_dir / "claim_states.yaml").write_text(
+        "\n".join(
+            [
+                "version: 0.1",
+                "claim_states:",
+                "  - id: private_only_speculation",
+                "    public_allowed: false",
+                "  - id: supported_by_primary_evidence",
+                "    public_allowed: conditional",
+                "  - id: public_safe",
+                "    public_allowed: true",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return root
+
+
+def _write_claimwright_plugin_config(path: Path, *, claimwright_root: Path) -> Path:
+    path.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: preprint.claimwright.composed",
+                "providers:",
+                "  - type: claimwright.directory",
+                f"    root_dir: {claimwright_root}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def demo_policy_plugin_boundary(work_dir: Path) -> dict[str, Any]:
+    policy_dir = work_dir / "policy_demo"
+    allow_config = _write_static_policy_config(policy_dir / "soft-policy.yaml", policy_id="preprint.soft_policy", decision="soft_gate")
+    hard_config = _write_static_policy_config(policy_dir / "hard-policy.yaml", policy_id="preprint.hard_policy", decision="hard_gate")
+    claimwright_root = _write_claimwright_style_policy(policy_dir / "claimwright_policy")
+    claimwright_config = _write_claimwright_plugin_config(policy_dir / "claimwright-plugin.yaml", claimwright_root=claimwright_root)
+
+    soft_decision = load_policy_plugins(allow_config).evaluate(
+        PolicyRequest(
+            decision_point="promote",
+            subject_id="demo-agent",
+            action="promote_import_to_store",
+            durable_memory_change=True,
+        )
+    )
+    claimwright_decision = load_policy_plugins(claimwright_config).evaluate(
+        PolicyRequest(
+            decision_point="publish",
+            subject_id="demo-agent",
+            action="publish_public_claim",
+            public_facing=True,
+            target_release_level="public",
+            claim_state="private_only_speculation",
+        )
+    )
+
+    import_root = work_dir / "policy_import_source"
+    (import_root / "wiki").mkdir(parents=True, exist_ok=True)
+    (import_root / "wiki" / "policy.md").write_text("# Policy Demo\n\n- A policy-gated claim.\n", encoding="utf-8")
+    import_result = run_groundrecall_import(import_root, mode="quick", import_id="policy-plugin-promotion-demo")
+    promotion_blocked = False
+    try:
+        promote_import_to_store(
+            import_result.out_dir,
+            work_dir / "policy_promotion_store",
+            reviewer="policy-demo-reviewer",
+            policy_plugins_path=hard_config,
+            policy_subject_id="demo-agent",
+        )
+    except PromotionGateError as exc:
+        promotion_blocked = exc.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+
+    contradiction_store = _base_store(work_dir / "policy_contradiction_store")
+    contradiction_store.save_claim(ClaimRecord(claim_id="policy_a", claim_text="Policy A.", contradicts_claim_ids=["policy_b"], current_status="promoted"))
+    contradiction_store.save_claim(ClaimRecord(claim_id="policy_b", claim_text="Policy B.", current_status="promoted"))
+    contradiction_case = sync_contradiction_cases_for_store(contradiction_store.base_dir)[0]
+    adjudication_blocked = False
+    try:
+        adjudicate_contradiction_case(
+            contradiction_store.base_dir,
+            case_id=contradiction_case.case_id,
+            status="resolved",
+            adjudicator="policy-demo-reviewer",
+            rationale="Would resolve if policy allowed.",
+            policy_plugins_path=hard_config,
+            policy_subject_id="demo-agent",
+        )
+    except ContradictionPolicyError as exc:
+        adjudication_blocked = exc.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+
+    relation_store = _base_store(work_dir / "policy_relation_store")
+    relation_store.save_concept(ConceptRecord(concept_id="concept::policy_a", title="Policy A", current_status="reviewed"))
+    relation_store.save_concept(ConceptRecord(concept_id="concept::policy_b", title="Policy B", current_status="reviewed"))
+    relation_store.save_relation(
+        RelationRecord(
+            relation_id="rel_policy_demo",
+            source_id="concept::policy_a",
+            target_id="concept::policy_b",
+            relation_type="mentions_topic",
+            current_status="triaged",
+        )
+    )
+    relation_store.save_review_candidate(
+        ReviewCandidateRecord(
+            review_candidate_id="rq_rel_policy_demo",
+            candidate_type="relation",
+            candidate_id="rel_policy_demo",
+            triage_lane="relation_review",
+            current_status="triaged",
+        )
+    )
+    relation_decision_path = work_dir / "relation-policy-decisions.json"
+    relation_decision_path.write_text(
+        json.dumps(
+            {
+                "reviewer": "policy-demo-reviewer",
+                "decisions": [{"relation_id": "rel_policy_demo", "status": "reviewed", "relation_type": "supports"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    relation_review_blocked = False
+    try:
+        apply_relation_review_batch(
+            relation_store.base_dir,
+            relation_decision_path,
+            policy_plugins_path=hard_config,
+            policy_subject_id="demo-agent",
+        )
+    except RelationReviewPolicyError as exc:
+        relation_review_blocked = exc.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+
+    return {
+        "demo": "policy_plugin_boundary",
+        "schema_version": "groundrecall.policy_plugins.v1",
+        "soft_policy_decision": soft_decision.decision,
+        "claimwright_adapter_decision": claimwright_decision.decision,
+        "claimwright_adapter_reasons": claimwright_decision.reasons,
+        "promotion_blocked_before_store_write": promotion_blocked and not (work_dir / "policy_promotion_store").exists(),
+        "adjudication_blocked_before_record_write": adjudication_blocked and contradiction_store.list_adjudications() == [],
+        "relation_review_blocked_before_relation_write": relation_review_blocked
+        and relation_store.get_relation("rel_policy_demo").current_status == "triaged"
+        and relation_store.list_promotions() == [],
+        "result": "pass",
+    }
+
+
 def run(output_dir: Path) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="groundrecall-preprint-demos-") as tmp:
         work_dir = Path(tmp)
@@ -360,6 +553,7 @@ def run(output_dir: Path) -> dict[str, Any]:
             demo_release_filtering(work_dir),
             demo_federation_quarantine(work_dir),
             demo_local_authority(work_dir),
+            demo_policy_plugin_boundary(work_dir),
         ]
     for payload in demos:
         _write_json(output_dir / f"{payload['demo']}.json", payload)

@@ -151,9 +151,9 @@
 </tr>
 <tr class="odd">
 <td>ClaimWright as policy framework</td>
-<td><code>supported_by_primary_evidence</code> for existence; <code>plausible_under_supported</code> for future integration</td>
-<td>ClaimWright policy files and role/check documents</td>
-<td>State that ClaimWright is an example and is not yet enforced inside GroundRecall.</td>
+<td><code>supported_by_primary_evidence</code> for existence and selected adapter enforcement</td>
+<td>ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter</td>
+<td>State that ClaimWright is an example policy framework under GroundRecall’s bounded plugin contract, not a mandatory dependency or complete policy engine.</td>
 </tr>
 <tr class="even">
 <td>CiteGeist bibliography support</td>
@@ -243,7 +243,7 @@
 <li>The related-work section could be criticized as selective. The bibliography is explicitly seeded and should be expanded before submission.</li>
 <li>The phrase “memory layers should be governed” is normative. That is acceptable in manifesto mode, but the claim should not be disguised as a benchmark result.</li>
 <li>GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.</li>
-<li>ClaimWright is not yet an enforcement engine inside GroundRecall. The draft states this directly.</li>
+<li>ClaimWright-style policy content is now enforceable through GroundRecall’s bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.</li>
 <li>Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.</li>
 <li>Contradiction handling depends on explicit contradiction links. Automatic semantic contradiction detection remains future work.</li>
 <li>Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.</li>
@@ -318,7 +318,7 @@
 </tr>
 <tr class="even">
 <td>Keep ClaimWright integration scoped.</td>
-<td>Existing wording that ClaimWright is not yet enforced inside GroundRecall was retained; the limitations section keeps it explicit.</td>
+<td>Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent.</td>
 </tr>
 <tr class="odd">
 <td>Avoid Bayesian confidence overclaim.</td>
@@ -369,7 +369,7 @@
 </tr>
 <tr class="even">
 <td>Claims introduced/modified</td>
-<td>Test-suite claim changed from “latest implementation pass” to a dated concrete result: 171 tests passed on 2026-07-27. Appendix support references were changed from absolute local paths to repository-level descriptions. Demonstration claims are now backed by generated JSON outputs.</td>
+<td>Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the new policy-plugin boundary walkthrough.</td>
 </tr>
 <tr class="odd">
 <td>Citations recorded</td>
@@ -381,7 +381,7 @@
 </tr>
 <tr class="odd">
 <td>Unresolved risks</td>
-<td>Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work; human publication approval remains open.</td>
+<td>Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; semantic contradiction detection remains future work; human publication approval remains open.</td>
 </tr>
 <tr class="even">
 <td>Tasks opened</td>

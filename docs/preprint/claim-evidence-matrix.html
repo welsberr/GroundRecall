@@ -135,9 +135,9 @@
 <tr class="odd">
 <td>ClaimWright is one suitable policy framework, not a universal stance.</td>
 <td>Implemented code; design argument</td>
-<td>ClaimWright repository policy substrate; <code>docs/preprint/preprint-draft.md</code> policy-pluralism section</td>
-<td>Supported as an example policy stance.</td>
-<td>ClaimWright policy files are not yet enforced directly inside GroundRecall.</td>
+<td>ClaimWright repository policy substrate; <code>docs/preprint/preprint-draft.md</code> policy-pluralism section; GroundRecall policy-plugin adapter</td>
+<td>Supported as an example policy stance and adapter target.</td>
+<td>ClaimWright remains optional policy content under GroundRecall’s policy-plugin contract, not a mandatory dependency or externally validated policy authority.</td>
 </tr>
 <tr class="even">
 <td>CiteGeist provides a source-review and bibliography workbench relevant to governed memory.</td>
@@ -336,6 +336,22 @@
 <td>Supported.</td>
 <td>Audit storage is local file-backed; no tamper-evident external audit log.</td>
 </tr>
+<tr class="odd">
+<td>GroundRecall owns a bounded policy-plugin contract that can compose generic and ClaimWright-style policy providers.</td>
+<td>Implemented code; test coverage; reproducible demonstration</td>
+<td><code>src/groundrecall/policy.py</code>; <code>docs/policy-plugin-spec.md</code></td>
+<td><code>tests/test_policy_plugins.py</code>; <code>examples/preprint/out/policy_plugin_boundary.json</code></td>
+<td>Supported.</td>
+<td>Policy content is adapter-provided and policy-specific; GroundRecall constrains request/decision shape but does not validate every policy framework’s normative adequacy.</td>
+</tr>
+<tr class="even">
+<td>Policy plugins can gate selected MCP, export, federation, promotion, adjudication, and relation-review surfaces.</td>
+<td>Implemented code; test coverage; reproducible demonstration</td>
+<td><code>src/groundrecall/mcp.py</code>; <code>src/groundrecall/export.py</code>; <code>src/groundrecall/federation.py</code>; <code>src/groundrecall/promotion.py</code>; <code>src/groundrecall/contradictions.py</code>; <code>src/groundrecall/relation_review.py</code></td>
+<td><code>tests/test_mcp.py</code>; <code>tests/test_export_guardrails.py</code>; <code>tests/test_federation.py</code>; <code>tests/test_groundrecall_promotion.py</code>; <code>tests/test_contradictions.py</code>; <code>tests/test_relation_review.py</code>; <code>examples/preprint/out/policy_plugin_boundary.json</code></td>
+<td>Supported for selected enforcement surfaces.</td>
+<td>This is not complete production IAM, complete policy coverage of every mutation path, or a security proof.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="claims-that-are-explicitly-not-made">Claims That Are Explicitly Not Made</h2>
@@ -449,6 +465,12 @@
 <td>A valid signed bundle is insufficient for promotion without receiver-side local policy.</td>
 </tr>
 <tr class="even">
+<td>Policy-plugin boundary walkthrough</td>
+<td>Reproducible demonstration</td>
+<td><code>examples/preprint/out/policy_plugin_boundary.json</code></td>
+<td>Static and ClaimWright-style policy plugins can produce bounded decisions, and hard-gate decisions block promotion, adjudication, and relation-review writes before durable memory changes occur.</td>
+</tr>
+<tr class="odd">
 <td>CiteGeist bibliography expansion</td>
 <td>Reproducible artifact</td>
 <td><code>docs/preprint/citegeist-memory-layer.sqlite3</code>; <code>docs/preprint/memory-layer-citegeist-export.bib</code></td>

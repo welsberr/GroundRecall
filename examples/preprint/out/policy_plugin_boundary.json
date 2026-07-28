@@ -1,0 +1,13 @@
+{
+  "adjudication_blocked_before_record_write": true,
+  "claimwright_adapter_decision": "hard_gate",
+  "claimwright_adapter_reasons": [
+    "claim_state_not_public_allowed:private_only_speculation"
+  ],
+  "demo": "policy_plugin_boundary",
+  "promotion_blocked_before_store_write": true,
+  "relation_review_blocked_before_relation_write": true,
+  "result": "pass",
+  "schema_version": "groundrecall.policy_plugins.v1",
+  "soft_policy_decision": "soft_gate"
+}

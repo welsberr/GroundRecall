@@ -91,9 +91,9 @@ Policy pluralism avoids treating one project’s values and thresholds as univer
 
 The prototype components discussed here are partial implementations and design probes, not a complete governed-agent platform or a validated safety intervention.
 
-GroundRecall is the main memory substrate. It implements typed records for sources, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, and snapshots. It supports review-gated promotion, query/export surfaces, confidence and temporal-validity metadata, release-level classification, signed federation bundles, quarantine-before-promotion import, local policy checks, audit events, trust registries, signed public keysets, and signed role directories.
+GroundRecall is the main memory substrate. It implements typed records for sources, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, and snapshots. It supports review-gated promotion, query/export surfaces, confidence and temporal-validity metadata, release-level classification, signed federation bundles, quarantine-before-promotion import, local policy checks, audit events, trust registries, signed public keysets, signed role directories, and a bounded policy-plugin interface.
 
-ClaimWright is a companion policy framework. It provides a human-readable collaboration memorandum, machine-readable policy files, claim lifecycle states, confidence dimensions, mixed enforcement defaults, agent role cards, pre-action and post-action checks, citation review patterns, and a public-safe artifact workflow. In the present implementation, ClaimWright is not an enforcement engine inside GroundRecall. It is an example of the sort of configurable policy framework that a governed memory layer can reflect and eventually enforce.
+ClaimWright is a companion policy framework. It provides a human-readable collaboration memorandum, machine-readable policy files, claim lifecycle states, confidence dimensions, mixed enforcement defaults, agent role cards, pre-action and post-action checks, citation review patterns, and a public-safe artifact workflow. In the present implementation, GroundRecall owns the policy-plugin contract and includes a ClaimWright-style directory adapter. That adapter lets ClaimWright-like policy content produce bounded GroundRecall decisions on selected enforcement surfaces. ClaimWright remains an example of configurable policy content, not a mandatory or privileged dependency.
 
 CiteGeist is a bibliography workbench. It supports BibTeX-centered ingestion, reference extraction, verification, enrichment, citation-graph expansion, topic-aware review, and export. For this paper, it was used to seed a memory-layer bibliography and produce a local CiteGeist database and BibTeX export. That seed supports initial related-work framing, not systematic-review completeness. CiteGeist represents the source-review side of governed memory: citations and bibliographic claims remain inspectable rather than merely embedded in prose.
 
@@ -168,7 +168,7 @@ GroundRecall extends this local-authority model to trust and role distribution. 
 
 ## 9. Evaluation Evidence
 
-The current evidence is engineering evidence. The GroundRecall test suite passed on 2026-07-27 with 171 tests passing. Tests cover store round trips, snapshots, query bundles, confidence profiles, release lattice behavior, federation signatures, quarantine import, promotion, policy decisions, scoped grants, audit events, trust registry lifecycle, Ed25519 signatures, signed keysets, signed role directories, contradiction case generation, contradiction diagnostics, federation of contradiction cases, and contradiction adjudication workflow.
+The current evidence is engineering evidence. The GroundRecall test suite passed on 2026-07-27 with 191 tests passing. Tests cover store round trips, snapshots, query bundles, confidence profiles, release lattice behavior, federation signatures, quarantine import, promotion, generic policy-plugin decisions, ClaimWright-style policy adaptation, policy-gated MCP/export/federation/promotion/adjudication/relation-review surfaces, scoped grants, audit events, trust registry lifecycle, Ed25519 signatures, signed keysets, signed role directories, contradiction case generation, contradiction diagnostics, federation of contradiction cases, and contradiction adjudication workflow.
 
 This evidence supports implementation claims about governed-memory properties in a local prototype. It does not establish improved user productivity, broad safety outcomes, retrieval superiority, or production security. Those claims require different evaluation designs.
 
@@ -205,12 +205,16 @@ The demonstration set is organized by property:
    - seed a bibliography;
    - ingest into CiteGeist;
    - export reviewed BibTeX.
+7. Policy-plugin boundary:
+   - evaluate a static policy plugin;
+   - evaluate a ClaimWright-style directory adapter;
+   - show policy preflight blocking canonical promotion, contradiction adjudication, and relation-review writes before durable memory changes occur.
 
-The current generated outputs are `provenance_promotion.json`, `contradiction_adjudication.json`, `release_filtering.json`, `federation_quarantine.json`, `local_authority.json`, and `manifest.json`. These demonstrations are not a substitute for benchmark evaluation. They are reproducibility artifacts for the paper’s engineering claims.
+The current generated outputs are `provenance_promotion.json`, `contradiction_adjudication.json`, `release_filtering.json`, `federation_quarantine.json`, `local_authority.json`, `policy_plugin_boundary.json`, and `manifest.json`. These demonstrations are not a substitute for benchmark evaluation. They are reproducibility artifacts for the paper’s engineering claims.
 
 ## 11. Limitations
 
-GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. It does not yet enforce ClaimWright policy files inside GroundRecall. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.
+GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It does not yet provide automatic semantic contradiction detection. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. Its policy-plugin enforcement is real but partial: it covers selected MCP, export, federation, promotion, adjudication, and relation-review surfaces, not every possible memory mutation or enterprise policy system. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.
 
 These limitations bound the contribution. They do not defeat the core argument. Governed memory properties are necessary and implementable; the current prototypes are partial evidence, not complete systems.
 
@@ -348,9 +352,9 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Caveat / restraint:** No benchmark comparison against Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS.
 - **ClaimWright is one suitable policy framework, not a universal stance.**
   - **Evidence class:** Implemented code; design argument
-  - **Supporting artifacts:** ClaimWright repository policy substrate; `docs/preprint/preprint-draft.md` policy-pluralism section
-  - **Current status:** Supported as an example policy stance.
-  - **Caveat / restraint:** ClaimWright policy files are not yet enforced directly inside GroundRecall.
+  - **Supporting artifacts:** ClaimWright repository policy substrate; `docs/preprint/preprint-draft.md` policy-pluralism section; GroundRecall policy-plugin adapter
+  - **Current status:** Supported as an example policy stance and adapter target.
+  - **Caveat / restraint:** ClaimWright remains optional policy content under GroundRecall's policy-plugin contract, not a mandatory dependency or externally validated policy authority.
 - **CiteGeist provides a source-review and bibliography workbench relevant to governed memory.**
   - **Evidence class:** Implemented code; reproducible artifact; bibliography/source analysis
   - **Supporting artifacts:** CiteGeist repository; `docs/preprint/citegeist-memory-layer.sqlite3`; `docs/preprint/memory-layer-citegeist-export.bib`; `docs/preprint/memory-layer-bibliography.md`
@@ -485,6 +489,18 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Supporting tests / artifacts:** `tests/test_federation.py` audit tests
   - **Current status:** Supported.
   - **Caveat / restraint:** Audit storage is local file-backed; no tamper-evident external audit log.
+- **GroundRecall owns a bounded policy-plugin contract that can compose generic and ClaimWright-style policy providers.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/policy.py`; `docs/policy-plugin-spec.md`
+  - **Supporting tests / artifacts:** `tests/test_policy_plugins.py`; `examples/preprint/out/policy_plugin_boundary.json`
+  - **Current status:** Supported.
+  - **Caveat / restraint:** Policy content is adapter-provided and policy-specific; GroundRecall constrains request/decision shape but does not validate every policy framework's normative adequacy.
+- **Policy plugins can gate selected MCP, export, federation, promotion, adjudication, and relation-review surfaces.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/mcp.py`; `src/groundrecall/export.py`; `src/groundrecall/federation.py`; `src/groundrecall/promotion.py`; `src/groundrecall/contradictions.py`; `src/groundrecall/relation_review.py`
+  - **Supporting tests / artifacts:** `tests/test_mcp.py`; `tests/test_export_guardrails.py`; `tests/test_federation.py`; `tests/test_groundrecall_promotion.py`; `tests/test_contradictions.py`; `tests/test_relation_review.py`; `examples/preprint/out/policy_plugin_boundary.json`
+  - **Current status:** Supported for selected enforcement surfaces.
+  - **Caveat / restraint:** This is not complete production IAM, complete policy coverage of every mutation path, or a security proof.
 
 
 ### Claims That Are Explicitly Not Made
@@ -542,6 +558,10 @@ The current manuscript can cite implementation, tests, and a stable demonstratio
   - **Evidence class:** Reproducible demonstration
   - **Artifact:** `examples/preprint/out/local_authority.json`
   - **Claim supported:** A valid signed bundle is insufficient for promotion without receiver-side local policy.
+- **Policy-plugin boundary walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/policy_plugin_boundary.json`
+  - **Claim supported:** Static and ClaimWright-style policy plugins can produce bounded decisions, and hard-gate decisions block promotion, adjudication, and relation-review writes before durable memory changes occur.
 - **CiteGeist bibliography expansion**
   - **Evidence class:** Reproducible artifact
   - **Artifact:** `docs/preprint/citegeist-memory-layer.sqlite3`; `docs/preprint/memory-layer-citegeist-export.bib`
@@ -623,9 +643,9 @@ Applied ClaimWright materials:
   - **Evidence:** `src/groundrecall/federation.py`, `src/groundrecall/export_guardrails.py`, `tests/test_federation.py`, `tests/test_export_guardrails.py`
   - **Required restraint:** Do not present as enterprise IAM or complete DLP.
 - **ClaimWright as policy framework**
-  - **State recommendation:** `supported_by_primary_evidence` for existence; `plausible_under_supported` for future integration
-  - **Evidence:** ClaimWright policy files and role/check documents
-  - **Required restraint:** State that ClaimWright is an example and is not yet enforced inside GroundRecall.
+  - **State recommendation:** `supported_by_primary_evidence` for existence and selected adapter enforcement
+  - **Evidence:** ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter
+  - **Required restraint:** State that ClaimWright is an example policy framework under GroundRecall's bounded plugin contract, not a mandatory dependency or complete policy engine.
 - **CiteGeist bibliography support**
   - **State recommendation:** `supported_by_primary_evidence` for seed artifacts
   - **Evidence:** `docs/preprint/citegeist-memory-layer.sqlite3`, BibTeX export, bibliography notes
@@ -680,7 +700,7 @@ The strongest objections are predictable and should remain visible:
 2. The related-work section could be criticized as selective. The bibliography is explicitly seeded and should be expanded before submission.
 3. The phrase "memory layers should be governed" is normative. That is acceptable in manifesto mode, but the claim should not be disguised as a benchmark result.
 4. GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.
-5. ClaimWright is not yet an enforcement engine inside GroundRecall. The draft states this directly.
+5. ClaimWright-style policy content is now enforceable through GroundRecall's bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.
 6. Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.
 7. Contradiction handling depends on explicit contradiction links. Automatic semantic contradiction detection remains future work.
 8. Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.
@@ -711,7 +731,7 @@ Release status: conditionally suitable for internal/public draft review, pending
 - **Avoid implying proof of safety benefits.:** Abstract and prototype sections now say the systems demonstrate implementable local controls, not validated safety outcomes.
 - **Avoid overbroad claims about the literature.:** Related-work language now refers to "the sources reviewed for this draft" and "within this reviewed set" rather than all memory-layer literature.
 - **Keep GroundRecall claims local/prototype-scoped.:** Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features.
-- **Keep ClaimWright integration scoped.:** Existing wording that ClaimWright is not yet enforced inside GroundRecall was retained; the limitations section keeps it explicit.
+- **Keep ClaimWright integration scoped.:** Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent.
 - **Avoid Bayesian confidence overclaim.:** Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added.
 - **Keep semantic contradiction detection as future work.:** Existing contradiction caveats were retained in the abstract and limitations.
 - **Expose final-public-safety status.:** The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved.
@@ -724,10 +744,10 @@ Release status: conditionally suitable for internal/public draft review, pending
 ### Post-Action Check
 
 - **Files changed:** Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs.
-- **Claims introduced/modified:** Test-suite claim changed from "latest implementation pass" to a dated concrete result: 171 tests passed on 2026-07-27. Appendix support references were changed from absolute local paths to repository-level descriptions. Demonstration claims are now backed by generated JSON outputs.
+- **Claims introduced/modified:** Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the new policy-plugin boundary walkthrough.
 - **Citations recorded:** Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey.
 - **Assumptions visible:** The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright.
-- **Unresolved risks:** Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work; human publication approval remains open.
+- **Unresolved risks:** Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; semantic contradiction detection remains future work; human publication approval remains open.
 - **Tasks opened:** Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories.
 - **Capacity used:** Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use.
 - **Branch outcome:** Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims.

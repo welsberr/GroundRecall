@@ -27,4 +27,5 @@ Generated summaries:
 - `release_filtering.json`
 - `federation_quarantine.json`
 - `local_authority.json`
+- `policy_plugin_boundary.json`
 - `manifest.json`

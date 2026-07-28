@@ -50,7 +50,7 @@ Applied ClaimWright materials:
 | Structured confidence and temporal applicability | `supported_by_primary_evidence` | `src/groundrecall/confidence.py`, `tests/test_confidence_profiles.py`, `tests/test_confidence_migration.py` | Do not claim full Bayesian calibration or empirical confidence validation. |
 | Contradiction cases and adjudication | `supported_by_primary_evidence` | `src/groundrecall/contradictions.py`, `tests/test_contradictions.py` | State that semantic auto-detection is future work. |
 | Release controls and federation quarantine | `supported_by_primary_evidence` | `src/groundrecall/federation.py`, `src/groundrecall/export_guardrails.py`, `tests/test_federation.py`, `tests/test_export_guardrails.py` | Do not present as enterprise IAM or complete DLP. |
-| ClaimWright as policy framework | `supported_by_primary_evidence` for existence; `plausible_under_supported` for future integration | ClaimWright policy files and role/check documents | State that ClaimWright is an example and is not yet enforced inside GroundRecall. |
+| ClaimWright as policy framework | `supported_by_primary_evidence` for existence and selected adapter enforcement | ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter | State that ClaimWright is an example policy framework under GroundRecall's bounded plugin contract, not a mandatory dependency or complete policy engine. |
 | CiteGeist bibliography support | `supported_by_primary_evidence` for seed artifacts | `docs/preprint/citegeist-memory-layer.sqlite3`, BibTeX export, bibliography notes | State that bibliography is seeded, not systematic or complete. |
 | Epistemap confidence/graph layer | `supported_by_primary_evidence` for adapter surfaces | `src/groundrecall/epistemap_adapter.py`, `tests/test_epistemap_adapter.py` | Do not imply broad posterior validation. |
 
@@ -75,7 +75,7 @@ The strongest objections are predictable and should remain visible:
 2. The related-work section could be criticized as selective. The bibliography is explicitly seeded and should be expanded before submission.
 3. The phrase "memory layers should be governed" is normative. That is acceptable in manifesto mode, but the claim should not be disguised as a benchmark result.
 4. GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.
-5. ClaimWright is not yet an enforcement engine inside GroundRecall. The draft states this directly.
+5. ClaimWright-style policy content is now enforceable through GroundRecall's bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.
 6. Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.
 7. Contradiction handling depends on explicit contradiction links. Automatic semantic contradiction detection remains future work.
 8. Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.
@@ -99,7 +99,7 @@ Release status: conditionally suitable for internal/public draft review, pending
 | Avoid implying proof of safety benefits. | Abstract and prototype sections now say the systems demonstrate implementable local controls, not validated safety outcomes. |
 | Avoid overbroad claims about the literature. | Related-work language now refers to "the sources reviewed for this draft" and "within this reviewed set" rather than all memory-layer literature. |
 | Keep GroundRecall claims local/prototype-scoped. | Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features. |
-| Keep ClaimWright integration scoped. | Existing wording that ClaimWright is not yet enforced inside GroundRecall was retained; the limitations section keeps it explicit. |
+| Keep ClaimWright integration scoped. | Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent. |
 | Avoid Bayesian confidence overclaim. | Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added. |
 | Keep semantic contradiction detection as future work. | Existing contradiction caveats were retained in the abstract and limitations. |
 | Expose final-public-safety status. | The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved. |
@@ -113,10 +113,10 @@ Release status: conditionally suitable for internal/public draft review, pending
 | Check | Result |
 | --- | --- |
 | Files changed | Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs. |
-| Claims introduced/modified | Test-suite claim changed from "latest implementation pass" to a dated concrete result: 171 tests passed on 2026-07-27. Appendix support references were changed from absolute local paths to repository-level descriptions. Demonstration claims are now backed by generated JSON outputs. |
+| Claims introduced/modified | Test-suite claim changed to a dated concrete result: 191 tests passed on 2026-07-27. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the new policy-plugin boundary walkthrough. |
 | Citations recorded | Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey. |
 | Assumptions visible | The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright. |
-| Unresolved risks | Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; ClaimWright is not yet enforced inside GroundRecall; semantic contradiction detection remains future work; human publication approval remains open. |
+| Unresolved risks | Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; semantic contradiction detection remains future work; human publication approval remains open. |
 | Tasks opened | Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories. |
 | Capacity used | Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use. |
 | Branch outcome | Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims. |
