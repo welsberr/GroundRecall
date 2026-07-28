@@ -11,8 +11,10 @@ PROVENANCE_RELATION_TYPES = {
     "claim_may_contradict_claim",
     "claim_supersedes_claim",
     "artifact_contains_observation",
+    "fragment_supports_claim",
     "observation_supports_claim",
     "same_source_family",
+    "source_contains_fragment",
 }
 
 
@@ -70,6 +72,9 @@ def build_graph_diagnostics(
     claim_concept_summary = _claim_concept_summary(concept_ids, claims)
     semantic_relation_type_counts = Counter(str(item.get("relation_type", "") or "unknown") for item in semantic_relations)
     semantic_relation_status_counts = Counter(str(item.get("current_status", "") or "unknown") for item in semantic_relations)
+    provenance_relation_status_counts = Counter(str(item.get("current_status", "") or "unknown") for item in provenance_relations)
+    semantic_lifecycle_counts = _relation_lifecycle_counts(semantic_relations)
+    provenance_lifecycle_counts = _relation_lifecycle_counts(provenance_relations)
     degree_sum = sum(len(neighbors) for neighbors in adjacency.values())
     possible_undirected_edges = len(concept_ids) * (len(concept_ids) - 1) / 2
 
@@ -79,6 +84,10 @@ def build_graph_diagnostics(
             "relation_count": len(semantic_relations),
             "total_relation_count": len(relations),
             "provenance_relation_count": len(provenance_relations),
+            "reviewed_semantic_relation_count": semantic_lifecycle_counts["reviewed_relation_count"],
+            "candidate_semantic_relation_count": semantic_lifecycle_counts["candidate_relation_count"],
+            "reviewed_provenance_relation_count": provenance_lifecycle_counts["reviewed_relation_count"],
+            "candidate_provenance_relation_count": provenance_lifecycle_counts["candidate_relation_count"],
             "connected_component_count": len(components),
             "largest_component_size": max((len(component) for component in components), default=0),
             "isolated_concept_count": sum(1 for component in components if len(component) == 1),
@@ -99,6 +108,9 @@ def build_graph_diagnostics(
             "concepts_with_claim_ratio": round(claim_concept_summary["concepts_with_claim_count"] / len(concept_ids), 3) if concept_ids else 0.0,
             "relation_type_counts": dict(sorted(semantic_relation_type_counts.items())),
             "relation_status_counts": dict(sorted(semantic_relation_status_counts.items())),
+            "provenance_relation_status_counts": dict(sorted(provenance_relation_status_counts.items())),
+            **{f"semantic_{key}": value for key, value in semantic_lifecycle_counts.items()},
+            **{f"provenance_{key}": value for key, value in provenance_lifecycle_counts.items()},
             **claim_concept_summary,
         },
         "components": [
@@ -209,6 +221,17 @@ def _partition_relations(relations: list[dict[str, Any]]) -> dict[str, list[dict
     return {
         "semantic_relations": semantic_relations,
         "provenance_relations": provenance_relations,
+    }
+
+
+def _relation_lifecycle_counts(relations: list[dict[str, Any]]) -> dict[str, int]:
+    reviewed_statuses = {"reviewed", "promoted"}
+    candidate_statuses = {"draft", "triaged"}
+    reviewed_count = sum(1 for relation in relations if str(relation.get("current_status", "")) in reviewed_statuses)
+    candidate_count = sum(1 for relation in relations if str(relation.get("current_status", "")) in candidate_statuses)
+    return {
+        "reviewed_relation_count": reviewed_count,
+        "candidate_relation_count": candidate_count,
     }
 
 

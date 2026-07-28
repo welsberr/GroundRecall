@@ -195,7 +195,10 @@ high-volume support/provenance backfill is explicitly requested with
 `--profile support`. Each profile has a separate default maintenance state file
 to avoid cross-profile rotation cursor confusion. Each invocation also acquires
 an atomic lock next to its state file, skips safely if a previous slice is still
-active, and can recover stale locks after interrupted runs.
+active, and can recover stale locks after interrupted runs. Graph diagnostics
+now classify source/fragment/claim anchor edges as provenance/support
+relations and report reviewed versus candidate relation counts separately for
+semantic and provenance layers.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -243,7 +246,9 @@ Implementation requirements:
 - Add diagnostics that report reviewed semantic edges, candidate semantic
   edges, projection edges, and unresolved sparse concepts separately. Initial
   augmentation output distinguishes reviewed semantic relations, candidate
-  semantic relations, and query-time projection edges.
+  semantic relations, and query-time projection edges; graph diagnostics also
+  report reviewed/candidate counts separately for semantic and provenance
+  relation layers.
 - Add a resumable maintenance runner for scheduled operation. Initial
   implementation exists as `groundrecall graph-maintenance`: it chooses one
   strategy per invocation, applies a candidate limit, records JSON state, and

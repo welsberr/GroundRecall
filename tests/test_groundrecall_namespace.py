@@ -131,16 +131,75 @@ def test_graph_diagnostics_separate_source_family_from_semantic_edges(tmp_path: 
             current_status="triaged",
         )
     )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_source_fragment",
+            source_id="src_alpha",
+            target_id="frag_alpha",
+            relation_type="source_contains_fragment",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_fragment_claim",
+            source_id="frag_alpha",
+            target_id="claim_alpha",
+            relation_type="fragment_supports_claim",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
 
     payload = inspect_store(store.base_dir, include_graph=True)
     summary = payload["graph_diagnostics"]["summary"]
 
-    assert summary["total_relation_count"] == 3
-    assert summary["provenance_relation_count"] == 3
+    assert summary["total_relation_count"] == 5
+    assert summary["provenance_relation_count"] == 5
     assert summary["relation_count"] == 0
+    assert summary["candidate_provenance_relation_count"] == 5
+    assert summary["candidate_semantic_relation_count"] == 0
     assert summary["connected_component_count"] == 2
     assert payload["graph_diagnostics"]["relation_quality"]["inferred_relation_count"] == 0
-    assert payload["graph_diagnostics"]["provenance_relation_quality"]["inferred_relation_count"] == 3
+    assert payload["graph_diagnostics"]["provenance_relation_quality"]["inferred_relation_count"] == 5
+
+
+def test_graph_diagnostics_separate_reviewed_and_candidate_semantic_edges(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::alpha", title="Alpha", current_status="reviewed"))
+    store.save_concept(ConceptRecord(concept_id="concept::beta", title="Beta", current_status="reviewed"))
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_reviewed",
+            source_id="concept::alpha",
+            target_id="concept::beta",
+            relation_type="related_topic",
+            provenance=ProvenanceRecord(support_kind="direct_source", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_candidate",
+            source_id="claim_definition",
+            target_id="concept::alpha",
+            relation_type="claim_defines_concept",
+            provenance=ProvenanceRecord(support_kind="inferred", grounding_status="partially_grounded"),
+            current_status="triaged",
+        )
+    )
+
+    payload = inspect_store(store.base_dir, include_graph=True)
+    summary = payload["graph_diagnostics"]["summary"]
+    density = payload["graph_diagnostics"]["density"]
+
+    assert summary["relation_count"] == 2
+    assert summary["reviewed_semantic_relation_count"] == 1
+    assert summary["candidate_semantic_relation_count"] == 1
+    assert summary["provenance_relation_count"] == 0
+    assert density["semantic_reviewed_relation_count"] == 1
+    assert density["semantic_candidate_relation_count"] == 1
 
 
 def test_groundrecall_cli_inspect_dispatches(tmp_path: Path, capsys) -> None:
