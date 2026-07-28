@@ -84,7 +84,9 @@
 <li><code>groundrecall contradictions accept-candidate STORE RELATION_ID --reviewer   ... --rationale ...</code> promotes an accepted cue into explicit bidirectional <code>contradicts_claim_ids</code> links and synchronizes a deterministic first-class contradiction case.</li>
 <li>Candidate acceptance records reviewer, rationale, review timestamp, and the accepted relation ID in case metadata while leaving the underlying claim text unchanged.</li>
 <li>Candidate acceptance accepts optional policy-plugin configs; deny/hard-gate decisions block before claim, relation, or contradiction-case writes.</li>
-<li>Tests cover candidate listing, candidate-to-case promotion, CLI candidate dispatch, policy-gated blocking, explicit-link case generation, case persistence, diagnostics, and adjudication.</li>
+<li>Concept query bundles now expose <code>candidate_contradiction_cues</code>, <code>adjudicated_contradiction_cases</code>, and <code>conflict_summary</code> fields so explicit contradictions, heuristic cues, resolved/adjudicated cases, supersessions, and stale claims are distinguishable in one payload.</li>
+<li>Public query export guardrails prune non-exportable contradiction cases and contradiction-candidate cues, then recalculate conflict counts after pruning.</li>
+<li>Tests cover candidate listing, candidate-to-case promotion, CLI candidate dispatch, policy-gated blocking, explicit-link case generation, case persistence, diagnostics, adjudication, query surfacing, and public-export cue pruning.</li>
 </ul>
 <p>ClaimWright review basis:</p>
 <ul>
@@ -112,7 +114,7 @@
 <li>explicit contradiction cases;</li>
 <li>candidate contradiction cues;</li>
 <li>adjudicated/resolved contradiction cases;</li>
-<li>stale or superseded claims.</li>
+<li>stale or superseded claims. Implemented baseline in concept query bundles.</li>
 </ul></li>
 <li>Add tests for candidate-to-case promotion, rejection, audit metadata, and no silent rewriting of underlying claims. Implemented for listing, acceptance, policy blocking, and no claim-text rewriting; rejection and separate audit-log emission remain open.</li>
 <li>Add a reproducible preprint demonstration showing candidate cue → review → case → adjudication.</li>

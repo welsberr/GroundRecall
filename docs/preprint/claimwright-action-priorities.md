@@ -112,9 +112,16 @@ Initial implementation status:
   unchanged.
 - Candidate acceptance accepts optional policy-plugin configs; deny/hard-gate
   decisions block before claim, relation, or contradiction-case writes.
+- Concept query bundles now expose `candidate_contradiction_cues`,
+  `adjudicated_contradiction_cases`, and `conflict_summary` fields so explicit
+  contradictions, heuristic cues, resolved/adjudicated cases, supersessions,
+  and stale claims are distinguishable in one payload.
+- Public query export guardrails prune non-exportable contradiction cases and
+  contradiction-candidate cues, then recalculate conflict counts after pruning.
 - Tests cover candidate listing, candidate-to-case promotion, CLI candidate
   dispatch, policy-gated blocking, explicit-link case generation, case
-  persistence, diagnostics, and adjudication.
+  persistence, diagnostics, adjudication, query surfacing, and public-export
+  cue pruning.
 
 ClaimWright review basis:
 
@@ -150,7 +157,7 @@ Recommended implementation sequence:
    - explicit contradiction cases;
    - candidate contradiction cues;
    - adjudicated/resolved contradiction cases;
-   - stale or superseded claims.
+   - stale or superseded claims. Implemented baseline in concept query bundles.
 4. Add tests for candidate-to-case promotion, rejection, audit metadata, and
    no silent rewriting of underlying claims. Implemented for listing,
    acceptance, policy blocking, and no claim-text rewriting; rejection and

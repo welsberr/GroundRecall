@@ -393,16 +393,28 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
     temporal_summary = _temporal_summary(graph_bundle, claims)
     claim_ids = {str(item.get("claim_id", "")) for item in claims}
     store = GroundRecallStore(store_dir)
+    stored_cases = store.list_contradiction_cases()
     generated_cases = generate_contradiction_cases_from_claims(
         store.list_claims(),
-        existing_cases=store.list_contradiction_cases(),
+        existing_cases=stored_cases,
     )
+    cases_by_id = {case.case_id: case for case in [*stored_cases, *generated_cases]}
     contradiction_cases = [
         case.model_dump(mode="json")
-        for case in contradiction_cases_for_claim_ids(generated_cases, claim_ids)
+        for case in contradiction_cases_for_claim_ids(cases_by_id.values(), claim_ids)
         if case.current_status != "rejected"
     ]
+    candidate_contradiction_cues = _candidate_contradiction_cues_for_claim_ids(
+        store.list_relations(),
+        claim_ids=claim_ids,
+        claims_by_id={str(item.get("claim_id", "")): item for item in claims},
+    )
     contradiction_case_ids = {case["case_id"] for case in contradiction_cases}
+    adjudicated_contradiction_cases = [
+        item
+        for item in contradiction_cases
+        if item.get("status") in {"resolved", "superseded", "rejected"} or item.get("adjudication_id")
+    ]
     adjudications = [
         item
         for item in store.list_adjudications()
@@ -427,17 +439,110 @@ def build_query_bundle_for_concept(store_dir: str | Path, concept_ref: str) -> d
         "review_candidates": payload["review_candidates"],
         "contradictions": contradictions,
         "contradiction_cases": contradiction_cases,
+        "candidate_contradiction_cues": candidate_contradiction_cues,
+        "adjudicated_contradiction_cases": adjudicated_contradiction_cases,
         "supersessions": supersessions,
         "epistemap_graph": graph_bundle.model_dump_legacy(),
         "epistemic_summary": epistemic,
         "assessment_summary": _assessment_summary(epistemic, temporal_summary),
         "temporal_summary": temporal_summary,
+        "conflict_summary": _conflict_summary(
+            contradictions=contradictions,
+            contradiction_cases=contradiction_cases,
+            candidate_contradiction_cues=candidate_contradiction_cues,
+            adjudicated_contradiction_cases=adjudicated_contradiction_cases,
+            supersessions=supersessions,
+            stale_claims=temporal_summary.get("stale_claims", []),
+        ),
         "confidence_profile": confidence_profile,
         "suggested_next_actions": [
             "Review promoted claims with low review confidence.",
             "Inspect supporting observations before exporting assistant context.",
             "Check related concepts for hidden prerequisite or contradiction edges.",
         ],
+    }
+
+
+def _candidate_contradiction_cues_for_claim_ids(
+    relations: list[Any],
+    *,
+    claim_ids: set[str],
+    claims_by_id: dict[str, dict[str, Any]],
+) -> list[dict[str, Any]]:
+    cues = []
+    for relation in relations:
+        if relation.relation_type != "claim_may_contradict_claim" or relation.current_status == "rejected":
+            continue
+        relation_claim_ids = {relation.source_id, relation.target_id}
+        if not claim_ids.intersection(relation_claim_ids):
+            continue
+        cues.append(
+            {
+                "relation_id": relation.relation_id,
+                "relation_type": relation.relation_type,
+                "claim_ids": [relation.source_id, relation.target_id],
+                "claims": [
+                    _claim_query_reference(claim_id, claims_by_id=claims_by_id)
+                    for claim_id in [relation.source_id, relation.target_id]
+                ],
+                "evidence_ids": list(relation.evidence_ids),
+                "provenance": relation.provenance.model_dump(mode="json"),
+                "assessments": [
+                    assessment.model_dump(mode="json") if hasattr(assessment, "model_dump") else dict(assessment)
+                    for assessment in relation.assessments
+                ],
+                "current_status": relation.current_status,
+                "review_state": "candidate_not_explicit_case",
+            }
+        )
+    return sorted(cues, key=lambda item: (item["current_status"], item["relation_id"]))
+
+
+def _claim_query_reference(
+    claim_id: str,
+    *,
+    claims_by_id: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    claim = claims_by_id.get(claim_id)
+    if claim is None:
+        return {
+            "claim_id": claim_id,
+            "claim_text": "",
+            "current_status": "outside_query_scope",
+        }
+    return {
+        "claim_id": claim_id,
+        "claim_text": str(claim.get("claim_text", "")),
+        "current_status": str(claim.get("current_status", "")),
+        "concept_ids": list(claim.get("concept_ids", []) or []),
+    }
+
+
+def _conflict_summary(
+    *,
+    contradictions: list[dict[str, Any]],
+    contradiction_cases: list[dict[str, Any]],
+    candidate_contradiction_cues: list[dict[str, Any]],
+    adjudicated_contradiction_cases: list[dict[str, Any]],
+    supersessions: list[dict[str, Any]],
+    stale_claims: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "explicit_contradiction_claim_count": len(contradictions),
+        "contradiction_case_count": len(contradiction_cases),
+        "candidate_contradiction_cue_count": len(candidate_contradiction_cues),
+        "adjudicated_contradiction_case_count": len(adjudicated_contradiction_cases),
+        "supersession_claim_count": len(supersessions),
+        "stale_claim_count": len(stale_claims),
+        "has_unresolved_conflict_signal": bool(
+            contradictions
+            or candidate_contradiction_cues
+            or [
+                item
+                for item in contradiction_cases
+                if item.get("status") in {"open", "under_review"}
+            ]
+        ),
     }
 
 

@@ -289,6 +289,36 @@ def test_query_bundle_prunes_private_support_references(tmp_path: Path) -> None:
     )
 
 
+def test_query_bundle_prunes_private_contradiction_candidate_cues(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "groundrecall")
+    _seed_public_base(store)
+    _seed_sensitive_records(store)
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_public_private_candidate",
+            source_id="clm_public",
+            target_id="clm_private",
+            relation_type="claim_may_contradict_claim",
+            evidence_ids=["obs_public", "obs_private"],
+            current_status="reviewed",
+        )
+    )
+
+    out_path = tmp_path / "query.json"
+    payload = export_query_bundle(store.base_dir, "channel-capacity", out_path)
+
+    export_text = out_path.read_text(encoding="utf-8")
+    assert "rel_public_private_candidate" not in export_text
+    assert "clm_private" not in export_text
+    assert PRIVATE_CANARY not in export_text
+    assert payload["candidate_contradiction_cues"] == []
+    assert payload["conflict_summary"]["candidate_contradiction_cue_count"] == 0
+    assert any(
+        finding["record_kind"] == "relation" and finding["reason"] == "non_exportable_candidate_claim"
+        for finding in payload["export_guardrails"]["findings"]
+    )
+
+
 def test_graph_bundle_prunes_private_nodes_edges_and_diagnostics(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "groundrecall")
     _seed_public_base(store)

@@ -10,6 +10,7 @@ from groundrecall.models import (
     ProvenanceRecord,
     RelationRecord,
     ReviewCandidateRecord,
+    ContradictionCaseRecord,
 )
 from groundrecall.query import (
     build_graph_bundle_for_concept,
@@ -122,6 +123,26 @@ def _seed_store(store: GroundRecallStore) -> None:
             target_id="concept::shannon-entropy",
             relation_type="references",
             current_status="promoted",
+        )
+    )
+    store.save_relation(
+        RelationRecord(
+            relation_id="rel_candidate_contradiction_001_002",
+            source_id="clm_001",
+            target_id="clm_002",
+            relation_type="claim_may_contradict_claim",
+            evidence_ids=["obs_001"],
+            current_status="triaged",
+        )
+    )
+    store.save_contradiction_case(
+        ContradictionCaseRecord(
+            case_id="case_resolved_001_002",
+            claim_ids=["clm_001", "clm_002"],
+            status="resolved",
+            adjudication_id="adj_resolved_001_002",
+            rationale="Resolved as scope distinction.",
+            current_status="reviewed",
         )
     )
     store.save_review_candidate(
@@ -424,9 +445,16 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     contradiction_ids = {item["claim_id"] for item in payload["contradictions"]}
     supersession_ids = {item["claim_id"] for item in payload["supersessions"]}
     assert "clm_004" in contradiction_ids
-    assert payload["contradiction_cases"][0]["claim_ids"] == ["clm_001", "clm_004"]
-    assert payload["contradiction_cases"][0]["status"] == "open"
+    open_cases_by_pair = {tuple(item["claim_ids"]): item for item in payload["contradiction_cases"]}
+    assert open_cases_by_pair[("clm_001", "clm_004")]["status"] == "open"
+    assert payload["candidate_contradiction_cues"][0]["relation_id"] == "rel_candidate_contradiction_001_002"
+    assert payload["candidate_contradiction_cues"][0]["review_state"] == "candidate_not_explicit_case"
+    assert payload["adjudicated_contradiction_cases"][0]["case_id"] == "case_resolved_001_002"
     assert "clm_005" in supersession_ids
+    assert payload["conflict_summary"]["explicit_contradiction_claim_count"] == 1
+    assert payload["conflict_summary"]["candidate_contradiction_cue_count"] == 1
+    assert payload["conflict_summary"]["adjudicated_contradiction_case_count"] == 1
+    assert payload["conflict_summary"]["supersession_claim_count"] == 1
     assert "challenged" in payload["epistemic_summary"]["flags"]
     assert "low_trust_source_signal" in payload["epistemic_summary"]["flags"]
     assert "adversarial_source_signal" in payload["epistemic_summary"]["flags"]
@@ -445,5 +473,6 @@ def test_query_bundle_surfaces_contradictions_and_supersessions(tmp_path: Path) 
     assert "mixed_support_challenge" in payload["assessment_summary"]["bayesian_flags"]
     assert payload["temporal_summary"]["first_contradictions"]["clm_001"]["time"] == "2026-05-01"
     assert any(item["claim_id"] == "clm_001" for item in payload["temporal_summary"]["stale_claims"])
+    assert payload["conflict_summary"]["stale_claim_count"] >= 1
     assert payload["temporal_summary"]["fair_play_diagnostic"]["rating"] == "unfair"
     assert "hidden_or_private_decisive_evidence" in payload["temporal_summary"]["fair_play_diagnostic"]["summary"]["failure_counts"]

@@ -456,6 +456,41 @@ def _prune_query_payload_references(payload: dict[str, Any], findings: list[Guar
         payload["supersessions"] = [
             item for item in payload["supersessions"] if isinstance(item, dict) and item.get("claim_id") in allowed_claim_ids
         ]
+    if isinstance(payload.get("contradiction_cases"), list):
+        payload["contradiction_cases"] = [
+            item
+            for item in payload["contradiction_cases"]
+            if isinstance(item, dict)
+            and all(isinstance(claim_id, str) and claim_id in allowed_claim_ids for claim_id in item.get("claim_ids", []))
+        ]
+    if isinstance(payload.get("adjudicated_contradiction_cases"), list):
+        allowed_case_ids = {
+            item.get("case_id")
+            for item in payload.get("contradiction_cases", [])
+            if isinstance(item, dict) and isinstance(item.get("case_id"), str)
+        }
+        payload["adjudicated_contradiction_cases"] = [
+            item
+            for item in payload["adjudicated_contradiction_cases"]
+            if isinstance(item, dict) and item.get("case_id") in allowed_case_ids
+        ]
+    if isinstance(payload.get("candidate_contradiction_cues"), list):
+        kept_cues = []
+        for item in payload["candidate_contradiction_cues"]:
+            if not isinstance(item, dict):
+                continue
+            claim_ids = [claim_id for claim_id in item.get("claim_ids", []) if isinstance(claim_id, str)]
+            if not claim_ids or any(claim_id not in allowed_claim_ids for claim_id in claim_ids):
+                findings.append(GuardrailFinding("relation", str(item.get("relation_id", "unknown")), "non_exportable_candidate_claim"))
+                continue
+            item["evidence_ids"] = [
+                value for value in item.get("evidence_ids", []) if isinstance(value, str) and value in allowed_observation_ids
+            ]
+            item["claims"] = [
+                claim for claim in item.get("claims", []) if isinstance(claim, dict) and claim.get("claim_id") in allowed_claim_ids
+            ]
+            kept_cues.append(item)
+        payload["candidate_contradiction_cues"] = kept_cues
     if isinstance(payload.get("source_artifacts"), list):
         payload["source_artifacts"] = [
             item for item in payload["source_artifacts"] if isinstance(item, dict) and item.get("artifact_id") in allowed_artifact_ids
@@ -493,6 +528,7 @@ def _prune_query_payload_references(payload: dict[str, Any], findings: list[Guar
         allowed_claim_ids,
         findings,
     )
+    _refresh_conflict_summary_payload(payload)
     _refresh_query_assessment_surfaces(payload, findings)
 
 
@@ -521,6 +557,48 @@ def _prune_temporal_summary_payload(payload: dict[str, Any], allowed_claim_ids: 
             for item in fair_play["claims"]
             if isinstance(item, dict) and item.get("claim_id") in allowed_claim_ids
         ]
+
+
+def _refresh_conflict_summary_payload(payload: dict[str, Any]) -> None:
+    contradictions = payload.get("contradictions", [])
+    contradiction_cases = payload.get("contradiction_cases", [])
+    candidate_cues = payload.get("candidate_contradiction_cues", [])
+    adjudicated_cases = payload.get("adjudicated_contradiction_cases", [])
+    supersessions = payload.get("supersessions", [])
+    temporal = payload.get("temporal_summary", {})
+    stale_claims = temporal.get("stale_claims", []) if isinstance(temporal, dict) else []
+    if not any(
+        key in payload
+        for key in (
+            "conflict_summary",
+            "contradictions",
+            "contradiction_cases",
+            "candidate_contradiction_cues",
+            "adjudicated_contradiction_cases",
+            "supersessions",
+        )
+    ):
+        return
+    payload["conflict_summary"] = {
+        "explicit_contradiction_claim_count": len(contradictions) if isinstance(contradictions, list) else 0,
+        "contradiction_case_count": len(contradiction_cases) if isinstance(contradiction_cases, list) else 0,
+        "candidate_contradiction_cue_count": len(candidate_cues) if isinstance(candidate_cues, list) else 0,
+        "adjudicated_contradiction_case_count": len(adjudicated_cases) if isinstance(adjudicated_cases, list) else 0,
+        "supersession_claim_count": len(supersessions) if isinstance(supersessions, list) else 0,
+        "stale_claim_count": len(stale_claims) if isinstance(stale_claims, list) else 0,
+        "has_unresolved_conflict_signal": bool(
+            (isinstance(contradictions, list) and contradictions)
+            or (isinstance(candidate_cues, list) and candidate_cues)
+            or (
+                isinstance(contradiction_cases, list)
+                and [
+                    item
+                    for item in contradiction_cases
+                    if isinstance(item, dict) and item.get("status") in {"open", "under_review"}
+                ]
+            )
+        ),
+    }
 
 
 def _prune_epistemap_graph_payload(
@@ -804,6 +882,7 @@ def _payload_record_identity(value: dict[str, Any]) -> tuple[str, str]:
         ("artifact_id", "artifact"),
         ("observation_id", "observation"),
         ("claim_id", "claim"),
+        ("case_id", "contradiction_case"),
         ("concept_id", "concept"),
         ("relation_id", "relation"),
         ("review_candidate_id", "review_candidate"),
