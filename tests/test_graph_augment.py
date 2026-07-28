@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 from groundrecall.graph_augment import augment_store_relations_from_claims
-from groundrecall.models import ClaimRecord, ConceptRecord, ProvenanceRecord
+from groundrecall.models import ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord
 from groundrecall.store import GroundRecallStore
 
 
@@ -66,6 +67,30 @@ def test_augment_store_relations_from_claims_apply_writes_reviewable_relation(tm
     assert len(review_candidates) == 1
     assert review_candidates[0].candidate_type == "relation"
     assert "claim_cooccurrence" in review_candidates[0].finding_codes
+    assert payload["write_summary"]["relation_write_count"] == 1
+    assert payload["diagnostic_layers"]["candidate_semantic_relations"] == 1
+
+
+def test_augment_store_relations_from_claims_is_idempotent(tmp_path: Path) -> None:
+    store = _seed_store(tmp_path / "store")
+
+    first = augment_store_relations_from_claims(
+        store.base_dir,
+        concept_prefixes=["concept::evo-edu"],
+        min_evidence=2,
+        apply=True,
+    )
+    second = augment_store_relations_from_claims(
+        store.base_dir,
+        concept_prefixes=["concept::evo-edu"],
+        min_evidence=2,
+        apply=True,
+    )
+
+    assert first["candidate_relation_count"] == 1
+    assert second["candidate_relation_count"] == 0
+    assert len(store.list_relations()) == 1
+    assert len(store.list_review_candidates()) == 1
 
 
 def test_augment_store_relations_from_claims_min_evidence_filters_weak_pairs(tmp_path: Path) -> None:
@@ -181,3 +206,70 @@ def test_augment_store_relations_from_claim_mentions(tmp_path: Path) -> None:
     assert relations[0].target_id == "concept::evo-edu-notebook-futuyma-common-descent-evidence-ingestion"
     assert relations[0].relation_type == "provides_evidence_for"
     assert relations[0].evidence_ids == ["obs_homologous_evidence"]
+
+
+def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_concept(ConceptRecord(concept_id="concept::adaptation", title="Adaptation", current_status="promoted"))
+    store.save_concept(ConceptRecord(concept_id="concept::source", title="Source", current_status="promoted"))
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_existing_1",
+            artifact_id="art_existing",
+            role="evidence",
+            text="Selection can shape adaptation in a population according to this source.",
+            provenance=ProvenanceRecord(origin_path="sources/existing.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_existing_2",
+            artifact_id="art_existing",
+            role="evidence",
+            text="Adaptation may reflect selection under local environmental conditions in the source.",
+            provenance=ProvenanceRecord(origin_path="sources/existing.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="observation-cooccurrence",
+        min_evidence=2,
+        apply=True,
+    )
+
+    relations = store.list_relations()
+    assert payload["candidate_relation_count"] == 1
+    assert payload["relation_type_counts"] == {"co_occurs_with": 1}
+    assert relations[0].source_id == "concept::adaptation"
+    assert relations[0].target_id == "concept::selection"
+    assert relations[0].evidence_ids == ["obs_existing_1", "obs_existing_2"]
+    assert relations[0].current_status == "triaged"
+    assert store.list_review_candidates()[0].finding_codes == ["relation_inferred", "observation_cooccurrence"]
+
+
+def test_groundrecall_cli_graph_backfill_alias_dispatches(tmp_path: Path, capsys) -> None:
+    store = _seed_store(tmp_path / "store")
+    from groundrecall import cli
+
+    original = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall.cli",
+            "graph-backfill",
+            str(store.base_dir),
+            "--concept-prefix",
+            "concept::evo-edu",
+            "--min-evidence",
+            "2",
+        ]
+        cli.main()
+    finally:
+        sys.argv = original
+
+    output = capsys.readouterr().out
+    assert '"operation": "augment_store_relations_from_claims"' in output
+    assert '"candidate_relation_count": 1' in output

@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 from typing import Any
 
+from .graph_extraction import extract_heuristic_graph_relations
 from .models import ProvenanceRecord, RelationRecord, ReviewCandidateRecord
 from .store import GroundRecallStore
 
@@ -17,7 +18,8 @@ DEFAULT_RELATION_TYPE = "co_occurs_with"
 EXTRACTOR_NAME = "groundrecall.store_claim_cooccurrence.v1"
 SOURCE_FAMILY_EXTRACTOR_NAME = "groundrecall.store_source_family.v1"
 CLAIM_MENTIONS_EXTRACTOR_NAME = "groundrecall.store_claim_mentions.v1"
-VALID_STRATEGIES = {"claim-cooccurrence", "claim-mentions", "source-family"}
+OBSERVATION_COOCCURRENCE_EXTRACTOR_NAME = "groundrecall.store_observation_cooccurrence.v1"
+VALID_STRATEGIES = {"claim-cooccurrence", "claim-mentions", "observation-cooccurrence", "source-family"}
 
 
 @dataclass
@@ -26,6 +28,7 @@ class RelationCandidate:
     target_id: str
     relation_type: str
     claim_ids: list[str] = field(default_factory=list)
+    support_ids: list[str] = field(default_factory=list)
     evidence_ids: list[str] = field(default_factory=list)
     origin_paths: list[str] = field(default_factory=list)
 
@@ -68,6 +71,16 @@ def augment_store_relations_from_claims(
             relation_type=relation_type,
         )
         extractor = CLAIM_MENTIONS_EXTRACTOR_NAME
+    elif strategy == "observation-cooccurrence":
+        relation_type = DEFAULT_RELATION_TYPE
+        candidates = _observation_cooccurrence_candidates(
+            store,
+            concepts=concepts,
+            existing_keys=existing_keys,
+            prefixes=prefixes,
+            relation_type=relation_type,
+        )
+        extractor = OBSERVATION_COOCCURRENCE_EXTRACTOR_NAME
     else:
         relation_type = "same_source_family"
         candidates = _source_family_candidates(
@@ -82,9 +95,9 @@ def augment_store_relations_from_claims(
     selected = [
         candidate
         for candidate in candidates.values()
-        if len(candidate.claim_ids) >= effective_min_evidence
+        if _evidence_count(candidate) >= effective_min_evidence
     ]
-    selected.sort(key=lambda item: (-len(item.claim_ids), item.source_id, item.target_id))
+    selected.sort(key=lambda item: (-_evidence_count(item), item.source_id, item.target_id))
     if limit is not None:
         selected = selected[: max(0, int(limit))]
 
@@ -113,11 +126,11 @@ def augment_store_relations_from_claims(
                     candidate_type="relation",
                     candidate_id=relation_id,
                     triage_lane="relation_review",
-                    priority=max(10, 60 - min(len(candidate.claim_ids), 50)),
+                    priority=max(10, 60 - min(_evidence_count(candidate), 50)),
                     finding_codes=["relation_inferred", strategy.replace("-", "_")],
                     rationale=(
                         f"{candidate.source_id} {candidate.relation_type} {candidate.target_id} "
-                        f"| evidence_count={len(candidate.claim_ids)} | extractor={extractor}"
+                        f"| evidence_count={_evidence_count(candidate)} | extractor={extractor}"
                     ),
                     current_status="triaged",
                 )
@@ -133,6 +146,25 @@ def augment_store_relations_from_claims(
         "concept_prefixes": prefixes,
         "min_evidence": effective_min_evidence,
         "candidate_relation_count": len(relation_payloads),
+        "relation_type_counts": _relation_type_counts(relation_payloads),
+        "write_summary": {
+            "relation_write_count": len(relation_payloads) if apply else 0,
+            "review_candidate_write_count": len(relation_payloads) if apply else 0,
+            "dry_run": not apply,
+        },
+        "diagnostic_layers": {
+            "reviewed_semantic_relations": sum(
+                1
+                for relation in store.list_relations()
+                if relation.current_status in {"reviewed", "promoted"}
+            ),
+            "candidate_semantic_relations": sum(
+                1
+                for relation in store.list_relations()
+                if relation.current_status in {"draft", "triaged"}
+            ),
+            "derived_projection_edges": "query_time",
+        },
         "relations": relation_payloads,
     }
 
@@ -166,6 +198,8 @@ def _claim_cooccurrence_candidates(
                 candidate = RelationCandidate(source_id=source_id, target_id=target_id, relation_type=relation_type)
                 candidates[key] = candidate
             candidate.claim_ids.append(claim.claim_id)
+            if claim.claim_id not in candidate.support_ids:
+                candidate.support_ids.append(claim.claim_id)
             for evidence_id in claim.source_observation_ids or [claim.claim_id]:
                 if evidence_id not in candidate.evidence_ids:
                     candidate.evidence_ids.append(evidence_id)
@@ -207,6 +241,7 @@ def _source_family_candidates(
                 claim_ids=[family],
                 evidence_ids=list(dict.fromkeys(source_concept.source_artifact_ids + target_concept.source_artifact_ids)),
                 origin_paths=[],
+                support_ids=[family],
             )
     return candidates
 
@@ -254,12 +289,64 @@ def _claim_mentions_candidates(
                     candidate = RelationCandidate(source_id=source_id, target_id=target_id, relation_type=inferred_type)
                     candidates[key] = candidate
                 candidate.claim_ids.append(claim.claim_id)
+                if claim.claim_id not in candidate.support_ids:
+                    candidate.support_ids.append(claim.claim_id)
                 for evidence_id in claim.source_observation_ids or [claim.claim_id]:
                     if evidence_id not in candidate.evidence_ids:
                         candidate.evidence_ids.append(evidence_id)
                 origin_path = claim.provenance.origin_path
                 if origin_path and origin_path not in candidate.origin_paths:
                     candidate.origin_paths.append(origin_path)
+    return candidates
+
+
+def _observation_cooccurrence_candidates(
+    store: GroundRecallStore,
+    *,
+    concepts: dict[str, Any],
+    existing_keys: set[tuple[str, str, str]],
+    prefixes: list[str],
+    relation_type: str,
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    concept_rows = [
+        concept.model_dump()
+        for concept in concepts.values()
+        if _matches_prefixes(concept.concept_id, prefixes)
+        and not _is_operational_concept(concept)
+        and not _is_generic_backfill_concept(concept)
+    ]
+    observation_rows = [
+        {
+            **observation.model_dump(),
+            "origin_path": observation.provenance.origin_path,
+            "origin_section": observation.provenance.origin_section,
+        }
+        for observation in store.list_observations()
+        if observation.current_status != "rejected"
+    ]
+    relation_rows, _summary = extract_heuristic_graph_relations(
+        concept_rows,
+        observation_rows,
+        import_id="store-backfill",
+    )
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+    for row in relation_rows:
+        source_id = str(row.get("source_id", ""))
+        target_id = str(row.get("target_id", ""))
+        if source_id not in concepts or target_id not in concepts:
+            continue
+        key = _relation_key(source_id, target_id, relation_type)
+        if key in existing_keys:
+            continue
+        evidence_ids = [str(value) for value in row.get("evidence_ids", []) if str(value)]
+        candidates[key] = RelationCandidate(
+            source_id=source_id,
+            target_id=target_id,
+            relation_type=relation_type,
+            support_ids=evidence_ids,
+            evidence_ids=evidence_ids,
+            origin_paths=[str(row.get("origin_path", ""))] if row.get("origin_path") else [],
+        )
     return candidates
 
 
@@ -270,13 +357,27 @@ def _candidate_payload(candidate: RelationCandidate, *, extractor: str) -> dict[
         "target_id": candidate.target_id,
         "relation_type": candidate.relation_type,
         "evidence_ids": candidate.evidence_ids,
-        "evidence_count": len(candidate.claim_ids),
+        "evidence_count": _evidence_count(candidate),
         "claim_ids": candidate.claim_ids[:25],
+        "support_ids": candidate.support_ids[:25],
         "origin_paths": candidate.origin_paths[:10],
         "support_kind": "inferred",
         "grounding_status": "partially_grounded",
         "current_status": "triaged",
     }
+
+
+def _evidence_count(candidate: RelationCandidate) -> int:
+    return len(candidate.support_ids or candidate.claim_ids or candidate.evidence_ids)
+
+
+def _relation_type_counts(relation_payloads: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for item in relation_payloads:
+        relation_type = str(item.get("relation_type", ""))
+        if relation_type:
+            counts[relation_type] = counts.get(relation_type, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[str, str, str]:
@@ -379,6 +480,35 @@ def _is_operational_concept(concept: Any) -> bool:
     if {"math", "aware", "review", "applied"} <= tokens:
         return True
     return False
+
+
+def _is_generic_backfill_concept(concept: Any) -> bool:
+    tokens = set(_concept_tokens(concept))
+    generic_tokens = {
+        "background",
+        "command",
+        "commands",
+        "deployment",
+        "file",
+        "files",
+        "goal",
+        "netuser",
+        "note",
+        "notes",
+        "performed",
+        "project",
+        "repo",
+        "repository",
+        "result",
+        "results",
+        "run",
+        "source",
+        "task",
+        "todo",
+        "validation",
+        "verification",
+    }
+    return bool(tokens) and tokens <= generic_tokens
 
 
 def _topic_pattern(tokens: list[str]) -> re.Pattern[str] | None:

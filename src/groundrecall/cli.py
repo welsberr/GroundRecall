@@ -34,6 +34,7 @@ COMMANDS = {
     "federation": federation.main,
     "contradictions": contradictions.main,
     "graph-augment": graph_augment.main,
+    "graph-backfill": graph_augment.main,
     "relation-review": relation_review.main,
     "assistant-export": assistant_export.main,
     "claim-evaluation-export": claim_evaluation_export.main,

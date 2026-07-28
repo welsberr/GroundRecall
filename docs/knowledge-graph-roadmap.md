@@ -158,7 +158,10 @@ implemented.
 
 ### P2A: Store-Level Graph Enrichment And Backfill
 
-Status: top implementation priority.
+Status: initial implementation expanded. `graph-augment` now has a
+`graph-backfill` CLI alias, dry-run-by-default output, idempotent candidate
+writes, layer diagnostics, and an `observation-cooccurrence` strategy that
+reuses import-time heuristic graph extraction over existing store observations.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -168,11 +171,12 @@ records, not by broad source re-ingestion.
 
 Implementation requirements:
 
-- Add a `groundrecall graph augment` or `groundrecall graph backfill` command
+- Add a `groundrecall graph-augment` or `groundrecall graph-backfill` command
   that scans the canonical store and writes only draft/candidate relations plus
-  review candidates by default.
+  review candidates by default. Initial implementation exists.
 - Reuse import-time heuristic graph extraction logic where applicable, but make
-  it callable against existing stored observations and concepts.
+  it callable against existing stored observations and concepts. Initial
+  implementation exists for observation co-mentions.
 - Generate relation candidates for:
   - concept co-mentions in observations;
   - explicit claim-to-claim contradiction and supersession fields;
@@ -187,15 +191,20 @@ Implementation requirements:
 - Route generated candidates into the relation review workflow rather than
   silently promoting them.
 - Add dry-run output with candidate counts by relation type, evidence coverage,
-  skipped duplicate counts, and examples for review.
+  skipped duplicate counts, and examples for review. Initial output includes
+  candidate counts, relation type counts, evidence counts, relation examples,
+  write summary, and layer diagnostics; separate skipped-duplicate counts
+  remain to be added.
 - Add diagnostics that report reviewed semantic edges, candidate semantic
-  edges, projection edges, and unresolved sparse concepts separately.
+  edges, projection edges, and unresolved sparse concepts separately. Initial
+  augmentation output distinguishes reviewed semantic relations, candidate
+  semantic relations, and query-time projection edges.
 
 Acceptance tests:
 
 - Existing stores can produce candidate semantic edges without re-ingesting
-  source files.
-- Re-running the backfill is idempotent.
+  source files. Covered for observation co-mentions.
+- Re-running the backfill is idempotent. Covered for claim co-occurrence.
 - Rejected/private records do not generate public exportable candidates.
 - Public export guardrails exclude draft/private candidate edges and their
   evidence when appropriate.

@@ -126,6 +126,7 @@ groundrecall query .groundrecall/store channel-capacity --kind graph
 groundrecall query .groundrecall/store "reliable communication" --kind graph-search --graph-limit 3
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu --min-evidence 2
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
+groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurrence --min-evidence 2
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family --apply
 groundrecall relation-review .groundrecall/store --concept-prefix concept::evo-edu-notebook --support-kind inferred --limit 25
