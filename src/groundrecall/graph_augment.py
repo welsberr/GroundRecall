@@ -21,11 +21,13 @@ CLAIM_MENTIONS_EXTRACTOR_NAME = "groundrecall.store_claim_mentions.v1"
 OBSERVATION_COOCCURRENCE_EXTRACTOR_NAME = "groundrecall.store_observation_cooccurrence.v1"
 CLAIM_LINKS_EXTRACTOR_NAME = "groundrecall.store_claim_links.v1"
 CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME = "groundrecall.store_claim_contradiction_cues.v1"
+CLAIM_SUPPORT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_claim_support_anchors.v1"
 VALID_STRATEGIES = {
     "claim-contradiction-cues",
     "claim-cooccurrence",
     "claim-links",
     "claim-mentions",
+    "claim-support-anchors",
     "observation-cooccurrence",
     "source-family",
 }
@@ -112,6 +114,15 @@ def augment_store_relations_from_claims(
             max_pair_checks=max(0, int(max_pair_checks)),
         )
         extractor = CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME
+    elif strategy == "claim-support-anchors":
+        relation_type = "observation_supports_claim"
+        candidates = _claim_support_anchor_candidates(
+            store,
+            existing_keys=existing_keys,
+            stats=stats,
+            relation_type=relation_type,
+        )
+        extractor = CLAIM_SUPPORT_ANCHORS_EXTRACTOR_NAME
     elif strategy == "claim-mentions":
         relation_type = "mentions_topic"
         candidates = _claim_mentions_candidates(
@@ -145,7 +156,11 @@ def augment_store_relations_from_claims(
         )
         extractor = SOURCE_FAMILY_EXTRACTOR_NAME
 
-    effective_min_evidence = 1 if strategy in {"claim-contradiction-cues", "claim-links", "claim-mentions", "source-family"} else max(1, int(min_evidence))
+    effective_min_evidence = (
+        1
+        if strategy in {"claim-contradiction-cues", "claim-links", "claim-mentions", "claim-support-anchors", "source-family"}
+        else max(1, int(min_evidence))
+    )
     eligible = [
         candidate
         for candidate in candidates.values()
@@ -401,6 +416,50 @@ def _claim_contradiction_cue_candidates(
                     )
                     candidates[key] = candidate
     return candidates
+
+
+def _claim_support_anchor_candidates(
+    store: GroundRecallStore,
+    *,
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+    relation_type: str,
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    observations = {
+        observation.observation_id: observation
+        for observation in store.list_observations()
+        if observation.current_status != "rejected"
+    }
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+    for claim in store.list_claims():
+        if claim.current_status == "rejected":
+            continue
+        for observation_id in claim.source_observation_ids:
+            if observation_id not in observations:
+                continue
+            key = _relation_key(observation_id, claim.claim_id, relation_type)
+            if key in existing_keys:
+                stats.record_duplicate(key)
+                continue
+            observation = observations[observation_id]
+            candidates[key] = RelationCandidate(
+                source_id=observation_id,
+                target_id=claim.claim_id,
+                relation_type=relation_type,
+                claim_ids=[claim.claim_id],
+                support_ids=[f"{observation_id}->{claim.claim_id}"],
+                evidence_ids=[observation_id],
+                origin_paths=_support_anchor_origin_paths(observation, claim),
+            )
+    return candidates
+
+
+def _support_anchor_origin_paths(observation: Any, claim: Any) -> list[str]:
+    values: list[str] = []
+    for origin_path in (observation.provenance.origin_path, claim.provenance.origin_path):
+        if origin_path and origin_path not in values:
+            values.append(origin_path)
+    return values
 
 
 def _claim_contradiction_signature_buckets(claims: list[Any]) -> dict[tuple[str, ...], dict[str, list[Any]]]:
@@ -709,7 +768,15 @@ def _normalize_claim_token(token: str) -> str:
 
 
 def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[str, str, str]:
-    if relation_type in {"claim_contradicts_claim", "claim_supersedes_claim", "provides_evidence_for", "distinguishes", "qualifies"}:
+    if relation_type in {
+        "claim_contradicts_claim",
+        "claim_may_contradict_claim",
+        "claim_supersedes_claim",
+        "observation_supports_claim",
+        "provides_evidence_for",
+        "distinguishes",
+        "qualifies",
+    }:
         return (source_id, target_id, relation_type)
     left, right = sorted([source_id, target_id])
     return (left, right, relation_type)

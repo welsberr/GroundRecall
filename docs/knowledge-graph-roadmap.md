@@ -173,7 +173,10 @@ reviewable `claim_may_contradict_claim` candidates for same-concept claim pairs
 with opposing negation cues and high normalized text overlap. Because semantic
 pair scanning can be expensive on large stores, the strategy is opt-in,
 signature-bucketed, and bounded by `--max-pair-checks`; it is not part of the
-default periodic maintenance strategy list.
+default periodic maintenance strategy list. The `claim-support-anchors`
+strategy now emits `observation_supports_claim` candidates from existing claim
+source-observation links and keeps that relation type in the support/provenance
+diagnostic layer rather than the concept-semantic graph layer.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -193,6 +196,8 @@ Implementation requirements:
   - concept co-mentions in observations;
   - explicit claim-to-claim contradiction and supersession fields; initial
     implementation exists through `--strategy claim-links`;
+  - source/artifact/observation anchors for claim support; initial observation
+    support implementation exists through `--strategy claim-support-anchors`;
   - conservative semantic contradiction cues; initial opt-in implementation
     exists through `--strategy claim-contradiction-cues` with normalized
     signature buckets and a pair-check budget;

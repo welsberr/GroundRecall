@@ -451,6 +451,73 @@ def test_augment_store_relations_from_claim_contradiction_cues_buckets_pairs(tmp
     assert payload["filter_summary"]["pair_check_limit_reached"] is False
 
 
+def test_augment_store_relations_from_claim_support_anchors(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_support",
+            artifact_id="art_support",
+            role="evidence",
+            text="Observed support.",
+            provenance=ProvenanceRecord(origin_path="sources/support.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_supported",
+            claim_text="A supported claim.",
+            source_observation_ids=["obs_support", "obs_missing"],
+            provenance=ProvenanceRecord(origin_path="sources/claim.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-support-anchors",
+        apply=True,
+    )
+
+    relations = store.list_relations()
+    assert payload["candidate_relation_count"] == 1
+    assert payload["relation_type_counts"] == {"observation_supports_claim": 1}
+    assert relations[0].source_id == "obs_support"
+    assert relations[0].target_id == "claim_supported"
+    assert relations[0].relation_type == "observation_supports_claim"
+    assert relations[0].evidence_ids == ["obs_support"]
+    assert relations[0].provenance.origin_path == "sources/support.md"
+    assert store.list_review_candidates()[0].finding_codes == ["relation_inferred", "claim_support_anchors"]
+
+
+def test_augment_store_relations_from_claim_support_anchors_reports_duplicates(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_observation(
+        ObservationRecord(
+            observation_id="obs_support",
+            artifact_id="art_support",
+            role="evidence",
+            text="Observed support.",
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_supported",
+            claim_text="A supported claim.",
+            source_observation_ids=["obs_support"],
+            current_status="reviewed",
+        )
+    )
+    augment_store_relations_from_claims(store.base_dir, strategy="claim-support-anchors", apply=True)
+
+    second = augment_store_relations_from_claims(store.base_dir, strategy="claim-support-anchors", apply=False)
+
+    assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_count"] == 1
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"observation_supports_claim": 1}
+
+
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))

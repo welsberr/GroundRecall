@@ -6,7 +6,13 @@ from pathlib import Path
 from typing import Any
 
 
-PROVENANCE_RELATION_TYPES = {"same_source_family"}
+PROVENANCE_RELATION_TYPES = {
+    "claim_contradicts_claim",
+    "claim_may_contradict_claim",
+    "claim_supersedes_claim",
+    "observation_supports_claim",
+    "same_source_family",
+}
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
