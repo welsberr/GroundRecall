@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import sys
 
-from groundrecall.graph_maintenance import run_graph_maintenance_slice
+from groundrecall.graph_maintenance import default_state_path, run_graph_maintenance_slice
 from groundrecall.models import ArtifactRecord, ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord
 from groundrecall.store import GroundRecallStore
 
@@ -63,6 +63,28 @@ def test_graph_maintenance_default_profile_remains_safe(tmp_path: Path) -> None:
     assert payload["strategies"] == ["claim-cooccurrence", "claim-mentions", "observation-cooccurrence", "source-family"]
     assert "claim-support-anchors" not in payload["strategies"]
     assert "observation-artifact-anchors" not in payload["strategies"]
+
+
+def test_graph_maintenance_default_state_path_is_profile_specific(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+
+    safe = run_graph_maintenance_slice(
+        store.base_dir,
+        profile="safe",
+        limit=1,
+        apply=False,
+    )
+    support = run_graph_maintenance_slice(
+        store.base_dir,
+        profile="support",
+        limit=1,
+        apply=False,
+    )
+
+    assert safe["state_path"].endswith("graph_maintenance_state__safe.json")
+    assert support["state_path"].endswith("graph_maintenance_state__support.json")
+    assert safe["state_path"] != support["state_path"]
+    assert default_state_path(store.base_dir, "semantic review").name == "graph_maintenance_state__semantic-review.json"
 
 
 def test_graph_maintenance_apply_writes_bounded_slice_and_advances_state(tmp_path: Path) -> None:

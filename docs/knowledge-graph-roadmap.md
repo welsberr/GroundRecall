@@ -182,7 +182,8 @@ diagnostic layer rather than the concept-semantic graph layer. The
 links, also in the support/provenance layer. `graph-maintenance` now exposes
 named profiles so existing cron jobs remain on the `safe` strategy set unless
 high-volume support-anchor backfill is explicitly requested with
-`--profile support`.
+`--profile support`. Each profile has a separate default maintenance state file
+to avoid cross-profile rotation cursor confusion.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession

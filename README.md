@@ -152,7 +152,8 @@ state under the store by default. It is intended for cron/systemd-style periodic
 launches with a small `--limit`, not as a long-running daemon. Its default
 `safe` profile avoids high-volume support-anchor strategies; use
 `--profile support` explicitly to backfill claim/observation/artifact support
-anchors.
+anchors. Each profile uses a separate default state file under
+`.groundrecall/store/.maintenance/` unless `--state-path` is provided.
 
 Export assistant-neutral data:
 

@@ -4,6 +4,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+import re
 from typing import Any
 
 from .graph_augment import VALID_STRATEGIES, augment_store_relations_from_claims
@@ -32,8 +33,9 @@ def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def default_state_path(store_dir: str | Path) -> Path:
-    return Path(store_dir) / ".maintenance" / "graph_maintenance_state.json"
+def default_state_path(store_dir: str | Path, profile: str = "safe") -> Path:
+    safe_profile = re.sub(r"[^A-Za-z0-9_.-]+", "-", profile).strip("-") or "safe"
+    return Path(store_dir) / ".maintenance" / f"graph_maintenance_state__{safe_profile}.json"
 
 
 def run_graph_maintenance_slice(
@@ -51,7 +53,7 @@ def run_graph_maintenance_slice(
 ) -> dict[str, Any]:
     active_strategies = _resolve_strategies(strategies=strategies, profile=profile)
 
-    resolved_state_path = Path(state_path) if state_path is not None else default_state_path(store_dir)
+    resolved_state_path = Path(state_path) if state_path is not None else default_state_path(store_dir, profile)
     state = _load_state(resolved_state_path)
     strategy_index = int(state.get("next_strategy_index", 0)) % len(active_strategies)
     strategy = active_strategies[strategy_index]
