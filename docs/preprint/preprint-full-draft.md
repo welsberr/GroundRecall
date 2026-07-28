@@ -738,7 +738,7 @@ Release status: conditionally suitable for internal/public draft review, pending
 - **Resolve public/private path issue.:** Repository-level references remain in the appendix; no absolute local paths are used for public evidence references.
 - **Broaden bibliography.:** Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references.
 - **Complete second bibliography expansion targets.:** Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix.
-- **Add empirical demonstrations.:** Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, and local authority.
+- **Add empirical demonstrations.:** Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, local authority, and the policy-plugin boundary.
 
 
 ### Post-Action Check

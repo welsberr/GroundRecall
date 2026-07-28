@@ -113,12 +113,12 @@ Use the repos as implementation examples rather than the main argumentative star
 
 | Prototype | Demonstrated properties |
 | --- | --- |
-| GroundRecall | Provenance records, review-gated promotion, contradiction cases, release levels, federation quarantine, local policy, audit, trust/role distribution. |
+| GroundRecall | Provenance records, review-gated promotion, contradiction cases, release levels, federation quarantine, local policy, audit, trust/role distribution, and bounded policy-plugin enforcement on selected surfaces. |
 | ClaimWright | One suitable policy framework: claim lifecycle, adversarial review, citation review, public/private gates, role cards, pre/post action checks, scientific-virtue policy stance. |
 | CiteGeist | Bibliographic extraction, verification, enrichment, citation graph expansion, source review, BibTeX export, memory-layer bibliography seeding. |
 | Epistemap | Confidence measures, Bayesian-style evidence representation where implemented, knowledge-graph operations, contradiction/confidence interaction targets. |
 
-This section should be explicit that integration is partial. GroundRecall has not yet imported ClaimWright policies as enforcement rules. CiteGeist and Epistemap are companion tools, not hidden GroundRecall subsystems.
+This section should be explicit that integration is partial but no longer absent. GroundRecall owns the policy-plugin contract and can evaluate ClaimWright-style directory policy content on selected enforcement surfaces. ClaimWright remains optional policy content, not a privileged dependency. CiteGeist and Epistemap are companion tools, not hidden GroundRecall subsystems.
 
 ### 6. Relation To Memory-Layer Systems
 

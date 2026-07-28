@@ -33,6 +33,8 @@ The paper can describe and demonstrate:
 - contradiction review batches and explicit contradiction-case adjudication;
 - non-destructive memory lifecycle handling through expiry, supersession, retraction, applicability, and confidence review;
 - release-level classification and no-access-broadening export controls;
+- bounded policy-plugin enforcement on selected MCP, export, federation,
+  promotion, adjudication, and relation-review surfaces;
 - signed federation bundles;
 - quarantine-before-promotion import;
 - local policy-gated export/import/promotion;
@@ -308,6 +310,10 @@ Minimum demonstrations to prepare:
    - sync them into contradiction cases;
    - list review batch with claim previews;
    - adjudicate a case while preserving both underlying claims.
+7. Policy-plugin boundary:
+   - evaluate a static policy plugin;
+   - evaluate a ClaimWright-style directory adapter;
+   - show hard-gate preflight blocking before promotion, adjudication, and relation-review writes.
 
 Needed work:
 
