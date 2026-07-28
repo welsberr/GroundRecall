@@ -129,6 +129,7 @@ groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu
 groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurrence --min-evidence 2
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy source-family --apply
+groundrecall graph-maintenance .groundrecall/store --limit 5 --apply
 groundrecall relation-review .groundrecall/store --concept-prefix concept::evo-edu-notebook --support-kind inferred --limit 25
 groundrecall relation-review .groundrecall/store --apply relation-decisions.json
 groundrecall export .groundrecall/store exports/canonical --graph-concept channel-capacity
@@ -140,6 +141,10 @@ Concept query bundles include an Epistemap graph, temporal summary, heuristic
 epistemic reliability summary, and Bayesian reliability block with posterior
 support estimates plus prior-sensitivity checks. These estimates expose evidence
 strength and fragility; they are not source-truth labels.
+
+`graph-maintenance` runs one bounded graph backfill slice and records resumable
+state under the store by default. It is intended for cron/systemd-style periodic
+launches with a small `--limit`, not as a long-running daemon.
 
 Export assistant-neutral data:
 

@@ -162,6 +162,8 @@ Status: initial implementation expanded. `graph-augment` now has a
 `graph-backfill` CLI alias, dry-run-by-default output, idempotent candidate
 writes, layer diagnostics, and an `observation-cooccurrence` strategy that
 reuses import-time heuristic graph extraction over existing store observations.
+`graph-maintenance` now runs one bounded resumable slice, records state, and
+exits so periodic schedulers can keep graph maintenance load bounded.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -199,12 +201,18 @@ Implementation requirements:
   edges, projection edges, and unresolved sparse concepts separately. Initial
   augmentation output distinguishes reviewed semantic relations, candidate
   semantic relations, and query-time projection edges.
+- Add a resumable maintenance runner for scheduled operation. Initial
+  implementation exists as `groundrecall graph-maintenance`: it chooses one
+  strategy per invocation, applies a candidate limit, records JSON state, and
+  rotates to the next configured strategy after applied runs.
 
 Acceptance tests:
 
 - Existing stores can produce candidate semantic edges without re-ingesting
   source files. Covered for observation co-mentions.
 - Re-running the backfill is idempotent. Covered for claim co-occurrence.
+- Periodic maintenance can process a bounded slice and resume from persisted
+  state. Covered for strategy rotation and CLI dispatch.
 - Rejected/private records do not generate public exportable candidates.
 - Public export guardrails exclude draft/private candidate edges and their
   evidence when appropriate.

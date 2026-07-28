@@ -47,6 +47,11 @@ semantic relations from the existing store, keep those candidates separate from
 reviewed semantic relations and derived projection edges, and provide dry-run
 diagnostics before any candidate writes.
 
+Periodic maintenance should use a resumable bounded runner, not a long-lived
+daemon. Each launch should process one small graph-maintenance slice, persist
+state, and exit. This lets cron, systemd timers, or another local scheduler
+spread graph work across time and keep host load bounded.
+
 The detailed path is maintained in
 [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).
 
