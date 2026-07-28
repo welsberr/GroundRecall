@@ -30,12 +30,22 @@ issue: the graph must become meaningful before it is worth optimizing.
 Near-term work should therefore focus on:
 
 - graph density and root-neighborhood audits;
+- store-level graph enrichment/backfill over existing claims, observations,
+  concepts, citations, contradiction links, and supersession links;
 - edge-generation coverage across claims, concepts, observations, sources,
   contradictions, supersessions, citations, federation, and provenance;
 - Epistemap-compatible graph exports that preserve confidence, provenance,
   temporal validity, contradiction, and adjudication state;
 - review workflows for inferred or weakly grounded edges;
+- ordinary source re-ingestion only when the existing extraction is too thin to
+  support useful backfill;
 - performance work only after graph coverage and semantics are adequate.
+
+The next implementation priority is therefore a reusable
+`graph augment/backfill` path. It should generate reviewable candidate
+semantic relations from the existing store, keep those candidates separate from
+reviewed semantic relations and derived projection edges, and provide dry-run
+diagnostics before any candidate writes.
 
 The detailed path is maintained in
 [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).

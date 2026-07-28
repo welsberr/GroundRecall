@@ -11,16 +11,19 @@ Immediate graph/Epistemap work should proceed in this order:
 
 1. measure graph density, claim/concept coverage, relation status/type
    distributions, and root-neighborhood coverage;
-2. audit which import, review, contradiction, supersession, bibliography, and
+2. add a store-level graph-enrichment/backfill path over existing claims,
+   observations, concepts, and citations, so missing semantic edges can be
+   proposed without ordinary source re-ingestion;
+3. audit which import, review, contradiction, supersession, bibliography, and
    Epistemap adapter paths generate edges;
-3. improve edge generation and review for the relations that matter to
+4. improve edge generation and review for the relations that matter to
    governed memory: claim-to-concept, observation-to-claim, claim-to-claim,
    concept-to-concept, source-to-claim, contradiction, supersession, citation,
    and provenance edges;
-4. align GroundRecall graph bundles with Epistemap so confidence,
+5. align GroundRecall graph bundles with Epistemap so confidence,
    contradiction, temporal validity, and provenance remain visible in graph
    operations;
-5. optimize graph traversal only after graph coverage is adequate.
+6. optimize graph traversal only after graph coverage is adequate.
 
 This priority follows the design rule that graph databases, caches, and
 precomputed adjacency indexes are projections. They should accelerate a useful
@@ -75,6 +78,20 @@ until reviewed or promoted.
 
 ## Recommended Next Graph Work
 
+- Implement `groundrecall graph augment/backfill` as the next coding priority.
+  It should scan the existing store, generate candidate semantic
+  `RelationRecord`s and review candidates, and avoid requiring source
+  re-ingestion when claims, observations, and concept assignments are already
+  present.
+- Treat ordinary re-ingestion as a fallback for thin or defective extraction,
+  not as the default path for missing edges.
+- Separate three graph layers in diagnostics and query output:
+  reviewed semantic relations, reviewable candidate semantic relations, and
+  derived evidence projection edges.
+- Extend the existing heuristic co-mention extractor into a reusable backfill
+  component, then add higher-value deterministic passes for claim/concept
+  phrasing, contradiction/supersession fields, citation/source anchors,
+  definition/qualification cues, and temporal validity cues.
 - Add temporal validity and `as_of` traversal after the canonical bitemporal
   model is implemented.
 - Include exact record versions or hashes in exported graph bundles.
@@ -138,6 +155,52 @@ implemented.
 - Add an opt-in `groundrecall import --extract-graph` flag.
 - Add deterministic chunk-backed extraction before any optional LLM extractor.
 - Emit candidate concepts, claims, and relations with chunk provenance.
+
+### P2A: Store-Level Graph Enrichment And Backfill
+
+Status: top implementation priority.
+
+The current store already contains abundant governed memory structure in
+claims, observations, concept assignments, contradiction fields, supersession
+fields, source artifacts, citations, and review candidates. Missing graph
+edges should therefore be addressed first by enrichment/backfill over existing
+records, not by broad source re-ingestion.
+
+Implementation requirements:
+
+- Add a `groundrecall graph augment` or `groundrecall graph backfill` command
+  that scans the canonical store and writes only draft/candidate relations plus
+  review candidates by default.
+- Reuse import-time heuristic graph extraction logic where applicable, but make
+  it callable against existing stored observations and concepts.
+- Generate relation candidates for:
+  - concept co-mentions in observations;
+  - explicit claim-to-claim contradiction and supersession fields;
+  - source/artifact/observation anchors for claim support;
+  - citation/source-anchor links;
+  - definition, qualification, distinction, dependency, and temporal-validity
+    cues where deterministic patterns are strong enough.
+- Record extraction method, evidence ids, support kind, grounding status,
+  rationale, and confidence/provenance metadata for every candidate relation.
+- Deduplicate against existing reviewed, promoted, draft, and rejected
+  relations before writing new candidates.
+- Route generated candidates into the relation review workflow rather than
+  silently promoting them.
+- Add dry-run output with candidate counts by relation type, evidence coverage,
+  skipped duplicate counts, and examples for review.
+- Add diagnostics that report reviewed semantic edges, candidate semantic
+  edges, projection edges, and unresolved sparse concepts separately.
+
+Acceptance tests:
+
+- Existing stores can produce candidate semantic edges without re-ingesting
+  source files.
+- Re-running the backfill is idempotent.
+- Rejected/private records do not generate public exportable candidates.
+- Public export guardrails exclude draft/private candidate edges and their
+  evidence when appropriate.
+- Diagnostics distinguish sparse reviewed semantics from available projection
+  structure and candidate semantic structure.
 - Support extractor modes: `none`, `heuristic`, and later `llm`.
 - Keep inferred candidates in draft/triage state.
 - Current heuristic mode emits draft `co_occurs_with` relation candidates from
