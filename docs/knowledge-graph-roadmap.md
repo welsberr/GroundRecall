@@ -158,52 +158,46 @@ implemented.
 
 ### P2A: Store-Level Graph Enrichment And Backfill
 
-Status: initial implementation expanded. `graph-augment` now has a
-`graph-backfill` CLI alias, dry-run-by-default output, idempotent candidate
-writes, layer diagnostics, and an `observation-cooccurrence` strategy that
-reuses import-time heuristic graph extraction over existing store observations.
-`graph-maintenance` now runs one bounded resumable slice, records state, and
-exits so periodic schedulers can keep graph maintenance load bounded.
-Augmentation output now reports raw candidate counts, candidates below evidence
-threshold, skipped duplicate relation counts, limit omissions, relation type
-counts, and write counts. The `claim-links` strategy now emits directed
-claim-to-claim contradiction and supersession relation candidates from explicit
-stored claim fields. The opt-in `claim-contradiction-cues` strategy now emits
-reviewable `claim_may_contradict_claim` candidates for same-concept claim pairs
-with opposing negation cues and high normalized text overlap. Because semantic
-pair scanning can be expensive on large stores, the strategy is opt-in,
-signature-bucketed, and bounded by `--max-pair-checks`; it is not part of the
-default periodic maintenance strategy list. The `claim-support-anchors`
-strategy now emits `observation_supports_claim` candidates from existing claim
-source-observation links and keeps that relation type in the support/provenance
-diagnostic layer rather than the concept-semantic graph layer. The
-`observation-artifact-anchors` strategy now emits
-`artifact_contains_observation` candidates from existing observation artifact
-links, also in the support/provenance layer. The `source-anchors` strategy now
-emits `source_contains_fragment` and `fragment_supports_claim` candidates from
-existing source/fragment/claim links, again as reviewable support/provenance
-edges rather than reviewed citation support. The `claim-semantic-cues` strategy
-now emits deterministic `claim_defines_concept`,
-`claim_qualifies_concept`, `claim_constrains_concept`, and `distinguishes`
-candidates from explicit claim kinds and strong lexical cues. It also emits
-`claim_depends_on_concept` for explicit dependency/prerequisite cues and
-`claim_has_temporal_scope` when validity, expiry, supersession, retraction,
-challenge, or confirmation metadata is present. These are reviewable semantic
-candidates, not automatic promotions. `graph-maintenance` now exposes
-named profiles so existing cron jobs remain on the `safe` strategy set unless
-high-volume support/provenance backfill is explicitly requested with
-`--profile support`. Each profile has a separate default maintenance state file
-to avoid cross-profile rotation cursor confusion. Each invocation also acquires
-an atomic lock next to its state file, skips safely if a previous slice is still
-active, and can recover stale locks after interrupted runs. Graph diagnostics
-now classify source/fragment/claim anchor edges as provenance/support
-relations and report reviewed versus candidate relation counts separately for
-semantic and provenance layers. Graph augmentation now applies the same
-private/no-export/secret-like metadata screen used by public export guardrails
-before records can seed inferred candidate edges.
-Store-level `graph-backfill` and `graph-maintenance` now expose
-`--extractor-mode none|heuristic`, matching the implemented import extraction
-modes and leaving `llm` as a future optional mode.
+Status: implemented baseline. The store-level graph enrichment path now has:
+
+- `graph-augment` / `graph-backfill` commands with dry-run-by-default output,
+  idempotent candidate writes, compact `relation_examples`, filter/write
+  diagnostics, and sensitive-record screening aligned with public export
+  guardrails.
+- `graph-maintenance`, a bounded resumable scheduled runner with profiles,
+  profile-specific state files, atomic lock files, stale-lock recovery, and
+  `--extractor-mode none|heuristic`.
+- Safe default strategies for periodic maintenance, plus opt-in `support`,
+  `semantic`, and `all` profiles for higher-volume or higher-judgment work.
+- Candidate strategies for claim/concept co-occurrence, claim mentions,
+  observation co-occurrence, source family, explicit claim contradiction and
+  supersession links, conservative contradiction cues, claim support anchors,
+  observation/artifact anchors, source/fragment/claim provenance anchors, and
+  deterministic claim semantic cues.
+- Diagnostic separation for reviewed semantic, candidate semantic,
+  provenance/support, and query-time projection structure.
+
+Implemented relation candidates include:
+
+- `co_occurs_with`
+- `mentions_topic`, `related_topic`, `provides_evidence_for`
+- `claim_contradicts_claim`, `claim_may_contradict_claim`,
+  `claim_supersedes_claim`
+- `observation_supports_claim`, `artifact_contains_observation`,
+  `source_contains_fragment`, `fragment_supports_claim`
+- `same_source_family`
+- `claim_defines_concept`, `claim_qualifies_concept`,
+  `claim_constrains_concept`, `claim_depends_on_concept`,
+  `claim_has_temporal_scope`, and `distinguishes`
+
+Current limitations:
+
+- `llm` remains a future optional extractor mode.
+- Deterministic semantic cues are intentionally conservative and review-gated.
+- Source-anchor edges establish provenance path structure; they do not by
+  themselves verify citation correctness or claim support quality.
+- Pair scanning for contradiction cues remains bounded and opt-in because it
+  can become expensive on large stores.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -215,42 +209,41 @@ Implementation requirements:
 
 - Add a `groundrecall graph-augment` or `groundrecall graph-backfill` command
   that scans the canonical store and writes only draft/candidate relations plus
-  review candidates by default. Initial implementation exists.
+  review candidates by default. Implemented.
 - Reuse import-time heuristic graph extraction logic where applicable, but make
-  it callable against existing stored observations and concepts. Initial
-  implementation exists for observation co-mentions.
+  it callable against existing stored observations and concepts. Implemented
+  for observation co-mentions.
 - Generate relation candidates for:
-  - concept co-mentions in observations;
-  - explicit claim-to-claim contradiction and supersession fields; initial
-    implementation exists through `--strategy claim-links`;
-  - source/artifact/observation anchors for claim support; initial observation
-    support implementation exists through `--strategy claim-support-anchors`
-    and `--strategy observation-artifact-anchors`;
-  - conservative semantic contradiction cues; initial opt-in implementation
-    exists through `--strategy claim-contradiction-cues` with normalized
-    signature buckets and a pair-check budget;
-  - citation/source-anchor links; initial source/fragment/claim anchor
-    implementation exists through `--strategy source-anchors`;
+  - concept co-mentions in observations. Implemented.
+  - explicit claim-to-claim contradiction and supersession fields. Implemented
+    through `--strategy claim-links`.
+  - source/artifact/observation anchors for claim support. Implemented through
+    `--strategy claim-support-anchors` and
+    `--strategy observation-artifact-anchors`.
+  - conservative semantic contradiction cues. Implemented through
+    `--strategy claim-contradiction-cues` with normalized signature buckets
+    and a pair-check budget.
+  - citation/source-anchor links. Initial source/fragment/claim anchor
+    implementation exists through `--strategy source-anchors`.
   - definition, qualification, distinction, dependency, and temporal-validity
-    cues where deterministic patterns are strong enough. Initial
-    definition/qualification/constraint/distinction/dependency implementation
-    exists through `--strategy claim-semantic-cues`, along with temporal-scope
-    relation candidates when explicit validity or lifecycle metadata is already
-    present.
+    cues where deterministic patterns are strong enough. Implemented through
+    `--strategy claim-semantic-cues`, including temporal-scope relation
+    candidates when explicit validity or lifecycle metadata is present.
 - Record extraction method, evidence ids, support kind, grounding status,
   rationale, and confidence/provenance metadata for every candidate relation.
+  Implemented for generated candidate records and review payloads.
 - Deduplicate against existing reviewed, promoted, draft, and rejected
-  relations before writing new candidates.
+  relations before writing new candidates. Implemented.
 - Route generated candidates into the relation review workflow rather than
-  silently promoting them.
+  silently promoting them. Implemented.
 - Add dry-run output with candidate counts by relation type, evidence coverage,
-  skipped duplicate counts, and examples for review. Initial output includes
+  skipped duplicate counts, and examples for review. Implemented output includes
   raw candidate counts, candidate counts after filters/limits, relation type
   counts, skipped duplicate counts, below-threshold counts, limit omissions,
   evidence counts, relation examples, write summary, and layer diagnostics.
 - Add diagnostics that report reviewed semantic edges, candidate semantic
-  edges, projection edges, and unresolved sparse concepts separately. Initial
-  augmentation output distinguishes reviewed semantic relations, candidate
+  edges, projection edges, and unresolved sparse concepts separately.
+  Augmentation output distinguishes reviewed semantic relations, candidate
   semantic relations, and query-time projection edges; graph diagnostics also
   report reviewed/candidate counts separately for semantic and provenance
   relation layers.
