@@ -142,3 +142,27 @@ def test_groundrecall_cli_graph_maintenance_dispatches(tmp_path: Path, capsys) -
     output = capsys.readouterr().out
     assert '"operation": "run_graph_maintenance_slice"' in output
     assert '"state_advanced": false' in output
+
+
+def test_graph_maintenance_can_run_claim_links_strategy(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_a",
+            claim_text="A.",
+            contradicts_claim_ids=["claim_b"],
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(ClaimRecord(claim_id="claim_b", claim_text="B.", current_status="reviewed"))
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        strategies=["claim-links"],
+        limit=1,
+        apply=True,
+    )
+
+    assert payload["selected_strategy"] == "claim-links"
+    assert payload["run_record"]["relation_type_counts"] == {"claim_contradicts_claim": 1}
+    assert len(store.list_relations()) == 1

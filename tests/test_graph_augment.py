@@ -242,6 +242,78 @@ def test_augment_store_relations_from_claim_mentions(tmp_path: Path) -> None:
     assert relations[0].evidence_ids == ["obs_homologous_evidence"]
 
 
+def test_augment_store_relations_from_claim_links(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_old",
+            claim_text="The old claim.",
+            source_observation_ids=["obs_old"],
+            provenance=ProvenanceRecord(origin_path="sources/old.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_new",
+            claim_text="The new claim.",
+            source_observation_ids=["obs_new"],
+            supersedes_claim_ids=["claim_old"],
+            provenance=ProvenanceRecord(origin_path="sources/new.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_challenge",
+            claim_text="The challenge claim.",
+            source_observation_ids=["obs_challenge"],
+            contradicts_claim_ids=["claim_new"],
+            provenance=ProvenanceRecord(origin_path="sources/challenge.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-links",
+        apply=True,
+    )
+
+    relations = sorted(store.list_relations(), key=lambda item: item.relation_type)
+    assert payload["candidate_relation_count"] == 2
+    assert payload["relation_type_counts"] == {
+        "claim_contradicts_claim": 1,
+        "claim_supersedes_claim": 1,
+    }
+    assert [(relation.source_id, relation.target_id, relation.relation_type) for relation in relations] == [
+        ("claim_challenge", "claim_new", "claim_contradicts_claim"),
+        ("claim_new", "claim_old", "claim_supersedes_claim"),
+    ]
+    assert all(relation.current_status == "triaged" for relation in relations)
+    assert {candidate.finding_codes[-1] for candidate in store.list_review_candidates()} == {"claim_links"}
+
+
+def test_augment_store_relations_from_claim_links_reports_directed_duplicates(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_a",
+            claim_text="A.",
+            contradicts_claim_ids=["claim_b"],
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(ClaimRecord(claim_id="claim_b", claim_text="B.", current_status="reviewed"))
+    augment_store_relations_from_claims(store.base_dir, strategy="claim-links", apply=True)
+
+    second = augment_store_relations_from_claims(store.base_dir, strategy="claim-links", apply=False)
+
+    assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_count"] == 1
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"claim_contradicts_claim": 1}
+
+
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))

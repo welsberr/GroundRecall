@@ -166,7 +166,9 @@ reuses import-time heuristic graph extraction over existing store observations.
 exits so periodic schedulers can keep graph maintenance load bounded.
 Augmentation output now reports raw candidate counts, candidates below evidence
 threshold, skipped duplicate relation counts, limit omissions, relation type
-counts, and write counts.
+counts, and write counts. The `claim-links` strategy now emits directed
+claim-to-claim contradiction and supersession relation candidates from explicit
+stored claim fields.
 
 The current store already contains abundant governed memory structure in
 claims, observations, concept assignments, contradiction fields, supersession
@@ -184,7 +186,8 @@ Implementation requirements:
   implementation exists for observation co-mentions.
 - Generate relation candidates for:
   - concept co-mentions in observations;
-  - explicit claim-to-claim contradiction and supersession fields;
+  - explicit claim-to-claim contradiction and supersession fields; initial
+    implementation exists through `--strategy claim-links`;
   - source/artifact/observation anchors for claim support;
   - citation/source-anchor links;
   - definition, qualification, distinction, dependency, and temporal-validity

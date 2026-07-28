@@ -19,7 +19,8 @@ EXTRACTOR_NAME = "groundrecall.store_claim_cooccurrence.v1"
 SOURCE_FAMILY_EXTRACTOR_NAME = "groundrecall.store_source_family.v1"
 CLAIM_MENTIONS_EXTRACTOR_NAME = "groundrecall.store_claim_mentions.v1"
 OBSERVATION_COOCCURRENCE_EXTRACTOR_NAME = "groundrecall.store_observation_cooccurrence.v1"
-VALID_STRATEGIES = {"claim-cooccurrence", "claim-mentions", "observation-cooccurrence", "source-family"}
+CLAIM_LINKS_EXTRACTOR_NAME = "groundrecall.store_claim_links.v1"
+VALID_STRATEGIES = {"claim-cooccurrence", "claim-links", "claim-mentions", "observation-cooccurrence", "source-family"}
 
 
 @dataclass
@@ -80,6 +81,13 @@ def augment_store_relations_from_claims(
             relation_type=relation_type,
         )
         extractor = EXTRACTOR_NAME
+    elif strategy == "claim-links":
+        candidates = _claim_link_candidates(
+            store,
+            existing_keys=existing_keys,
+            stats=stats,
+        )
+        extractor = CLAIM_LINKS_EXTRACTOR_NAME
     elif strategy == "claim-mentions":
         relation_type = "mentions_topic"
         candidates = _claim_mentions_candidates(
@@ -113,7 +121,7 @@ def augment_store_relations_from_claims(
         )
         extractor = SOURCE_FAMILY_EXTRACTOR_NAME
 
-    effective_min_evidence = 1 if strategy in {"claim-mentions", "source-family"} else max(1, int(min_evidence))
+    effective_min_evidence = 1 if strategy in {"claim-links", "claim-mentions", "source-family"} else max(1, int(min_evidence))
     eligible = [
         candidate
         for candidate in candidates.values()
@@ -281,6 +289,77 @@ def _source_family_candidates(
     return candidates
 
 
+def _claim_link_candidates(
+    store: GroundRecallStore,
+    *,
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    claims = {claim.claim_id: claim for claim in store.list_claims() if claim.current_status != "rejected"}
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+    for claim in claims.values():
+        for target_id in claim.contradicts_claim_ids:
+            _append_claim_link_candidate(
+                candidates,
+                existing_keys=existing_keys,
+                stats=stats,
+                source_claim=claim,
+                target_id=target_id,
+                relation_type="claim_contradicts_claim",
+                claims=claims,
+            )
+        for target_id in claim.supersedes_claim_ids:
+            _append_claim_link_candidate(
+                candidates,
+                existing_keys=existing_keys,
+                stats=stats,
+                source_claim=claim,
+                target_id=target_id,
+                relation_type="claim_supersedes_claim",
+                claims=claims,
+            )
+    return candidates
+
+
+def _append_claim_link_candidate(
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate],
+    *,
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+    source_claim: Any,
+    target_id: str,
+    relation_type: str,
+    claims: dict[str, Any],
+) -> None:
+    if target_id not in claims or target_id == source_claim.claim_id:
+        return
+    key = _relation_key(source_claim.claim_id, target_id, relation_type)
+    if key in existing_keys:
+        stats.record_duplicate(key)
+        return
+    candidate = candidates.get(key)
+    if candidate is None:
+        candidate = RelationCandidate(
+            source_id=source_claim.claim_id,
+            target_id=target_id,
+            relation_type=relation_type,
+        )
+        candidates[key] = candidate
+    if source_claim.claim_id not in candidate.claim_ids:
+        candidate.claim_ids.append(source_claim.claim_id)
+    if target_id not in candidate.claim_ids:
+        candidate.claim_ids.append(target_id)
+    support_key = f"{source_claim.claim_id}->{target_id}"
+    if support_key not in candidate.support_ids:
+        candidate.support_ids.append(support_key)
+    for evidence_id in source_claim.source_observation_ids or [source_claim.claim_id]:
+        if evidence_id not in candidate.evidence_ids:
+            candidate.evidence_ids.append(evidence_id)
+    origin_path = source_claim.provenance.origin_path
+    if origin_path and origin_path not in candidate.origin_paths:
+        candidate.origin_paths.append(origin_path)
+
+
 def _claim_mentions_candidates(
     store: GroundRecallStore,
     *,
@@ -420,7 +499,7 @@ def _relation_type_counts(relation_payloads: list[dict[str, Any]]) -> dict[str, 
 
 
 def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[str, str, str]:
-    if relation_type in {"provides_evidence_for", "distinguishes", "qualifies"}:
+    if relation_type in {"claim_contradicts_claim", "claim_supersedes_claim", "provides_evidence_for", "distinguishes", "qualifies"}:
         return (source_id, target_id, relation_type)
     left, right = sorted([source_id, target_id])
     return (left, right, relation_type)
