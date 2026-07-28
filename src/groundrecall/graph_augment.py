@@ -24,11 +24,13 @@ CLAIM_CONTRADICTION_CUES_EXTRACTOR_NAME = "groundrecall.store_claim_contradictio
 CLAIM_SUPPORT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_claim_support_anchors.v1"
 OBSERVATION_ARTIFACT_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_observation_artifact_anchors.v1"
 SOURCE_ANCHORS_EXTRACTOR_NAME = "groundrecall.store_source_anchors.v1"
+CLAIM_SEMANTIC_CUES_EXTRACTOR_NAME = "groundrecall.store_claim_semantic_cues.v1"
 VALID_STRATEGIES = {
     "claim-contradiction-cues",
     "claim-cooccurrence",
     "claim-links",
     "claim-mentions",
+    "claim-semantic-cues",
     "claim-support-anchors",
     "observation-artifact-anchors",
     "observation-cooccurrence",
@@ -143,6 +145,15 @@ def augment_store_relations_from_claims(
             stats=stats,
         )
         extractor = SOURCE_ANCHORS_EXTRACTOR_NAME
+    elif strategy == "claim-semantic-cues":
+        candidates = _claim_semantic_cue_candidates(
+            store,
+            concepts=concepts,
+            existing_keys=existing_keys,
+            stats=stats,
+            prefixes=prefixes,
+        )
+        extractor = CLAIM_SEMANTIC_CUES_EXTRACTOR_NAME
     elif strategy == "claim-mentions":
         relation_type = "mentions_topic"
         candidates = _claim_mentions_candidates(
@@ -183,6 +194,7 @@ def augment_store_relations_from_claims(
             "claim-contradiction-cues",
             "claim-links",
             "claim-mentions",
+            "claim-semantic-cues",
             "claim-support-anchors",
             "observation-artifact-anchors",
             "source-anchors",
@@ -567,6 +579,79 @@ def _source_anchor_candidates(
     return candidates
 
 
+def _claim_semantic_cue_candidates(
+    store: GroundRecallStore,
+    *,
+    concepts: dict[str, Any],
+    existing_keys: set[tuple[str, str, str]],
+    stats: AugmentStats,
+    prefixes: list[str],
+) -> OrderedDict[tuple[str, str, str], RelationCandidate]:
+    candidates: OrderedDict[tuple[str, str, str], RelationCandidate] = OrderedDict()
+    for claim in store.list_claims():
+        if claim.current_status == "rejected":
+            continue
+        concept_ids = [
+            concept_id
+            for concept_id in claim.concept_ids
+            if concept_id in concepts and _matches_prefixes(concept_id, prefixes)
+        ]
+        if not concept_ids:
+            continue
+        claim_kind = str(claim.claim_kind or "").strip().lower()
+        text = str(claim.claim_text or "")
+        lowered = text.lower()
+        evidence_ids = list(claim.source_observation_ids or [claim.claim_id])
+        origin_paths = [claim.provenance.origin_path] if claim.provenance.origin_path else []
+
+        if claim_kind == "definition" or _has_definition_cue(lowered):
+            for concept_id in sorted(set(concept_ids)):
+                _set_source_anchor_candidate(
+                    candidates,
+                    existing_keys=existing_keys,
+                    stats=stats,
+                    source_id=claim.claim_id,
+                    target_id=concept_id,
+                    relation_type="claim_defines_concept",
+                    claim_ids=[claim.claim_id],
+                    support_ids=[claim.claim_id],
+                    evidence_ids=evidence_ids,
+                    origin_paths=origin_paths,
+                )
+
+        if claim_kind in {"qualification", "constraint"} or _has_qualification_cue(lowered):
+            relation_type = "claim_constrains_concept" if claim_kind == "constraint" or _has_constraint_cue(lowered) else "claim_qualifies_concept"
+            for concept_id in sorted(set(concept_ids)):
+                _set_source_anchor_candidate(
+                    candidates,
+                    existing_keys=existing_keys,
+                    stats=stats,
+                    source_id=claim.claim_id,
+                    target_id=concept_id,
+                    relation_type=relation_type,
+                    claim_ids=[claim.claim_id],
+                    support_ids=[claim.claim_id],
+                    evidence_ids=evidence_ids,
+                    origin_paths=origin_paths,
+                )
+
+        if len(set(concept_ids)) >= 2 and (claim_kind == "distinction" or _has_distinction_cue(lowered)):
+            for source_id, target_id in _concept_pairs(sorted(set(concept_ids))):
+                _set_source_anchor_candidate(
+                    candidates,
+                    existing_keys=existing_keys,
+                    stats=stats,
+                    source_id=source_id,
+                    target_id=target_id,
+                    relation_type="distinguishes",
+                    claim_ids=[claim.claim_id],
+                    support_ids=[claim.claim_id],
+                    evidence_ids=evidence_ids,
+                    origin_paths=origin_paths,
+                )
+    return candidates
+
+
 def _set_source_anchor_candidate(
     candidates: OrderedDict[tuple[str, str, str], RelationCandidate],
     *,
@@ -936,6 +1021,9 @@ def _relation_key(source_id: str, target_id: str, relation_type: str) -> tuple[s
     if relation_type in {
         "claim_contradicts_claim",
         "claim_may_contradict_claim",
+        "claim_constrains_concept",
+        "claim_defines_concept",
+        "claim_qualifies_concept",
         "claim_supersedes_claim",
         "artifact_contains_observation",
         "fragment_supports_claim",
@@ -1097,6 +1185,41 @@ def _claim_mention_relation_type(source_id: str, target_id: str, text: str, conc
     if source_topic & target_topic:
         return "related_topic"
     return "mentions_topic"
+
+
+def _has_definition_cue(lowered: str) -> bool:
+    return bool(
+        re.search(r"\b(means|refers to|is defined as|are defined as|defined as)\b", lowered)
+        or re.search(r"^[a-z0-9][a-z0-9\s_-]{2,80}\s+(is|are)\s+(a|an|the)\b", lowered)
+    )
+
+
+def _has_qualification_cue(lowered: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(however|although|except|unless|only if|in some cases|under some conditions|may not|does not always|not all|not every|typically|generally|often|sometimes|in general|in most cases|under these conditions|under those conditions|can occur without|may occur without)\b",
+            lowered,
+        )
+    )
+
+
+def _has_constraint_cue(lowered: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(must|requires|required|cannot|depends on|limited to|constraint|scope|only when|provided that|without|fails to|will not|does not lead to|does not cause|not sufficient|insufficient)\b",
+            lowered,
+        )
+        or (" if " in lowered and " then " in lowered)
+    )
+
+
+def _has_distinction_cue(lowered: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(compare|does not imply|can occur without|may occur without|versus|vs\.|vs|rather than|differs? from|different from|distinguish(?:ed)? from|not\b.+\bbut)\b",
+            lowered,
+        )
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:

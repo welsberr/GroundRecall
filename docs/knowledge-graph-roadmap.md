@@ -182,7 +182,12 @@ diagnostic layer rather than the concept-semantic graph layer. The
 links, also in the support/provenance layer. The `source-anchors` strategy now
 emits `source_contains_fragment` and `fragment_supports_claim` candidates from
 existing source/fragment/claim links, again as reviewable support/provenance
-edges rather than reviewed citation support. `graph-maintenance` now exposes
+edges rather than reviewed citation support. The `claim-semantic-cues` strategy
+now emits deterministic `claim_defines_concept`,
+`claim_qualifies_concept`, `claim_constrains_concept`, and `distinguishes`
+candidates from explicit claim kinds and strong lexical cues. These are
+reviewable semantic candidates, not automatic promotions. `graph-maintenance`
+now exposes
 named profiles so existing cron jobs remain on the `safe` strategy set unless
 high-volume support/provenance backfill is explicitly requested with
 `--profile support`. Each profile has a separate default maintenance state file
@@ -217,7 +222,11 @@ Implementation requirements:
   - citation/source-anchor links; initial source/fragment/claim anchor
     implementation exists through `--strategy source-anchors`;
   - definition, qualification, distinction, dependency, and temporal-validity
-    cues where deterministic patterns are strong enough.
+    cues where deterministic patterns are strong enough. Initial
+    definition/qualification/constraint/distinction implementation exists
+    through `--strategy claim-semantic-cues`; dependency and temporal-validity
+    cue extraction remain future work unless explicit metadata already reaches
+    Epistemap/query exports.
 - Record extraction method, evidence ids, support kind, grounding status,
   rationale, and confidence/provenance metadata for every candidate relation.
 - Deduplicate against existing reviewed, promoted, draft, and rejected

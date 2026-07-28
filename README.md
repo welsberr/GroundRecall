@@ -129,6 +129,7 @@ groundrecall graph-backfill .groundrecall/store --strategy claim-links
 groundrecall graph-backfill .groundrecall/store --strategy claim-support-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy observation-artifact-anchors --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy source-anchors --limit 25
+groundrecall graph-backfill .groundrecall/store --strategy claim-semantic-cues --limit 25
 groundrecall graph-backfill .groundrecall/store --strategy claim-contradiction-cues --concept-prefix concept::evo-edu --max-pair-checks 5000
 groundrecall graph-augment .groundrecall/store --concept-prefix concept::evo-edu-notebook --strategy claim-mentions
 groundrecall graph-backfill .groundrecall/store --strategy observation-cooccurrence --min-evidence 2
@@ -160,6 +161,8 @@ also takes an atomic lock next to the state file so overlapping scheduler
 invocations skip safely by default. Use `--fail-if-locked` when the scheduler
 should report lock contention as an error, and tune `--stale-lock-seconds` if a
 host needs faster or slower recovery after an interrupted maintenance process.
+Use `--profile semantic` for opt-in claim links, contradiction cues, topic
+mentions, and deterministic definition/qualification/distinction cue backfill.
 
 Export assistant-neutral data:
 

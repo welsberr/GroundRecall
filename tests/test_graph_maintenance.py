@@ -361,6 +361,20 @@ def test_groundrecall_cli_graph_maintenance_profile_dispatches(tmp_path: Path, c
     assert '"claim-support-anchors"' in output
 
 
+def test_graph_maintenance_semantic_profile_includes_semantic_cues(tmp_path: Path) -> None:
+    store = _seed_claim_cooccurrence_store(tmp_path / "store")
+
+    payload = run_graph_maintenance_slice(
+        store.base_dir,
+        profile="semantic",
+        limit=1,
+        apply=False,
+    )
+
+    assert payload["strategies"] == ["claim-links", "claim-contradiction-cues", "claim-mentions", "claim-semantic-cues"]
+    assert payload["selected_strategy"] == "claim-links"
+
+
 def test_graph_maintenance_can_run_claim_links_strategy(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_claim(

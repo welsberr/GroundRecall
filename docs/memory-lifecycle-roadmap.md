@@ -58,6 +58,9 @@ slice is active, with stale-lock recovery for interrupted host processes.
 The support profile now covers observation/artifact anchors and source/fragment
 claim anchors as reviewable provenance edges, while the default safe profile
 continues to avoid that higher-volume support/provenance pass.
+The semantic profile now also covers deterministic claim semantic cues for
+definitions, qualifications, constraints, and distinctions, keeping those edges
+in review rather than promoting them automatically.
 
 The detailed path is maintained in
 [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).

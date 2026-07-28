@@ -720,6 +720,119 @@ def test_augment_store_relations_from_source_anchors_reports_duplicates(tmp_path
     }
 
 
+def test_augment_store_relations_from_claim_semantic_cues(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_concept(ConceptRecord(concept_id="concept::adaptation", title="Adaptation", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_definition",
+            claim_text="Selection is differential survival and reproduction.",
+            claim_kind="definition",
+            concept_ids=["concept::selection"],
+            source_observation_ids=["obs_definition"],
+            provenance=ProvenanceRecord(origin_path="sources/definition.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_qualification",
+            claim_text="Selection generally shapes adaptation, although drift may dominate in some cases.",
+            claim_kind="qualification",
+            concept_ids=["concept::selection", "concept::adaptation"],
+            source_observation_ids=["obs_qualification"],
+            provenance=ProvenanceRecord(origin_path="sources/qualification.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_distinction",
+            claim_text="Selection differs from adaptation in role and explanatory scope.",
+            claim_kind="distinction",
+            concept_ids=["concept::selection", "concept::adaptation"],
+            source_observation_ids=["obs_distinction"],
+            provenance=ProvenanceRecord(origin_path="sources/distinction.md", grounding_status="grounded"),
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(
+        store.base_dir,
+        strategy="claim-semantic-cues",
+        apply=True,
+    )
+
+    relations = sorted(store.list_relations(), key=lambda item: (item.relation_type, item.source_id, item.target_id))
+    assert payload["candidate_relation_count"] == 4
+    assert payload["relation_type_counts"] == {
+        "claim_defines_concept": 1,
+        "claim_qualifies_concept": 2,
+        "distinguishes": 1,
+    }
+    assert ("claim_definition", "concept::selection", "claim_defines_concept") in [
+        (relation.source_id, relation.target_id, relation.relation_type) for relation in relations
+    ]
+    assert ("claim_qualification", "concept::adaptation", "claim_qualifies_concept") in [
+        (relation.source_id, relation.target_id, relation.relation_type) for relation in relations
+    ]
+    assert ("concept::adaptation", "concept::selection", "distinguishes") in [
+        (relation.source_id, relation.target_id, relation.relation_type) for relation in relations
+    ]
+    assert all(relation.current_status == "triaged" for relation in relations)
+    assert {candidate.finding_codes[-1] for candidate in store.list_review_candidates()} == {"claim_semantic_cues"}
+
+
+def test_augment_store_relations_from_claim_semantic_cues_handles_constraints_and_duplicates(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_constraint",
+            claim_text="Selection requires heritable variation.",
+            claim_kind="constraint",
+            concept_ids=["concept::selection"],
+            current_status="reviewed",
+        )
+    )
+    first = augment_store_relations_from_claims(store.base_dir, strategy="claim-semantic-cues", apply=True)
+    second = augment_store_relations_from_claims(store.base_dir, strategy="claim-semantic-cues", apply=False)
+
+    assert first["relation_type_counts"] == {"claim_constrains_concept": 1}
+    assert second["candidate_relation_count"] == 0
+    assert second["filter_summary"]["skipped_duplicate_relation_type_counts"] == {"claim_constrains_concept": 1}
+
+
+def test_augment_store_relations_from_claim_semantic_cues_skips_rejected_claims_and_concepts(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_concept(ConceptRecord(concept_id="concept::rejected", title="Rejected", current_status="rejected"))
+    store.save_concept(ConceptRecord(concept_id="concept::accepted", title="Accepted", current_status="reviewed"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_rejected",
+            claim_text="Accepted is a rejected claim.",
+            claim_kind="definition",
+            concept_ids=["concept::accepted"],
+            current_status="rejected",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim_rejected_concept",
+            claim_text="Rejected is a rejected concept.",
+            claim_kind="definition",
+            concept_ids=["concept::rejected"],
+            current_status="reviewed",
+        )
+    )
+
+    payload = augment_store_relations_from_claims(store.base_dir, strategy="claim-semantic-cues", apply=True)
+
+    assert payload["candidate_relation_count"] == 0
+    assert store.list_relations() == []
+
+
 def test_augment_store_relations_from_observation_cooccurrence_without_reingest(tmp_path: Path) -> None:
     store = GroundRecallStore(tmp_path / "store")
     store.save_concept(ConceptRecord(concept_id="concept::selection", title="Selection", current_status="promoted"))

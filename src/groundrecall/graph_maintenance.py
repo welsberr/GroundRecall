@@ -17,10 +17,11 @@ DEFAULT_STRATEGIES = ["claim-cooccurrence", "claim-mentions", "observation-coocc
 PROFILE_STRATEGIES = {
     "safe": DEFAULT_STRATEGIES,
     "support": ["claim-support-anchors", "observation-artifact-anchors", "source-anchors"],
-    "semantic": ["claim-links", "claim-contradiction-cues", "claim-mentions"],
+    "semantic": ["claim-links", "claim-contradiction-cues", "claim-mentions", "claim-semantic-cues"],
     "all": [
         "claim-cooccurrence",
         "claim-links",
+        "claim-semantic-cues",
         "claim-mentions",
         "observation-cooccurrence",
         "source-family",
