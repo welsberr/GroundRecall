@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from groundrecall.models import ClaimRecord, ConceptRecord, ObservationRecord, ProvenanceRecord, RelationRecord, ReviewCandidateRecord
-from groundrecall.relation_review import apply_relation_review_batch, list_relation_review_batch
+from groundrecall.relation_review import RelationReviewPolicyError, apply_relation_review_batch, list_relation_review_batch
 from groundrecall.store import GroundRecallStore
 
 
@@ -133,3 +135,97 @@ def test_apply_relation_review_batch_updates_relation_candidate_and_audit(tmp_pa
     assert len(promotions) == 2
     assert {item.candidate_id for item in promotions} == {"rel_review_me", replacement_id}
     assert {item.verdict for item in promotions} == {"approved", "rejected"}
+
+
+def test_apply_relation_review_batch_records_soft_policy_plugin_decision(tmp_path: Path) -> None:
+    store = _seed_relation_store(tmp_path / "store")
+    decision_path = tmp_path / "decisions.json"
+    decision_path.write_text(
+        json.dumps(
+            {
+                "reviewer": "Unit Test Reviewer",
+                "decisions": [
+                    {
+                        "relation_id": "rel_review_me",
+                        "status": "reviewed",
+                        "notes": "Evidence supports review.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: relation.review.soft.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: relation.review.soft.provider",
+                "    default_decision: soft_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    payload = apply_relation_review_batch(
+        store.base_dir,
+        decision_path,
+        policy_plugins_path=config,
+        policy_subject_id="agent-1",
+    )
+
+    assert payload["applied_count"] == 1
+    assert payload["applied"][0]["policy_plugin_decision"]["decision"] == "soft_gate"
+    assert payload["applied"][0]["policy_plugin_decision"]["subject_id"] == "agent-1"
+    assert store.get_relation("rel_review_me").current_status == "reviewed"
+
+
+def test_apply_relation_review_batch_hard_policy_plugin_blocks_without_writes(tmp_path: Path) -> None:
+    store = _seed_relation_store(tmp_path / "store")
+    decision_path = tmp_path / "decisions.json"
+    decision_path.write_text(
+        json.dumps(
+            {
+                "reviewer": "Unit Test Reviewer",
+                "decisions": [
+                    {
+                        "relation_id": "rel_review_me",
+                        "status": "reviewed",
+                        "relation_type": "supports",
+                        "notes": "Would retype if policy allowed.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    config = tmp_path / "policy.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "policy_id: relation.review.block.policy",
+                "providers:",
+                "  - type: groundrecall.static",
+                "    policy_id: relation.review.block.provider",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RelationReviewPolicyError) as excinfo:
+        apply_relation_review_batch(
+            store.base_dir,
+            decision_path,
+            policy_plugins_path=config,
+            policy_subject_id="agent-1",
+        )
+
+    assert excinfo.value.payload["policy_plugin_decision"]["decision"] == "hard_gate"
+    assert store.get_relation("rel_review_me").current_status == "triaged"
+    assert store.get_relation("rel_review_me").relation_type == "mentions_topic"
+    assert store.list_promotions() == []

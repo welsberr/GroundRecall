@@ -162,6 +162,7 @@ The policy plugin boundary is currently used by:
 - MCP policy evaluation;
 - MCP read/query/search/export tools;
 - canonical import promotion into the local store;
+- relation-review batch application;
 - contradiction-case adjudication;
 - federation export, quarantine import, and promotion;
 - canonical public export.

@@ -14,6 +14,7 @@ from .graph_augment import augment_store_relations_from_claims
 from .ingest import ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
 from .models import *  # noqa: F403
 from .promotion import PromotionGateError, build_parser as build_promotion_parser, main as promotion_main, promote_import_to_store
+from .relation_review import RelationReviewPolicyError
 from .query import (
     build_parser as build_query_parser,
     build_graph_bundle_for_concept,
@@ -111,6 +112,7 @@ __all__ = [
     "import_main",
     "promote_import_to_store",
     "PromotionGateError",
+    "RelationReviewPolicyError",
     "build_promotion_parser",
     "promotion_main",
     "query_concept",

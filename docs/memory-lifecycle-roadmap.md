@@ -74,6 +74,10 @@ Initial implementation status:
   hard-gate and deny decisions block promotion before canonical store writes;
   softer decisions are returned in the promotion payload and recorded in
   snapshot metadata.
+- Relation-review batch application accepts optional policy-plugin configs.
+  Plugin hard-gate and deny decisions block the batch during preflight before
+  relation, review-candidate, or promotion-audit writes; softer decisions are
+  returned with applied decision rows.
 - Contradiction adjudication accepts optional policy-plugin configs. Plugin
   hard-gate and deny decisions block adjudication before adjudication or case
   records are written; softer decisions are returned and recorded in

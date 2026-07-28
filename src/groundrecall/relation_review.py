@@ -5,14 +5,24 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 from .models import PromotionRecord, RelationRecord, ReviewCandidateRecord
+from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .store import GroundRecallStore
 
 
 REVIEWABLE_STATUSES = {"draft", "triaged", "reviewed", "promoted", "superseded", "archived", "rejected"}
 APPROVAL_STATUSES = {"reviewed", "promoted"}
+
+
+class RelationReviewPolicyError(RuntimeError):
+    """Raised when a policy plugin blocks relation review application."""
+
+    def __init__(self, message: str, payload: dict[str, Any]) -> None:
+        super().__init__(message)
+        self.payload = payload
 
 
 def list_relation_review_batch(
@@ -142,7 +152,13 @@ def _truncate(text: str, limit: int) -> str:
     return normalized[: max(0, limit - 3)].rstrip() + "..."
 
 
-def apply_relation_review_batch(store_dir: str | Path, decision_path: str | Path) -> dict[str, Any]:
+def apply_relation_review_batch(
+    store_dir: str | Path,
+    decision_path: str | Path,
+    *,
+    policy_plugins_path: str | Path | None = None,
+    policy_subject_id: str = "",
+) -> dict[str, Any]:
     store = GroundRecallStore(store_dir)
     payload = json.loads(Path(decision_path).read_text(encoding="utf-8"))
     decisions = payload.get("decisions", [])
@@ -150,6 +166,13 @@ def apply_relation_review_batch(store_dir: str | Path, decision_path: str | Path
         raise ValueError("decision file must contain a decisions list")
     reviewer = str(payload.get("reviewer", "") or "").strip()
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    policy_decisions = _preflight_relation_review_policy(
+        store,
+        decisions,
+        policy_plugins_path=policy_plugins_path,
+        subject_id=policy_subject_id or reviewer,
+        reviewer=reviewer,
+    )
     applied = []
     skipped = []
     review_by_candidate = {
@@ -238,6 +261,11 @@ def apply_relation_review_batch(store_dir: str | Path, decision_path: str | Path
                 "new_status": "rejected" if replacement_relation_id else new_status,
                 "old_relation_type": old_relation_type,
                 "new_relation_type": new_relation_type,
+                **(
+                    {"policy_plugin_decision": policy_decisions[index].model_dump(mode="json")}
+                    if index in policy_decisions
+                    else {}
+                ),
             }
         )
 
@@ -251,6 +279,65 @@ def apply_relation_review_batch(store_dir: str | Path, decision_path: str | Path
         "applied": applied,
         "skipped": skipped,
     }
+
+
+def _preflight_relation_review_policy(
+    store: GroundRecallStore,
+    decisions: list[Any],
+    *,
+    policy_plugins_path: str | Path | None,
+    subject_id: str,
+    reviewer: str,
+) -> dict[int, PolicyDecision]:
+    if policy_plugins_path is None:
+        return {}
+    provider = load_policy_plugins(policy_plugins_path)
+    policy_decisions: dict[int, PolicyDecision] = {}
+    for index, decision in enumerate(decisions, start=1):
+        if not isinstance(decision, dict):
+            continue
+        relation_id = str(decision.get("relation_id", "") or "").strip()
+        if not relation_id:
+            continue
+        relation = store.get_relation(relation_id)
+        if relation is None:
+            continue
+        old_status = relation.current_status
+        old_relation_type = relation.relation_type
+        new_status = str(decision.get("status", old_status) or old_status).strip()
+        if new_status not in REVIEWABLE_STATUSES:
+            continue
+        new_relation_type = str(decision.get("relation_type", old_relation_type) or old_relation_type).strip()
+        policy_decision = provider.evaluate(
+            PolicyRequest(
+                decision_point="review",
+                subject_id=subject_id,
+                action="apply_relation_review_batch",
+                record_kind="relation",
+                record_id=relation_id,
+                durable_memory_change=True,
+                metadata={
+                    "reviewer": reviewer,
+                    "relation_id": relation_id,
+                    "old_status": old_status,
+                    "new_status": new_status,
+                    "old_relation_type": old_relation_type,
+                    "new_relation_type": new_relation_type,
+                    "retypes_relation": new_relation_type != old_relation_type,
+                },
+            )
+        )
+        policy_decisions[index] = policy_decision
+        if policy_decision.decision in {"deny", "hard_gate"}:
+            raise RelationReviewPolicyError(
+                "Policy plugin blocked relation review application.",
+                {
+                    "index": index,
+                    "relation_id": relation_id,
+                    "policy_plugin_decision": policy_decision.model_dump(mode="json"),
+                },
+            )
+    return policy_decisions
 
 
 def _replacement_relation_id(source_id: str, target_id: str, relation_type: str) -> str:
@@ -297,13 +384,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--concept-prefix", default="")
     parser.add_argument("--finding-code", default="")
     parser.add_argument("--limit", type=int, default=50)
+    parser.add_argument("--policy-plugins", default=None, help="Optional GroundRecall policy plugin YAML config for relation review apply gating.")
+    parser.add_argument("--policy-subject-id", default="", help="Subject/principal id to evaluate against policy plugins.")
     return parser
 
 
 def main() -> None:
     args = build_parser().parse_args()
     if args.decision_path:
-        payload = apply_relation_review_batch(args.store_dir, args.decision_path)
+        try:
+            payload = apply_relation_review_batch(
+                args.store_dir,
+                args.decision_path,
+                policy_plugins_path=args.policy_plugins,
+                policy_subject_id=args.policy_subject_id,
+            )
+        except RelationReviewPolicyError as exc:
+            print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)
+            raise SystemExit(2) from exc
     else:
         payload = list_relation_review_batch(
             args.store_dir,
