@@ -283,6 +283,8 @@ Acceptance tests:
 - Current heuristic mode emits draft `co_occurs_with` relation candidates from
   existing concept co-mentions in imported observations, with observation
   evidence ids and `support_kind=inferred`.
+- Dry-run/backfill payloads include compact `relation_examples` for review,
+  alongside full relation payloads and write/filter diagnostics.
 
 ### P3: Entity And Concept Standardization
 

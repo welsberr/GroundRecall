@@ -270,6 +270,7 @@ def augment_store_relations_from_claims(
         "raw_candidate_relation_count": len(candidates),
         "candidate_relation_count": len(relation_payloads),
         "relation_type_counts": _relation_type_counts(relation_payloads),
+        "relation_examples": _relation_examples(relation_payloads),
         "filter_summary": {
             "below_min_evidence_count": len(candidates) - len(eligible),
             "omitted_by_limit_count": omitted_by_limit_count,
@@ -988,6 +989,28 @@ def _relation_type_counts(relation_payloads: list[dict[str, Any]]) -> dict[str, 
         if relation_type:
             counts[relation_type] = counts.get(relation_type, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def _relation_examples(relation_payloads: list[dict[str, Any]], *, limit: int = 5) -> list[dict[str, Any]]:
+    examples = []
+    for item in relation_payloads[: max(0, int(limit))]:
+        evidence_count = int(item.get("evidence_count", 0) or 0)
+        examples.append(
+            {
+                "relation_id": str(item.get("relation_id", "")),
+                "source_id": str(item.get("source_id", "")),
+                "target_id": str(item.get("target_id", "")),
+                "relation_type": str(item.get("relation_type", "")),
+                "evidence_count": evidence_count,
+                "evidence_ids": list(item.get("evidence_ids", []) or [])[:5],
+                "review_rationale": (
+                    f"{item.get('source_id', '')} {item.get('relation_type', '')} {item.get('target_id', '')} "
+                    f"| evidence_count={evidence_count} | support_kind={item.get('support_kind', '')} "
+                    f"| grounding_status={item.get('grounding_status', '')}"
+                ),
+            }
+        )
+    return examples
 
 
 _NEGATION_PATTERNS = [

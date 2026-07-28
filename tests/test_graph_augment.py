@@ -51,6 +51,9 @@ def test_augment_store_relations_from_claims_dry_run_does_not_write(tmp_path: Pa
     assert payload["applied"] is False
     assert payload["candidate_relation_count"] == 1
     assert payload["raw_candidate_relation_count"] == 1
+    assert payload["relation_examples"][0]["relation_type"] == "co_occurs_with"
+    assert payload["relation_examples"][0]["evidence_count"] == 3
+    assert "support_kind=inferred" in payload["relation_examples"][0]["review_rationale"]
     assert payload["filter_summary"]["below_min_evidence_count"] == 0
     assert payload["filter_summary"]["skipped_duplicate_relation_count"] == 0
     assert payload["relations"][0]["source_id"] == "concept::evo-edu-adaptation"
@@ -96,6 +99,7 @@ def test_augment_store_relations_extractor_mode_none_disables_candidate_generati
     assert payload["extractor_mode"] == "none"
     assert payload["extractor"] == "none"
     assert payload["candidate_relation_count"] == 0
+    assert payload["relation_examples"] == []
     assert payload["write_summary"]["relation_write_count"] == 0
     assert store.list_relations() == []
 
