@@ -260,6 +260,24 @@ groundrecall views stewardship .groundrecall/store --release-cap internal
 Stewardship views are based on explicit stewardship records. They suppress raw
 activity rankings and inferred familiarity by default.
 
+Build release packs and withdrawal notices:
+
+```bash
+groundrecall release pack .groundrecall/store exports/release-pack \
+  --target-release-level public \
+  --allowed-license-id CC-BY-4.0 \
+  --signing-key-file federation-signing.key \
+  --key-id release-2026
+groundrecall release withdraw exports/withdrawal.json \
+  --pack-id release-pack-id \
+  --superseded-by-pack-id replacement-pack-id \
+  --signing-key-file federation-signing.key \
+  --key-id release-2026
+```
+
+Release packs hard-gate missing or incompatible licenses, missing attribution,
+and unreviewed records before writing a pack.
+
 Run a prior-work review before starting a substantial initiative:
 
 ```bash

@@ -44,6 +44,11 @@ class SourceRecord(BaseModel):
     path: str = ""
     url: str = ""
     retrieved_at: str = ""
+    license_id: str = ""
+    attribution: str = ""
+    source_release_level: ReleaseLevel = "private"
+    redaction_policy_id: str = ""
+    derivative_source_ids: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
     current_status: LifecycleStatus = "draft"
 
@@ -66,6 +71,11 @@ class ArtifactRecord(BaseModel):
     path: str = ""
     sha256: str = ""
     created_at: str = ""
+    license_id: str = ""
+    attribution: str = ""
+    source_release_level: ReleaseLevel = "private"
+    redaction_policy_id: str = ""
+    derivative_source_ids: list[str] = Field(default_factory=list)
     metadata: dict = Field(default_factory=dict)
     current_status: LifecycleStatus = "draft"
 
@@ -273,6 +283,11 @@ class ClaimRecord(BaseModel):
     concept_ids: list[str] = Field(default_factory=list)
     contradicts_claim_ids: list[str] = Field(default_factory=list)
     supersedes_claim_ids: list[str] = Field(default_factory=list)
+    license_id: str = ""
+    attribution: str = ""
+    source_release_level: ReleaseLevel = "private"
+    redaction_policy_id: str = ""
+    derivative_source_ids: list[str] = Field(default_factory=list)
     confidence_hint: float | None = Field(default=None, ge=0.0, le=1.0)
     review_confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     assessments: list[ConfidenceAssessment] = Field(default_factory=list)

@@ -612,6 +612,16 @@ Exit:
 
 ### IF-10: License-Aware Release Packs And Withdrawal
 
+Status (2026-07-29): a deterministic release/withdrawal slice is implemented in
+`src/groundrecall/institutional_release.py`. GroundRecall now records release
+metadata fields on sources, artifacts, and claims; builds signed release packs
+only from reviewed/promoted records with compatible licenses and attribution;
+redacts protected provenance according to record redaction policy; records
+superseding pack relationships; emits signed withdrawal notices distinct from
+erasure; and blocks explicit withdrawn pack IDs from silent re-entry. Direct
+ClaimWright publication-gate preflight and distributed withdrawal propagation
+remain follow-up work.
+
 GroundRecall:
 
 - add license, attribution, source-release, redaction-policy, and derivative

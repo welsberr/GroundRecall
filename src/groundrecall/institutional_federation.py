@@ -111,8 +111,8 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
         },
         {
             "capability_id": "license_aware_release_withdrawal",
-            "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-10"],
+            "status": "partial",
+            "evidence": ["src/groundrecall/institutional_release.py", "tests/test_institutional_release.py", "docs/institutional-federation-implementation-roadmap.md#IF-10"],
         },
     ]
     if compact:
