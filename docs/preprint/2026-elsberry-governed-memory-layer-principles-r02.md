@@ -172,7 +172,7 @@ GroundRecall extends this local-authority model to trust and role distribution. 
 
 ## 9. Evaluation Evidence
 
-The current evidence is engineering evidence. The GroundRecall test suite passed on 2026-07-28 with 234 tests passing. Tests cover store round trips, snapshots, query bundles, confidence profiles, release lattice behavior, federation signatures, quarantine import, promotion, generic policy-plugin decisions, ClaimWright-style policy adaptation, policy-gated MCP/export/federation/promotion/adjudication/relation-review surfaces, scoped grants, audit events, trust registry lifecycle, Ed25519 signatures, signed keysets, signed role directories, contradiction case generation, contradiction diagnostics, federation of contradiction cases, contradiction adjudication workflow, graph augmentation and backfill strategies, graph maintenance state and lock behavior, graph diagnostics layer counts, and private-record screening for graph backfill.
+The current evidence is engineering evidence. The GroundRecall test suite passes with 331 tests. Tests cover store round trips, snapshots, query bundles, confidence profiles, release lattice behavior, federation signatures, quarantine import, promotion, generic policy-plugin decisions, ClaimWright-style policy adaptation, policy-gated MCP/export/federation/promotion/adjudication/relation-review surfaces, scoped grants, audit events, trust registry lifecycle, Ed25519 signatures, signed keysets, signed role directories, contradiction case generation, contradiction diagnostics, federation of contradiction cases, contradiction adjudication workflow, graph augmentation and backfill strategies, graph maintenance state and lock behavior, graph diagnostics layer counts, private-record screening for graph backfill, and policy-gated Epistemap assessment through MCP.
 
 This evidence supports implementation claims about governed-memory properties in a local prototype. It does not establish improved user productivity, broad safety outcomes, retrieval superiority, or production security. Those claims require different evaluation designs.
 
@@ -392,9 +392,9 @@ This table compactly summarizes the IF-00 through IF-14 institutional-federation
   - **Remaining caveat:** Direct ClaimWright publication-gate preflight and distributed withdrawal propagation remain future work.
 - **IF-11 MCP and adapter coverage**
   - **Implemented status:** Partial
-  - **Main code evidence:** `src/groundrecall/mcp.py`; `src/groundrecall/policy_coverage.py`
+  - **Main code evidence:** `src/groundrecall/mcp.py`; `src/groundrecall/policy_coverage.py`; policy-gated `epistemap_assessment` bridge
   - **Main test / artifact evidence:** `tests/test_mcp.py`; ClaimWright MCP fixtures
-  - **Remaining caveat:** MCP policy remains caller-supplied rather than mandatory server-side configuration.
+  - **Remaining caveat:** Host authentication, network deployment, and mandatory server-side policy configuration remain future work.
 - **IF-12 Evaluation, operations, and paper evidence**
   - **Implemented status:** Partial
   - **Main code evidence:** `src/groundrecall/institutional_conformance.py`; `examples/preprint/generate_revision_evidence.py`
