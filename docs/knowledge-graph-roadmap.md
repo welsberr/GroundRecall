@@ -44,6 +44,13 @@ downstream benefit rather than graph size alone.
 This document defines the implementation path from that substrate to full
 knowledge graph capability.
 
+Epistemap's first indexed-operation performance pass is now available on its
+`main` branch and materially reduces graph-analysis overhead. GroundRecall
+still prioritizes graph projection quality first: the optimization is an
+upstream capability, not evidence that GroundRecall's own graph is sufficiently
+dense or semantically complete. GroundRecall continues to consume the released
+Epistemap `v0.1.0a2` contract until a later compatibility tag is approved.
+
 ## Current Live Capability
 
 - Canonical typed store for concepts, claims, relations, observations,

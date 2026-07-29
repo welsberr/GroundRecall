@@ -7,9 +7,11 @@ collapse those into Epistemap posterior support.
 
 The evidence-backed phase audit is maintained in Epistemap at
 `docs/confidence-overhaul-implementation-status.md`. GroundRecall G1-G4 remain
-partial until store migration/rollback, producer-level method provenance,
-reviewer/adjudication records, confidence profiles, and deduplicated evidence
-ledgers are implemented and tested.
+complete for the current confidence-overhaul scope: store migration/rollback,
+producer-level method provenance, reviewer/adjudication records, confidence
+profiles, and deduplicated evidence ledgers are implemented and tested. Future
+work may extend calibration and cross-repository validation, but those are not
+unfinished G1-G4 acceptance items.
 
 GroundRecall consumes the portable confidence contract from Epistemap
 `v0.1.0a2`. This is an immutable Git-tag dependency; it does not imply that the
