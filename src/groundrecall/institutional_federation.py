@@ -114,6 +114,11 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
             "status": "partial",
             "evidence": ["src/groundrecall/institutional_release.py", "tests/test_institutional_release.py", "docs/institutional-federation-implementation-roadmap.md#IF-10"],
         },
+        {
+            "capability_id": "mcp_and_adapter_coverage",
+            "status": "partial",
+            "evidence": ["src/groundrecall/mcp.py", "tests/test_mcp.py", "docs/institutional-federation-implementation-roadmap.md#IF-11"],
+        },
     ]
     if compact:
         return {

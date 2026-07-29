@@ -5,9 +5,14 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from .catalog import query_federation_catalog
+from .change_feed import load_subscription
 from .export import export_canonical_snapshot
 from .inspect import inspect_store
+from .institutional_custody import orphan_stewardship_report
+from .institutional_views import change_impact_report, stewardship_view
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
+from .prior_work import prior_work_search
 from .query import query_concept
 from .search_index import search_index
 
@@ -146,6 +151,157 @@ def _evaluate_policy(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(decision.model_dump(mode="json"))
 
 
+def _prior_work(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "prior_work_review",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "scope_id": str(arguments.get("scope_id", "")),
+            "target_release_level": str(arguments.get("maximum_release_level", "private")),
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = prior_work_search(
+        arguments["store_dir"],
+        arguments["query"],
+        scope_id=str(arguments.get("scope_id", "")),
+        maximum_release_level=str(arguments.get("maximum_release_level", "private")),
+        limit=int(arguments.get("limit", 20)),
+    ).model_dump(mode="json")
+    return _json_text(_attach_policy(payload, decision))
+
+
+def _catalog_discovery(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "discover_federation_catalog",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "target_release_level": str(arguments.get("target_release_level", "private")),
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    entries = query_federation_catalog(arguments["catalog_path"], str(arguments.get("query", "")), limit=int(arguments.get("limit", 20)))
+    payload = {
+        "schema_version": "groundrecall.mcp.catalog_discovery.v1",
+        "entry_count": len(entries),
+        "entries": [entry.model_dump(mode="json") for entry in entries],
+    }
+    return _json_text(_attach_policy(payload, decision))
+
+
+def _subscription_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "manage_federation_subscription",
+            "subject_id": str(arguments.get("subject_id", "")),
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    sub = load_subscription(arguments["subscription_path"])
+    payload = {
+        "schema_version": "groundrecall.mcp.subscription_status.v1",
+        "subscription_id": sub.subscription_id,
+        "producer_instance_id": sub.producer_instance_id,
+        "scope_ids": sub.scope_ids,
+        "record_kinds": sub.record_kinds,
+        "change_kinds": sub.change_kinds,
+        "maximum_release_level": sub.maximum_release_level,
+        "cursor": sub.cursor,
+        "active": sub.active,
+        "purpose": sub.purpose,
+    }
+    return _json_text(_attach_policy(payload, decision))
+
+
+def _impact_report(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "generate_change_impact_report",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "record_kind": str(arguments.get("subject_type", "")),
+            "record_id": str(arguments.get("subject_record_id", "")),
+            "target_release_level": str(arguments.get("release_cap", "private")),
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = change_impact_report(
+        arguments["store_dir"],
+        subject_type=str(arguments["subject_type"]),
+        subject_id=str(arguments["subject_record_id"]),
+        release_cap=str(arguments.get("release_cap", "private")),
+    ).model_dump(mode="json")
+    return _json_text(_attach_policy(payload, decision))
+
+
+def _stewardship_orphans(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "query",
+            "action": "generate_stewardship_view",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "target_release_level": str(arguments.get("release_cap", "private")),
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = {
+        "schema_version": "groundrecall.mcp.stewardship_orphans.v1",
+        "stewardship": stewardship_view(arguments["store_dir"], release_cap=str(arguments.get("release_cap", "private"))).model_dump(mode="json"),
+        "orphans": orphan_stewardship_report(arguments["store_dir"]).model_dump(mode="json"),
+    }
+    return _json_text(_attach_policy(payload, decision))
+
+
+def _propose_contribution(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {
+            "decision_point": "propose",
+            "action": "propose_group_contribution",
+            "subject_id": str(arguments.get("subject_id", "")),
+            "scope_id": str(arguments.get("destination_scope_id", "")),
+            "target_release_level": str(arguments.get("proposed_release_level", "private")),
+            "durable_memory_change": False,
+        },
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    payload = {
+        "schema_version": "groundrecall.mcp.contribution_proposal.v1",
+        "ok": True,
+        "writes_performed": False,
+        "authority_notice": "Draft proposal only; canonical contribution writes require an explicit policy-gated repository operation.",
+        "proposal": {
+            "contributor_id": str(arguments["contributor_id"]),
+            "destination_scope_id": str(arguments["destination_scope_id"]),
+            "contribution_intent": str(arguments["contribution_intent"]),
+            "contributed_record_ids": list(arguments.get("contributed_record_ids", []) or []),
+            "proposed_release_level": str(arguments.get("proposed_release_level", "private")),
+            "provenance_visibility": str(arguments.get("provenance_visibility", "full")),
+        },
+    }
+    return _json_text(_attach_policy(payload, decision))
+
+
 TOOLS: dict[str, dict[str, Any]] = {
     "inspect_store": {
         "description": "Summarize a canonical GroundRecall store.",
@@ -241,6 +397,94 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["policy_config", "request"],
         },
         "handler": _evaluate_policy,
+    },
+    "prior_work_review": {
+        "description": "Run a policy-aware prior-work review over a GroundRecall store without writing results.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "store_dir": {"type": "string"},
+                "query": {"type": "string"},
+                "scope_id": {"type": "string"},
+                "maximum_release_level": {"type": "string", "default": "private"},
+                "limit": {"type": "integer", "default": 20},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["store_dir", "query"],
+        },
+        "handler": _prior_work,
+    },
+    "catalog_discovery": {
+        "description": "Query a signed federation catalog for discoverable scope entries.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "catalog_path": {"type": "string"},
+                "query": {"type": "string", "default": ""},
+                "limit": {"type": "integer", "default": 20},
+                "target_release_level": {"type": "string", "default": "private"},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["catalog_path"],
+        },
+        "handler": _catalog_discovery,
+    },
+    "subscription_status": {
+        "description": "Read receiver-local federation subscription status and cursor metadata.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "subscription_path": {"type": "string"},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["subscription_path"],
+        },
+        "handler": _subscription_status,
+    },
+    "impact_report": {
+        "description": "Generate a release-capped change-impact report with contradiction and confidence state.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "store_dir": {"type": "string"},
+                "subject_type": {"type": "string"},
+                "subject_record_id": {"type": "string"},
+                "release_cap": {"type": "string", "default": "private"},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["store_dir", "subject_type", "subject_record_id"],
+        },
+        "handler": _impact_report,
+    },
+    "stewardship_orphans": {
+        "description": "Generate explicit stewardship and orphan-review views without activity ranking.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "store_dir": {"type": "string"},
+                "release_cap": {"type": "string", "default": "private"},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["store_dir"],
+        },
+        "handler": _stewardship_orphans,
+    },
+    "propose_contribution": {
+        "description": "Prepare a draft contribution proposal; this tool performs no canonical store writes.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "contributor_id": {"type": "string"},
+                "destination_scope_id": {"type": "string"},
+                "contribution_intent": {"type": "string"},
+                "contributed_record_ids": {"type": "array", "items": {"type": "string"}},
+                "proposed_release_level": {"type": "string", "default": "private"},
+                "provenance_visibility": {"type": "string", "default": "full"},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["contributor_id", "destination_scope_id", "contribution_intent"],
+        },
+        "handler": _propose_contribution,
     },
 }
 

@@ -111,7 +111,7 @@ def test_policy_coverage_report_summarizes_enforcement_surfaces() -> None:
     assert payload["schema_version"] == "groundrecall.policy_coverage.v1"
     assert payload["summary"]["route_count"] >= 1
     assert payload["summary"]["covered_route_count"] >= 1
-    assert payload["summary"]["partial_route_count"] == 9
+    assert payload["summary"]["partial_route_count"] == 15
     assert payload["summary"]["covered_durable_mutation_route_count"] >= 1
     assert not any(item["route_id"] == "cli.import" for item in payload["open_items"])
     assert not any(item["route_id"] == "cli.graph_augment.write_candidates" for item in payload["open_items"])
@@ -124,6 +124,12 @@ def test_policy_coverage_report_summarizes_enforcement_surfaces() -> None:
     assert any(item["route_id"] == "cli.views.stewardship" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.release.pack" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.release.withdraw" and item["status"] == "partial" for item in payload["open_items"])
+    assert any(item["route_id"] == "mcp.prior_work_review" and item["status"] == "partial" for item in payload["open_items"])
+    assert any(item["route_id"] == "mcp.catalog_discovery" and item["status"] == "partial" for item in payload["open_items"])
+    assert any(item["route_id"] == "mcp.subscription_status" and item["status"] == "partial" for item in payload["open_items"])
+    assert any(item["route_id"] == "mcp.impact_report" and item["status"] == "partial" for item in payload["open_items"])
+    assert any(item["route_id"] == "mcp.stewardship_orphans" and item["status"] == "partial" for item in payload["open_items"])
+    assert any(item["route_id"] == "mcp.propose_contribution" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.promote" and item["status"] == "covered" for item in payload["routes"])
     assert any(item["route_id"] == "cli.import" and item["status"] == "covered" for item in payload["routes"])
     assert any(item["route_id"] == "cli.graph_augment.write_candidates" and item["status"] == "covered" for item in payload["routes"])

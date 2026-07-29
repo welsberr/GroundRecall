@@ -653,6 +653,15 @@ Exit:
 
 ### IF-11: MCP And Adapter Coverage
 
+Status (2026-07-29): a first MCP coverage slice is implemented in
+`src/groundrecall/mcp.py`. GroundRecall now exposes MCP tools for prior-work
+review, federation catalog discovery, subscription status, change-impact
+reports, stewardship/orphan review, and no-write contribution proposal drafts.
+Responses include policy decisions when caller-supplied policy config is used,
+and proposal tools explicitly state that no canonical writes were performed.
+Mandatory server-side policy configuration, post-render filtering, and mutation
+tools that write durable records remain follow-up work.
+
 GroundRecall:
 
 - add MCP tools for prior-work query, catalog discovery, contribution proposal,

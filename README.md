@@ -278,6 +278,20 @@ groundrecall release withdraw exports/withdrawal.json \
 Release packs hard-gate missing or incompatible licenses, missing attribution,
 and unreviewed records before writing a pack.
 
+The MCP server exposes institutional read/report tools for assistant adapters:
+
+- `prior_work_review`
+- `catalog_discovery`
+- `subscription_status`
+- `impact_report`
+- `stewardship_orphans`
+- `propose_contribution`
+
+`propose_contribution` returns a draft proposal only; it does not write to the
+canonical store. All MCP tools accept optional `policy_config`,
+`policy_request`, and `subject_id` arguments so callers can attach policy
+findings or block before access.
+
 Run a prior-work review before starting a substantial initiative:
 
 ```bash
