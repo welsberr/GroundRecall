@@ -37,6 +37,15 @@ paper/roadmap scenarios to current capability IDs, policy actions, policy
 coverage routes, code/test/doc evidence, and explicit caveats. It is evidence
 mapping, not production certification.
 
+IF-13 status (2026-07-29): policy-gated institutional write helpers are
+implemented in `src/groundrecall/institutional_write.py`. Coding agents now have
+a Python API that blocks policy `deny` / `hard_gate` results before scope, work,
+decision, contribution, contribution-review receipt, stewardship, or custody
+event writes, and a separate helper that policy-gates contribution transitions
+before persisting the updated contribution plus append-only review receipt.
+Direct low-level store methods remain trusted primitives, not public authority
+surfaces.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

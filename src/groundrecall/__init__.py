@@ -20,6 +20,12 @@ from .institutional_lifecycle import (
     ContributionTransitionError,
     transition_contribution,
 )
+from .institutional_write import (
+    InstitutionalWriteError,
+    InstitutionalWriteResult,
+    save_institutional_record,
+    transition_contribution_with_policy,
+)
 from .prior_work import PRIOR_WORK_SCHEMA_VERSION, PriorWorkCandidate, PriorWorkReport, prior_work_search
 from .catalog import (
     FEDERATION_CATALOG_SCHEMA_VERSION,
@@ -349,6 +355,10 @@ __all__ = [
     "VALID_CONTRIBUTION_TRANSITIONS",
     "ContributionTransitionError",
     "transition_contribution",
+    "InstitutionalWriteError",
+    "InstitutionalWriteResult",
+    "save_institutional_record",
+    "transition_contribution_with_policy",
     "PRIOR_WORK_SCHEMA_VERSION",
     "PriorWorkCandidate",
     "PriorWorkReport",

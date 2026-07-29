@@ -9,6 +9,7 @@ from groundrecall.inspect import inspect_store
 from groundrecall.models import ClaimRecord, ConceptRecord, ProvenanceRecord, RelationRecord
 from groundrecall.policy_coverage import build_policy_coverage_report
 from groundrecall.institutional_conformance import build_institutional_conformance_report
+from groundrecall.institutional_write import save_institutional_record
 from groundrecall.query import query_concept
 from groundrecall.store import GroundRecallStore
 from groundrecall.lint import lint_import_directory
@@ -58,6 +59,7 @@ def test_groundrecall_namespace_reexports_core_functions() -> None:
     assert GroundRecallStore.__module__ == "groundrecall.store"
     assert ClaimRecord.__module__ == "groundrecall.models"
     assert build_institutional_conformance_report.__module__ == "groundrecall.institutional_conformance"
+    assert save_institutional_record.__module__ == "groundrecall.institutional_write"
 
 
 def test_groundrecall_inspect_summarizes_store(tmp_path: Path) -> None:
@@ -114,12 +116,15 @@ def test_policy_coverage_report_summarizes_enforcement_surfaces() -> None:
     assert payload["summary"]["route_count"] >= 1
     assert payload["summary"]["covered_route_count"] >= 1
     assert payload["summary"]["partial_route_count"] == 15
+    assert payload["summary"]["future_route_count"] == 1
     assert payload["summary"]["covered_durable_mutation_route_count"] >= 1
     assert not any(item["route_id"] == "cli.import" for item in payload["open_items"])
     assert not any(item["route_id"] == "cli.graph_augment.write_candidates" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.review.quorum" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.review.feedback_bundle" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "python_api.custody.record_event" and item["status"] == "partial" for item in payload["open_items"])
+    assert not any(item["route_id"] == "python_api.institutional.save_records" for item in payload["open_items"])
+    assert not any(item["route_id"] == "python_api.institutional.transition_contribution" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.views.orientation" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.views.impact" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.views.governance" and item["status"] == "partial" for item in payload["open_items"])
