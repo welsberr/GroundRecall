@@ -13,6 +13,12 @@ from .contradictions import (
     sync_contradiction_cases_for_store,
 )
 from .inspect import inspect_store, summarize_store
+from .institutional_federation import (
+    INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
+    INSTITUTIONAL_POLICY_ACTIONS,
+    INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION,
+    build_institutional_federation_capability_report,
+)
 from .graph_augment import GraphAugmentPolicyError, augment_store_relations_from_claims
 from .graph_maintenance import run_graph_maintenance_slice
 from .ingest import ImportPolicyError, ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
@@ -206,6 +212,10 @@ __all__ = [
     "load_policy_provider",
     "POLICY_COVERAGE_SCHEMA_VERSION",
     "build_policy_coverage_report",
+    "INSTITUTIONAL_FEDERATION_SCHEMA_VERSION",
+    "INSTITUTIONAL_POLICY_ACTIONS",
+    "INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION",
+    "build_institutional_federation_capability_report",
     "build_query_parser",
     "query_main",
     "summarize_store",

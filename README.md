@@ -169,6 +169,17 @@ Use `--extractor-mode none` on `graph-backfill` or `graph-maintenance` when a
 scheduled run should exercise filtering/state behavior without generating
 candidates; `heuristic` is the default implemented extractor mode.
 
+Inspect the institutional-federation capability baseline with:
+
+```bash
+groundrecall inspect .groundrecall/store --institutional-federation
+groundrecall inspect .groundrecall/store --institutional-federation-summary
+```
+
+The report distinguishes implemented exchange foundations from future
+institutional workflows. The coding-model execution plan is in
+[`docs/institutional-federation-implementation-roadmap.md`](docs/institutional-federation-implementation-roadmap.md).
+
 Export assistant-neutral data:
 
 ```bash

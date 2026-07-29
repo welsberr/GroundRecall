@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .graph_diagnostics import build_graph_diagnostics, compact_graph_diagnostics
+from .institutional_federation import build_institutional_federation_capability_report
 from .policy_coverage import build_policy_coverage_report
 from .store import GroundRecallStore
 
@@ -17,6 +18,8 @@ def summarize_store(
     compact_graph: bool = False,
     include_policy_coverage: bool = False,
     compact_policy_coverage: bool = False,
+    include_institutional_federation: bool = False,
+    compact_institutional_federation: bool = False,
 ) -> dict[str, Any]:
     store = GroundRecallStore(store_dir)
     snapshots = store.list_snapshots()
@@ -49,6 +52,10 @@ def summarize_store(
         payload["graph_diagnostics"] = compact_graph_diagnostics(diagnostics) if compact_graph else diagnostics
     if include_policy_coverage or compact_policy_coverage:
         payload["policy_coverage"] = build_policy_coverage_report(compact=compact_policy_coverage)
+    if include_institutional_federation or compact_institutional_federation:
+        payload["institutional_federation"] = build_institutional_federation_capability_report(
+            compact=compact_institutional_federation
+        )
     return payload
 
 
@@ -60,6 +67,8 @@ def inspect_store(
     compact_graph: bool = False,
     include_policy_coverage: bool = False,
     compact_policy_coverage: bool = False,
+    include_institutional_federation: bool = False,
+    compact_institutional_federation: bool = False,
 ) -> dict[str, Any]:
     payload = summarize_store(
         store_dir,
@@ -67,6 +76,8 @@ def inspect_store(
         compact_graph=compact_graph,
         include_policy_coverage=include_policy_coverage,
         compact_policy_coverage=compact_policy_coverage,
+        include_institutional_federation=include_institutional_federation,
+        compact_institutional_federation=compact_institutional_federation,
     )
     if out_path is not None:
         Path(out_path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -81,6 +92,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--graph-summary", action="store_true", help="Include compact active graph diagnostics")
     parser.add_argument("--policy-coverage", action="store_true", help="Include policy enforcement coverage diagnostics")
     parser.add_argument("--policy-coverage-summary", action="store_true", help="Include compact policy enforcement coverage diagnostics")
+    parser.add_argument("--institutional-federation", action="store_true", help="Include institutional federation capability status")
+    parser.add_argument("--institutional-federation-summary", action="store_true", help="Include compact institutional federation capability status")
     return parser
 
 
@@ -93,5 +106,7 @@ def main() -> None:
         compact_graph=args.graph_summary,
         include_policy_coverage=args.policy_coverage,
         compact_policy_coverage=args.policy_coverage_summary,
+        include_institutional_federation=args.institutional_federation,
+        compact_institutional_federation=args.institutional_federation_summary,
     )
     print(json.dumps(payload, indent=2))
