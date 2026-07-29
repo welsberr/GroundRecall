@@ -82,8 +82,12 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
         },
         {
             "capability_id": "signed_federation_catalogs",
-            "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-05"],
+            "status": "partial",
+            "evidence": [
+                "src/groundrecall/catalog.py",
+                "tests/test_catalog.py",
+                "docs/institutional-federation-implementation-roadmap.md#IF-05",
+            ],
         },
         {
             "capability_id": "incremental_change_subscriptions",

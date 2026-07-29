@@ -60,6 +60,12 @@ def write_claimwright_policy(root: Path) -> Path:
                 "    actions: [prior_work_review, initiate_durable_work]",
                 "    default_decision: require_review",
                 "    obligations: [record_prior_work_query, preserve_negative_results]",
+                "  - id: catalog_least_disclosure",
+                "    decision_points: [federate_export, federate_import, read]",
+                "    actions: [publish_federation_catalog, import_federation_catalog, read_federation_catalog_entry]",
+                "    default_decision: require_review",
+                "    obligations: [apply_receiver_release_cap, prevent_protected_topic_inference]",
+                "    required_reviewers: [scope-steward]",
             ]
         ),
         encoding="utf-8",
@@ -194,6 +200,18 @@ def test_claimwright_adapter_applies_institutional_collaboration_rules(tmp_path:
     )
     assert prior_work.decision == "require_review"
     assert "record_prior_work_query" in prior_work.obligations
+
+    catalog = provider.evaluate(
+        PolicyRequest(
+            decision_point="federate_export",
+            subject_id="alice",
+            action="publish_federation_catalog",
+            target_release_level="internal",
+        )
+    )
+    assert catalog.decision == "require_review"
+    assert "apply_receiver_release_cap" in catalog.obligations
+    assert "scope-steward" in catalog.required_reviewers
 
 
 def test_policy_plugin_loader_composes_claimwright_with_static_policy(tmp_path: Path) -> None:

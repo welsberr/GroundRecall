@@ -25,6 +25,11 @@ work, decision, and claim records, including negative/inconclusive outcomes,
 exact versus lexical candidate labels, release filtering, inaccessible-result
 counts, and CLI output. Semantic duplicate confirmation remains review-gated.
 
+IF-05 status (2026-07-29): signed catalog build, verification, descriptive /
+aggregate / opaque detail levels, receiver release/instance caps, quarantine,
+policy preflight, and catalog query are implemented. Network transport and
+protected-topic inference evaluation remain future work.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

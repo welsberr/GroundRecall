@@ -21,6 +21,18 @@ from .institutional_lifecycle import (
     transition_contribution,
 )
 from .prior_work import PRIOR_WORK_SCHEMA_VERSION, PriorWorkCandidate, PriorWorkReport, prior_work_search
+from .catalog import (
+    FEDERATION_CATALOG_SCHEMA_VERSION,
+    FederationCatalog,
+    FederationCatalogEntry,
+    FederationCatalogImportResult,
+    FederationCatalogManifest,
+    build_federation_catalog,
+    filter_federation_catalog,
+    import_federation_catalog_to_quarantine,
+    query_federation_catalog,
+    verify_federation_catalog,
+)
 from .institutional_federation import (
     INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
     INSTITUTIONAL_POLICY_ACTIONS,
@@ -237,4 +249,14 @@ __all__ = [
     "PriorWorkCandidate",
     "PriorWorkReport",
     "prior_work_search",
+    "FEDERATION_CATALOG_SCHEMA_VERSION",
+    "FederationCatalog",
+    "FederationCatalogEntry",
+    "FederationCatalogImportResult",
+    "FederationCatalogManifest",
+    "build_federation_catalog",
+    "filter_federation_catalog",
+    "import_federation_catalog_to_quarantine",
+    "query_federation_catalog",
+    "verify_federation_catalog",
 ]
