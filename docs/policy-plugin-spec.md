@@ -80,6 +80,23 @@ GroundRecall sends a `PolicyRequest` with these fields:
 Plugins must ignore unknown metadata they do not understand. They must not
 reinterpret unknown producer-specific fields as authority.
 
+Restriction-aware federation should pass the following `metadata` keys when
+known:
+
+| Metadata key | Meaning |
+| --- | --- |
+| `restriction_markers` | Purpose, compartment, legal, HR, incident, source-protection, export-control, or originator-control markers that survive release-level checks. |
+| `compartment_ids` | Explicit compartment/scope identifiers separate from release level. |
+| `purpose` | Intended federation, publication, import, promotion, or query purpose. |
+| `producer_instance_id` | Originating GroundRecall instance. |
+| `receiver_instance_id` | Receiving GroundRecall instance when known. |
+| `derivative_policy_id` | Redaction, declassification, or restriction policy authorizing a derivative. |
+
+`restricted` is not a release level and must not be silently normalized to
+`confidential`. It is a restriction marker that should fail closed unless the
+policy plugin explicitly allows the marker, purpose, scope, producer, receiver,
+and target release context.
+
 ## Policy Decision Shape
 
 Plugins return a `PolicyDecision` with these fields:

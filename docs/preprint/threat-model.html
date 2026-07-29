@@ -13,6 +13,19 @@
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
     ul.task-list{list-style: none;}
   </style>
+  <style>
+    a,
+    code,
+    pre,
+    .uri {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
 <h1 id="groundrecall-preprint-threat-model">GroundRecall Preprint Threat Model</h1>
@@ -61,6 +74,16 @@
 <td>Privileged material is shared too broadly</td>
 <td>Privileged federation requires explicit privileged allowance in policy.</td>
 <td>Not a substitute for enterprise IAM, DLP, legal-hold, or HSM-backed controls.</td>
+</tr>
+<tr class="odd">
+<td>Restricted material is treated as ordinary confidential material</td>
+<td>Roadmap requires <code>restricted</code> to be treated as a restriction marker, not a release-level alias; restricted federation should fail closed unless an explicit scoped policy authorizes transfer or derivative release.</td>
+<td>Current prototype needs restriction-aware federation hardening before restricted, compartmented, HR, legal, incident, source-protected, or export-controlled material should federate.</td>
+</tr>
+<tr class="even">
+<td>Catalog discovery leaks protected existence metadata</td>
+<td>Roadmap requires restricted scopes to be absent from catalogs by default, including opaque/aggregate counts, topics, time coverage, and membership signals.</td>
+<td>Sanitized discovery metadata needs explicit policy design and tests.</td>
 </tr>
 <tr class="odd">
 <td>Valid signature is mistaken for local authority</td>

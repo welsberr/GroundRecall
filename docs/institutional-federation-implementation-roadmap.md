@@ -103,23 +103,187 @@ Every work package must preserve these invariants:
 2. Origin identity does not confer local authority.
 3. Producer policy cannot broaden receiver authority.
 4. Private records are not federated.
-5. Derived records cannot receive a less restrictive release level without a
+5. `Restricted` is not a synonym for `confidential`; restriction, purpose,
+   compartment, originator-control, legal, HR, incident, source-protection,
+   export-control, and privilege constraints remain separate from release
+   level.
+6. Restricted records are local-only by default and cannot federate as ordinary
+   confidential records.
+7. Derived records cannot receive a less restrictive release level without a
    recorded redaction or declassification decision.
-6. Hidden provenance is disclosed as hidden or partial; it is not represented
+8. Hidden provenance is disclosed as hidden or partial; it is not represented
    as fully inspectable evidence.
-7. Contradictions, minority positions, negative results, and rejected
+9. Contradictions, minority positions, negative results, and rejected
    contributions are not silently discarded.
-8. Ordinary expiry, supersession, retraction, and tenancy change do not erase
+10. Ordinary expiry, supersession, retraction, and tenancy change do not erase
    provenance.
-9. Exceptional erasure remains separately authorized and leaves only minimal
+11. Exceptional erasure remains separately authorized and leaves only minimal
    non-sensitive tombstone state.
-10. Institutional ownership, stewardship, and custody are not inferred from
+12. Institutional ownership, stewardship, and custody are not inferred from
     contribution volume.
-11. Catalogs and expertise views must not leak protected project membership,
+13. Catalogs and expertise views must not leak protected project membership,
     topics, source identities, or privileged activity.
-12. Automations that promote, publish, transfer custody, revoke, retire an
+14. Automations that promote, publish, transfer custody, revoke, retire an
     instance, or erase data are policy-gated, audited, and resumable where
     applicable.
+
+## IF-RF: Restriction-Aware Federation Hardening
+
+This package should precede additional high-risk federation feature expansion.
+It corrects the current lossy behavior where `restricted` metadata normalizes to
+`confidential` and replaces release-level-only authorization with
+release-plus-restriction authorization.
+
+Problem statement:
+
+- `public`, `internal`, `confidential`, `privileged`, and `private` are release
+  levels.
+- `restricted` is not a release level. It is a constraint signal indicating
+  that ordinary release-level policy is insufficient.
+- `restricted` content may be confidential, privileged, private, or internal,
+  but federation needs to know the restriction basis before deciding whether
+  catalog discovery, bundle export, import, promotion, or derivative release is
+  allowed.
+
+Target data model:
+
+```yaml
+release_level: confidential
+restrictions:
+  - legal_privileged
+  - hr
+  - incident
+  - source_protected
+  - export_controlled
+  - originator_controlled
+  - project_compartment:alpha
+federation_policy:
+  federatable: false
+  derivatives_allowed: policy_gated
+  catalog_discovery: none
+```
+
+Coding-model implementation sequence:
+
+1. **Normalize classification semantics.**
+   - Update `src/groundrecall/federation.py` so `restricted` no longer maps to
+     `confidential` in `RELEASE_VALUE_ALIASES`.
+   - Keep `confidential`, `sensitive`, `nonpublic`, and `non_public` mapped to
+     `confidential`.
+   - Keep `legal_privileged` mapped to `privileged` only as a release-level
+     compatibility alias, but also treat it as a restriction marker when it
+     appears in metadata.
+   - Add tests showing `normalize_release_level("restricted") is None`.
+
+2. **Add restriction extraction helpers.**
+   - Implement helpers in `src/groundrecall/federation.py`, or a small shared
+     module if reuse is needed:
+     - `restriction_markers_from_metadata(metadata) -> list[str]`
+     - `record_restriction_markers(record) -> list[str]`
+     - `restriction_block_reason(record, action, target_release_level) -> str | None`
+   - Recognize metadata keys:
+     - `restriction`
+     - `restrictions`
+     - `restricted`
+     - `compartment`
+     - `compartments`
+     - `purpose_restrictions`
+     - `originator_controlled`
+     - `export_controlled`
+     - `legal_hold`
+     - `privilege`
+   - Normalize marker names to lowercase snake_case, preserving
+     `project_compartment:<id>` or equivalent scoped markers.
+
+3. **Fail closed on restricted export.**
+   - In `_record_block_reason`, block records with restriction markers by
+     default before ordinary release-level export succeeds.
+   - Use distinct reasons such as:
+     - `restricted_not_federated`
+     - `restricted_catalog_discovery_blocked`
+     - `restricted_derivative_requires_policy`
+   - Allow export only when metadata names an explicit reviewed policy such as
+     `restriction_policy_id`, `declassification_policy_id`, or
+     `redaction_policy_id`, and only for a derivative whose own release level is
+     no less restrictive than allowed by that policy.
+   - Preserve restriction markers in audit findings. Do not silently discard
+     them from exported derivatives.
+
+4. **Harden import validation.**
+   - Extend `_bundle_policy_violations` to validate every federated record
+     family, not only sources, fragments, artifacts, observations, claims,
+     contradiction cases, concepts, and relations.
+   - Include scopes, works, decisions, contributions, review receipts,
+     federation feedback, stewardship, custody events, promotions, and
+     adjudications where those appear in a bundle.
+   - Reject bundles containing restricted markers unless accepted policy
+     explicitly allows the marker, scope, producer instance, purpose, and
+     target release level.
+   - Treat producer signatures as origin authentication only; local receiver
+     policy remains final authority.
+
+5. **Harden catalogs and discovery.**
+   - In `src/groundrecall/catalog.py`, prevent restricted scopes from appearing
+     in descriptive, aggregate, or opaque catalogs by default.
+   - Do not leak restricted scope membership, topic names, record counts, time
+     coverage, or release-level presence unless a policy explicitly allows
+     sanitized discovery metadata.
+   - If sanitized discovery is later allowed, include `basis_visibility:
+     redacted` and avoid exact counts where counts themselves could disclose
+     membership or activity.
+
+6. **Add policy-plugin context.**
+   - Extend `PolicyRequest.metadata` for federation export/import/catalog
+     operations to include:
+     - `restriction_markers`
+     - `compartment_ids`
+     - `purpose`
+     - `producer_instance_id`
+     - `receiver_instance_id` when known
+     - `derivative_policy_id`
+   - Do not add new decision points unless the existing
+     `federate_export`/`federate_import` plus action strings prove inadequate.
+
+7. **Update trust and role controls.**
+   - Add optional restriction/compartment constraints to federation grants,
+     role definitions, trust-key metadata, subscriptions, and catalog imports.
+   - Defaults must be empty/no restricted authority.
+   - Receiver-side import of role directories and keysets must cap restrictions
+     just as it caps release levels, actions, instances, scopes, and subjects.
+
+8. **Document release and restriction policy.**
+   - Update `docs/memory-lifecycle-roadmap.md`,
+     `docs/policy-plugin-spec.md`, and `docs/preprint/threat-model.md`.
+   - State that release level answers “how broadly may this be shared?” while
+     restriction markers answer “what special purpose, compartment, or legal
+     constraints survive any sharing?”
+   - State that `restricted` must not be mapped to `confidential`.
+
+Required tests:
+
+- `test_restricted_is_not_confidential_alias`
+- `test_restricted_record_is_not_federated_as_confidential`
+- `test_restricted_derivative_requires_explicit_policy`
+- `test_restricted_scope_absent_from_federation_catalog`
+- `test_restricted_catalog_does_not_leak_counts_or_topics`
+- `test_import_rejects_bundle_with_unaccepted_restriction_marker`
+- `test_role_directory_caps_restriction_markers`
+- `test_trust_key_caps_restriction_markers`
+- `test_policy_plugin_receives_restriction_context`
+- `test_all_bundle_record_families_are_release_and_restriction_checked`
+
+Exit criteria:
+
+- `restricted` metadata no longer normalizes to `confidential`;
+- private and restricted records are local-only by default;
+- confidential federation requires explicit scoped authority;
+- privileged federation remains explicit and exceptional;
+- restricted catalog discovery is denied by default;
+- imports reject unaccepted restrictions even when signatures and release
+  levels are otherwise valid;
+- policy decisions and audit findings preserve restriction reasons;
+- tests cover export, import, catalog, role directory, trust key, and policy
+  plugin paths.
 
 ## Policy Mapping
 

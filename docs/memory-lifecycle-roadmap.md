@@ -448,6 +448,10 @@ durable group benefits rather than merely copying records between hosts.
 - Classify shareable content as `private`, `public`, `internal`,
   `confidential`, or `privileged`, with redaction/declassification policy
   required before any derived artifact crosses to a less restrictive level.
+- Treat `restricted` as a separate constraint marker, not as a synonym for
+  `confidential`; restricted content is local-only by default unless an
+  explicit policy-approved scoped transfer or derivative artifact permits
+  limited federation.
 - Add group/project/technique/experiment/decision/contribution records so
   prior work, negative results, and decision rationale are discoverable.
 - Add release-filtered federation catalogs, bounded subscriptions, incremental
@@ -467,6 +471,10 @@ Acceptance criteria:
   full, partial, redacted, or hidden;
 - confidential and privileged material cannot be federated or summarized into a
   lower release level without an explicit policy-approved derivative artifact.
+- restricted, compartmented, originator-controlled, HR, legal, incident,
+  source-protected, or export-controlled material cannot appear in bundles,
+  catalogs, counts, topic summaries, or derivatives unless policy explicitly
+  authorizes that exact restriction context;
 - authorized members can discover materially related prior work without first
   knowing which member, host, or team holds it;
 - member or host departure triggers an explicit custody/orphan review rather
