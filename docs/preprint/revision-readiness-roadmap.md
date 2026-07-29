@@ -195,6 +195,8 @@ Exit:
 
 ### PRR-09: Apply ClaimWright Review Findings
 
+Status: completed on 2026-07-29.
+
 Apply the actionable PRR-08 findings before rendering the next substantive
 preprint revision.
 

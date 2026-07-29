@@ -178,7 +178,7 @@ This evidence supports implementation claims about governed-memory properties in
 
 The claim-to-evidence discipline is simple: each paper claim maps to implemented code, test coverage, reproducible demonstration, bibliography/source analysis, or explicit future-work status. Appendix A provides the current claim-to-evidence matrix. A separate ClaimWright review record applies claim-auditor, citation-reviewer, adversarial-reviewer, and publication-gatekeeper procedures to the draft. Claims that do not map to evidence are softened or removed.
 
-The ClaimWright review result is conditional. The draft is suitable for internal and public draft review, but it is not yet final-public-safe. Before submission or authoritative publication, the paper needs a broader governance/security bibliography pass, stable reproducible demonstrations, and final human publication approval.
+The latest ClaimWright review result is conditional. The draft is suitable for internal and public draft review, but it is not yet final-public-safe. Initial institutional demonstrations, the IF-00 through IF-14 status table, a focused bibliography expansion, and a fresh review record now exist. Before submission or authoritative publication, the paper still needs final human publication approval, a deliberate choice between focused related-work framing and a formal systematic-review protocol, and future empirical/security evaluation before any outcome or production-security claims are made.
 
 ## 10. Demonstrations and Reproducibility
 
@@ -214,7 +214,7 @@ The demonstration set is organized by property:
    - evaluate a ClaimWright-style directory adapter;
    - show policy preflight blocking canonical promotion, contradiction adjudication, and relation-review writes before durable memory changes occur.
 
-The current generated outputs are `provenance_promotion.json`, `contradiction_adjudication.json`, `release_filtering.json`, `federation_quarantine.json`, `local_authority.json`, `policy_plugin_boundary.json`, and `manifest.json`. These demonstrations are not a substitute for benchmark evaluation. They are reproducibility artifacts for the paper’s engineering claims.
+The current demonstration manifest records fifteen passing JSON demonstrations: `provenance_promotion.json`, `contradiction_adjudication.json`, `contradiction_candidate_review.json`, `release_filtering.json`, `federation_quarantine.json`, `local_authority.json`, `policy_plugin_boundary.json`, `search_mode_timing.json`, `prior_work_discovery.json`, `signed_catalog_discovery.json`, `incremental_subscription.json`, `multi_party_review_feedback.json`, `custody_planning.json`, `release_pack_withdrawal.json`, and `policy_gated_institutional_writes.json`. These demonstrations are not a substitute for benchmark evaluation. They are reproducibility artifacts for the paper’s engineering claims.
 
 The demonstration suite also includes an internal timing indication for two GroundRecall query modes. In a synthetic local store with 191 indexed documents, 24 concepts, 72 claims, and 23 relations, post-index FTS search over the query `governed memory policy search` had a median latency of 0.739 ms over 31 repetitions. Indexed search plus graph expansion had a median latency of 37.316 ms over the same repetitions, while returning 4 graph bundles containing 11 graph nodes and 7 graph edges. This result is not comparable to external memory-layer products and does not measure recall quality, but it illustrates the expected engineering tradeoff: indexed search is the low-latency lookup path, while graph expansion adds reviewable neighborhood context at additional query cost. The generated artifact is `search_mode_timing.json`.
 
@@ -983,23 +983,21 @@ The strongest objections after PRR-07 are:
   - **Notes:** ClaimWright does not substitute for author approval.
 
 
-Release status: conditionally suitable for internal/public draft review after
-PRR-09 applies the must-fix wording updates. Not final-public-safe for
-submission until human publication approval and final bibliography/evidence
-scope decisions are complete.
+Release status after PRR-09 application: conditionally suitable for
+internal/public draft review. Not final-public-safe for submission until human
+publication approval and final bibliography/evidence scope decisions are
+complete.
 
 ### Findings Grouped For Action
 
 #### Must Fix Before Revision
 
-1. Update Section 9 review-status language. The draft currently says the paper
-   needs a broader governance/security bibliography pass and stable
-   reproducible demonstrations. Initial bibliography expansion and demos now
-   exist; remaining needs should be reframed as final human approval,
-   systematic-review-scope choice, and future empirical/security evaluation.
-2. Update Section 10 demonstration-output list from the early seven-output
-   list to the current fifteen-output manifest, or point directly to the
-   manifest to avoid another stale list.
+1. Resolved in PRR-09: Section 9 review-status language now states that initial
+   bibliography expansion, demonstrations, IF status table, and fresh review
+   exist; remaining needs are final human approval, systematic-review-scope
+   choice, and future empirical/security evaluation.
+2. Resolved in PRR-09: Section 10 now lists the current fifteen-output
+   demonstration manifest rather than the early seven-output list.
 
 #### Should Fix Before Submission
 
@@ -1025,13 +1023,13 @@ scope decisions are complete.
 
 ### Post-Action Check
 
-- **Files changed by review step:** This review record and generated rendered artifacts only.
-- **Claims introduced:** No new implementation claim; the review adds findings and gates.
+- **Files changed by review step:** This review record and generated rendered artifacts. PRR-09 also updated the manuscript text identified by the review.
+- **Claims introduced:** No new implementation claim; PRR-09 only updates stale review/demo wording.
 - **Citations reviewed:** 41-entry focused bibliography, with PRR-07 additions included.
 - **Assumptions visible:** The local ClaimWright repository supplies the policy/check stance; this is not external validation of ClaimWright.
-- **Unresolved risks:** Stale demo/review wording remains for PRR-09; final publication approval remains required; systematic-review scope remains undecided.
-- **Branch outcome:** Conservative/balanced branch: keep manifesto framing, accept focused bibliography, require wording cleanup before next rendered revision.
-- **Broader review trigger:** Yes. PRR-09 must apply must-fix items before the next substantive preprint revision.
+- **Unresolved risks:** Final publication approval remains required; systematic-review scope remains undecided; future empirical/security evaluation remains outside current evidence.
+- **Branch outcome:** Conservative/balanced branch: keep manifesto framing, accept focused bibliography, and avoid production-security or benchmark claims.
+- **Broader review trigger:** Yes. Run another ClaimWright/publication-gate review before submission or authoritative public release.
 
 \newpage
 

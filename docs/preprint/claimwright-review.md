@@ -121,23 +121,21 @@ The strongest objections after PRR-07 are:
 | Contradicted or stale claims | Soft gate | Two stale manuscript statements need PRR-09 cleanup: prior-review/future-demo language and the incomplete demo-output list. |
 | Final human publication approval | Required | ClaimWright does not substitute for author approval. |
 
-Release status: conditionally suitable for internal/public draft review after
-PRR-09 applies the must-fix wording updates. Not final-public-safe for
-submission until human publication approval and final bibliography/evidence
-scope decisions are complete.
+Release status after PRR-09 application: conditionally suitable for
+internal/public draft review. Not final-public-safe for submission until human
+publication approval and final bibliography/evidence scope decisions are
+complete.
 
 ## Findings Grouped For Action
 
 ### Must Fix Before Revision
 
-1. Update Section 9 review-status language. The draft currently says the paper
-   needs a broader governance/security bibliography pass and stable
-   reproducible demonstrations. Initial bibliography expansion and demos now
-   exist; remaining needs should be reframed as final human approval,
-   systematic-review-scope choice, and future empirical/security evaluation.
-2. Update Section 10 demonstration-output list from the early seven-output
-   list to the current fifteen-output manifest, or point directly to the
-   manifest to avoid another stale list.
+1. Resolved in PRR-09: Section 9 review-status language now states that initial
+   bibliography expansion, demonstrations, IF status table, and fresh review
+   exist; remaining needs are final human approval, systematic-review-scope
+   choice, and future empirical/security evaluation.
+2. Resolved in PRR-09: Section 10 now lists the current fifteen-output
+   demonstration manifest rather than the early seven-output list.
 
 ### Should Fix Before Submission
 
@@ -165,10 +163,10 @@ scope decisions are complete.
 
 | Check | Result |
 | --- | --- |
-| Files changed by review step | This review record and generated rendered artifacts only. |
-| Claims introduced | No new implementation claim; the review adds findings and gates. |
+| Files changed by review step | This review record and generated rendered artifacts. PRR-09 also updated the manuscript text identified by the review. |
+| Claims introduced | No new implementation claim; PRR-09 only updates stale review/demo wording. |
 | Citations reviewed | 41-entry focused bibliography, with PRR-07 additions included. |
 | Assumptions visible | The local ClaimWright repository supplies the policy/check stance; this is not external validation of ClaimWright. |
-| Unresolved risks | Stale demo/review wording remains for PRR-09; final publication approval remains required; systematic-review scope remains undecided. |
-| Branch outcome | Conservative/balanced branch: keep manifesto framing, accept focused bibliography, require wording cleanup before next rendered revision. |
-| Broader review trigger | Yes. PRR-09 must apply must-fix items before the next substantive preprint revision. |
+| Unresolved risks | Final publication approval remains required; systematic-review scope remains undecided; future empirical/security evaluation remains outside current evidence. |
+| Branch outcome | Conservative/balanced branch: keep manifesto framing, accept focused bibliography, and avoid production-security or benchmark claims. |
+| Broader review trigger | Yes. Run another ClaimWright/publication-gate review before submission or authoritative public release. |
