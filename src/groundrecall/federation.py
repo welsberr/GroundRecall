@@ -1221,6 +1221,7 @@ def export_federation_bundle(
     policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
     scope_id: str = "",
+    purpose: str = "",
     audit_log_path: str | Path | None = None,
 ) -> FederationBundle:
     if target_release_level == "private":
@@ -1279,6 +1280,7 @@ def export_federation_bundle(
             "restriction_markers": snapshot_restrictions,
             "compartment_ids": snapshot_compartments,
             "derivative_policy_id": "",
+            "purpose": purpose,
         },
     )
     plugin_block_reasons = _policy_plugin_block_reasons(plugin_decision)
@@ -1587,6 +1589,7 @@ def import_federation_bundle_to_quarantine(
     policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
     scope_id: str = "",
+    purpose: str = "",
     audit_log_path: str | Path | None = None,
 ) -> FederationImportResult:
     payload = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
@@ -1624,6 +1627,7 @@ def import_federation_bundle_to_quarantine(
             "producer_instance_id": bundle.manifest.producer_instance_id,
             "restriction_markers": bundle_restrictions,
             "compartment_ids": bundle_compartments,
+            "purpose": purpose,
         },
     )
     reasons.extend(_policy_plugin_block_reasons(plugin_decision))
@@ -1787,6 +1791,7 @@ def promote_quarantined_bundle(
     policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
     scope_id: str = "",
+    purpose: str = "",
     audit_log_path: str | Path | None = None,
     apply: bool = False,
 ) -> FederationPromotionResult:
@@ -1833,6 +1838,7 @@ def promote_quarantined_bundle(
             "producer_instance_id": bundle.manifest.producer_instance_id,
             "restriction_markers": bundle_restrictions,
             "compartment_ids": bundle_compartments,
+            "purpose": purpose,
         },
     )
     plugin_block_reasons = _policy_plugin_block_reasons(plugin_decision)
@@ -1900,6 +1906,7 @@ def build_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     export_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the export.")
     export_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
+    export_parser.add_argument("--purpose", default="", help="Declared purpose for the federation operation.")
     export_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
 
     import_parser = subparsers.add_parser("import", help="Verify a federation bundle and place it in quarantine.")
@@ -1912,6 +1919,7 @@ def build_parser() -> argparse.ArgumentParser:
     import_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     import_parser.add_argument("--requester-id", default="", help="Subject/principal requesting the import.")
     import_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
+    import_parser.add_argument("--purpose", default="", help="Declared purpose for the federation operation.")
     import_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
     import_parser.add_argument(
         "--accept-release-level",
@@ -1944,6 +1952,7 @@ def build_parser() -> argparse.ArgumentParser:
     promote_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     promote_parser.add_argument("--requester-id", default="", help="Subject/principal requesting promotion.")
     promote_parser.add_argument("--scope-id", default="", help="Project/entity scope requested for policy evaluation.")
+    promote_parser.add_argument("--purpose", default="", help="Declared purpose for the federation operation.")
     promote_parser.add_argument("--audit-log", default=None, help="Optional JSONL audit log path.")
     promote_parser.add_argument("--apply", action="store_true", help="Write non-conflicting records into the canonical store.")
 
@@ -2221,6 +2230,7 @@ def main() -> None:
             policy_plugins_path=args.policy_plugins,
             requester_id=args.requester_id,
             scope_id=args.scope_id,
+            purpose=args.purpose,
             audit_log_path=args.audit_log,
         )
         print(json.dumps(bundle.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -2238,6 +2248,7 @@ def main() -> None:
             policy_plugins_path=args.policy_plugins,
             requester_id=args.requester_id,
             scope_id=args.scope_id,
+            purpose=args.purpose,
             audit_log_path=args.audit_log,
             accepted_restriction_markers=args.accept_restriction_marker,
             accepted_compartments=args.accept_compartment,
@@ -2257,6 +2268,7 @@ def main() -> None:
             policy_plugins_path=args.policy_plugins,
             requester_id=args.requester_id,
             scope_id=args.scope_id,
+            purpose=args.purpose,
             audit_log_path=args.audit_log,
             accepted_restriction_markers=args.accept_restriction_marker,
             accepted_compartments=args.accept_compartment,

@@ -141,6 +141,8 @@ Future schema work may add first-class restriction fields beyond metadata.
 Export and catalog policy-plugin preflight now receives the aggregate
 restriction and compartment context observed in the local snapshot; import and
 promotion already receive the corresponding bundle context.
+All four federation operations also accept an explicit `purpose` value and
+forward it to policy plugins, with matching CLI flags.
 
 This package should precede additional high-risk federation feature expansion.
 It corrects the current lossy behavior where `restricted` metadata normalizes to

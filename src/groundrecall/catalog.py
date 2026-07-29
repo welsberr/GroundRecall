@@ -97,6 +97,7 @@ def _policy_decision(
     scope_id: str = "",
     restriction_markers: list[str] | None = None,
     compartment_ids: list[str] | None = None,
+    purpose: str = "",
 ) -> PolicyDecision | None:
     if policy_plugins_path is None:
         return None
@@ -115,6 +116,7 @@ def _policy_decision(
                 "catalog_detail_level": "aggregate",
                 "restriction_markers": restriction_markers or [],
                 "compartment_ids": compartment_ids or [],
+                "purpose": purpose,
             },
         )
     )
@@ -165,6 +167,7 @@ def build_federation_catalog(
     created_at: str | None = None,
     policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
+    purpose: str = "",
     out_path: str | Path | None = None,
 ) -> FederationCatalog:
     store = GroundRecallStore(store_dir)
@@ -198,6 +201,7 @@ def build_federation_catalog(
         producer_instance_id=producer_instance_id,
         restriction_markers=sorted(set(restriction_markers)),
         compartment_ids=sorted(set(compartment_ids)),
+        purpose=purpose,
     )
     reasons = _block_reasons(decision)
     if reasons:
@@ -428,6 +432,7 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--signature-algorithm", choices=("hmac-sha256", "ed25519"), default="ed25519")
     export.add_argument("--policy-plugins", default=None)
     export.add_argument("--requester-id", default="")
+    export.add_argument("--purpose", default="", help="Declared purpose for catalog publication.")
     verify = subparsers.add_parser("verify")
     verify.add_argument("catalog_path")
     verify.add_argument("--key-file", required=True)
@@ -463,6 +468,7 @@ def main() -> None:
                 signature_algorithm=args.signature_algorithm,
                 policy_plugins_path=args.policy_plugins,
                 requester_id=args.requester_id,
+                purpose=args.purpose,
                 out_path=args.out_path,
             ).model_dump_json(indent=2)
         )
