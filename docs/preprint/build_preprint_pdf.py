@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
-PREPRINT_STEM = "2026-elsberry-governed-memory-layer-principles-r01"
+PREPRINT_STEM = "2026-elsberry-governed-memory-layer-principles-r02"
 MAIN_DRAFT = BASE_DIR / f"{PREPRINT_STEM}-source.md"
 COMBINED_DRAFT = BASE_DIR / f"{PREPRINT_STEM}.md"
 HTML_OUT = BASE_DIR / f"{PREPRINT_STEM}.html"
