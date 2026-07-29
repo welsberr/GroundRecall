@@ -65,6 +65,8 @@ def build_revision_evidence(
         "demo_outputs": demos,
         "paper_ready_next_steps": [
             "perform focused bibliography update without claiming systematic-review completeness",
+            "run a fresh ClaimWright review against the updated draft and appendices",
+            "apply actionable ClaimWright review findings before rendering the next revision",
         ],
         "non_goals_before_revision": [
             "network federation transport",

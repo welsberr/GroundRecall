@@ -19,7 +19,11 @@ Revise the preprint after these artifacts exist and are current:
 5. updated limitation language matching current policy coverage;
 6. a compact IF-00 through IF-14 status table for the paper or appendix;
 7. focused bibliography/source review updates for governed memory,
-   permission-aware retrieval, provenance, access control, and graph memory.
+   permission-aware retrieval, provenance, access control, and graph memory;
+8. a fresh ClaimWright review against the updated draft, appendices, evidence
+   matrix, and bibliography;
+9. application of the actionable ClaimWright review findings before the
+   next rendered paper revision.
 
 ## Work Packages
 
@@ -160,6 +164,42 @@ Exit:
 - bibliography additions are verified;
 - the related-work section remains framed as focused coverage, not a systematic
   review unless a systematic-review protocol is actually added.
+
+### PRR-08: Fresh ClaimWright Review
+
+Run a new ClaimWright review only after PRR-07 updates the bibliography and
+related-work material.
+
+The review must cover:
+
+- overclaim detection against current code, tests, demos, and evidence matrix;
+- citation adequacy and source-access checks after PRR-07;
+- limitation and future-work boundaries;
+- policy, security, IAM, federation, release, withdrawal, and contradiction
+  claims;
+- publication-readiness status.
+
+Exit:
+
+- a fresh review record exists for the current draft and appendices;
+- the review path or URL is recorded;
+- findings are grouped as must-fix before revision, should-fix before
+  submission, and future work;
+- the review does not treat ClaimWright policy findings as external validation
+  of ClaimWright itself.
+
+### PRR-09: Apply ClaimWright Review Findings
+
+Apply the actionable PRR-08 findings before rendering the next substantive
+preprint revision.
+
+Exit:
+
+- must-fix findings are resolved or explicitly deferred with rationale;
+- manuscript, appendices, evidence matrix, bibliography, and threat model are
+  consistent after changes;
+- rendered Markdown, HTML, and PDF are regenerated;
+- remaining risks are visible in the review record or limitations section.
 
 ## Do Not Block Revision On
 
