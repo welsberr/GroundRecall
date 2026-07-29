@@ -129,6 +129,13 @@ Every work package must preserve these invariants:
 
 ## IF-RF: Restriction-Aware Federation Hardening
 
+Status as of 2026-07-29: core implementation complete for metadata-based
+restriction markers. GroundRecall no longer normalizes `restricted` to
+`confidential`; restricted records fail closed for federation export by default;
+imports, promotion plans, catalogs, role directories, trust keysets, and
+incremental change feeds now carry or enforce restriction/compartment caps.
+Future schema work may add first-class restriction fields beyond metadata.
+
 This package should precede additional high-risk federation feature expansion.
 It corrects the current lossy behavior where `restricted` metadata normalizes to
 `confidential` and replaces release-level-only authorization with

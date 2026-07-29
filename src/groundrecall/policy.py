@@ -48,7 +48,6 @@ RELEASE_VALUE_ALIASES: dict[str, ReleaseLevel] = {
     "organization": "internal",
     "organisation": "internal",
     "confidential": "confidential",
-    "restricted": "confidential",
     "sensitive": "confidential",
     "nonpublic": "confidential",
     "non_public": "confidential",
@@ -142,6 +141,7 @@ class StaticPolicyProvider(BaseModel):
             subject_id=request.subject_id,
             action=request.action,
             reasons=[f"default_{self.default_decision}"],
+            metadata={"request": request.model_dump(mode="json")},
         )
 
 

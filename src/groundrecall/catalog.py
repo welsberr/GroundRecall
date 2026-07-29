@@ -18,6 +18,7 @@ from .federation import (
     _verify_signature_for_payload,
     filter_snapshot_for_federation,
     now_utc,
+    record_restriction_markers,
 )
 from .models import GroundRecallSnapshot
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
@@ -193,7 +194,11 @@ def build_federation_catalog(
                 grouped[scope_id].append((kind, record))
     entries: list[FederationCatalogEntry] = []
     for scope_id, scope in sorted(scopes.items()):
+        if record_restriction_markers(scope):
+            continue
         records = grouped.get(scope_id, [])
+        if any(record_restriction_markers(record) for _, record in records):
+            continue
         counts: dict[str, int] = {}
         levels: set[str] = set()
         visibility: dict[str, int] = {}
@@ -206,7 +211,11 @@ def build_federation_catalog(
         times = _time_values(filtered, scope_id)
         topics = []
         if detail_level == "descriptive":
-            topics = sorted(concept.title for concept in filtered.concepts if concept.current_status in {"reviewed", "promoted"})[:25]
+            topics = sorted(
+                concept.title
+                for concept in filtered.concepts
+                if concept.current_status in {"reviewed", "promoted"} and not record_restriction_markers(concept)
+            )[:25]
         entries.append(
             FederationCatalogEntry(
                 entry_id=_scope_entry_id(scope_id, detail_level),

@@ -57,3 +57,80 @@ def test_change_feed_rejects_unknown_cursor_and_out_of_order_ack(tmp_path: Path)
     subscription = FederationSubscription(subscription_id="sub-1", producer_instance_id="host-a", record_kinds=["work"], purpose="test")
     with pytest.raises(FederationPolicyError, match="cursor is not present"):
         build_incremental_change_bundle(store_dir, subscription.model_copy(update={"cursor": "missing"}), signing_key=KEY, key_id="k1", signature_algorithm="hmac-sha256")
+
+
+def test_change_feed_filters_restricted_events_by_default(tmp_path: Path) -> None:
+    store_dir = tmp_path / "store"
+    store = GroundRecallStore(store_dir)
+    store.save_scope(ScopeRecord(scope_id="scope-a", scope_kind="project", title="Scope A", release_level="confidential", current_status="reviewed"))
+    store.save_work(
+        WorkRecord(
+            work_id="work-restricted",
+            work_kind="experiment",
+            title="Restricted work",
+            scope_id="scope-a",
+            release_level="confidential",
+            metadata={"restrictions": ["source_protected"]},
+            current_status="reviewed",
+        )
+    )
+    subscription = FederationSubscription(
+        subscription_id="sub-1",
+        producer_instance_id="host-a",
+        scope_ids=["scope-a"],
+        record_kinds=["work"],
+        maximum_release_level="confidential",
+        purpose="team project",
+    )
+
+    bundle = build_incremental_change_bundle(store_dir, subscription, signing_key=KEY, key_id="k1", signature_algorithm="hmac-sha256")
+
+    assert bundle.events == []
+
+
+def test_change_feed_rejects_unaccepted_restricted_event_on_import(tmp_path: Path) -> None:
+    store_dir = tmp_path / "store"
+    store = GroundRecallStore(store_dir)
+    store.save_scope(ScopeRecord(scope_id="scope-a", scope_kind="project", title="Scope A", release_level="confidential", current_status="reviewed"))
+    store.save_work(
+        WorkRecord(
+            work_id="work-restricted",
+            work_kind="experiment",
+            title="Restricted work",
+            scope_id="scope-a",
+            release_level="confidential",
+            metadata={"restrictions": ["source_protected"]},
+            current_status="reviewed",
+        )
+    )
+    producer_subscription = FederationSubscription(
+        subscription_id="sub-1",
+        producer_instance_id="host-a",
+        scope_ids=["scope-a"],
+        record_kinds=["work"],
+        maximum_release_level="confidential",
+        allowed_restriction_markers=["source_protected"],
+        purpose="team project",
+    )
+    receiver_subscription = producer_subscription.model_copy(update={"allowed_restriction_markers": []})
+    bundle_path = tmp_path / "bundle.json"
+    bundle = build_incremental_change_bundle(
+        store_dir,
+        producer_subscription,
+        signing_key=KEY,
+        key_id="k1",
+        signature_algorithm="hmac-sha256",
+        out_path=bundle_path,
+    )
+    assert bundle.events[0].restriction_markers == ["source_protected"]
+
+    result = import_incremental_change_bundle_to_quarantine(
+        bundle_path,
+        tmp_path / "quarantine",
+        verification_key=KEY,
+        subscription=receiver_subscription,
+        key_id="k1",
+    )
+
+    assert result.decision == "rejected"
+    assert any("event_restriction_markers_not_accepted" in reason for reason in result.reasons)

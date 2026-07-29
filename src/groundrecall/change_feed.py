@@ -17,6 +17,8 @@ from .federation import (
     _signature_for_payload,
     _verify_signature_for_payload,
     now_utc,
+    record_compartments,
+    record_restriction_markers,
 )
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .store import GroundRecallStore
@@ -33,6 +35,8 @@ class FederationSubscription(BaseModel):
     record_kinds: list[str] = Field(default_factory=list)
     change_kinds: list[str] = Field(default_factory=lambda: ["upsert", "state"])
     maximum_release_level: str = "private"
+    allowed_restriction_markers: list[str] = Field(default_factory=list)
+    allowed_compartments: list[str] = Field(default_factory=list)
     cursor: str = ""
     active: bool = True
     purpose: str = ""
@@ -47,6 +51,8 @@ class FederationChangeEvent(BaseModel):
     content_hash: str
     scope_id: str = ""
     release_level: str = "private"
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
     occurred_at: str = ""
     payload: dict[str, Any] = Field(default_factory=dict)
 
@@ -134,6 +140,8 @@ def _event_for_record(record_kind: str, record: Any) -> FederationChangeEvent:
         content_hash=content_hash,
         scope_id=_record_scope(record),
         release_level=_record_release(record),
+        restriction_markers=record_restriction_markers(record),
+        compartments=record_compartments(record),
         occurred_at=_record_time(record),
         payload=payload,
     )
@@ -178,7 +186,13 @@ def _policy(
             action=action,
             scope_id=subscription.scope_ids[0] if len(subscription.scope_ids) == 1 else "",
             target_release_level=subscription.maximum_release_level,  # type: ignore[arg-type]
-            metadata={"subscription_id": subscription.subscription_id, "change_kinds": subscription.change_kinds},
+            metadata={
+                "subscription_id": subscription.subscription_id,
+                "change_kinds": subscription.change_kinds,
+                "restriction_markers": subscription.allowed_restriction_markers,
+                "compartment_ids": subscription.allowed_compartments,
+                "purpose": subscription.purpose,
+            },
         )
     )
 
@@ -217,6 +231,8 @@ def build_incremental_change_bundle(
         raise FederationPolicyError("subscription cursor is not present in producer event history")
     start_index = next((index + 1 for index, event in enumerate(events) if event.event_id == subscription.cursor), 0)
     selected: list[FederationChangeEvent] = []
+    allowed_restrictions = set(subscription.allowed_restriction_markers)
+    allowed_compartments = set(subscription.allowed_compartments)
     for event in events[start_index:]:
         if subscription.scope_ids and event.scope_id not in subscription.scope_ids:
             continue
@@ -225,6 +241,10 @@ def build_incremental_change_bundle(
         if subscription.change_kinds and event.event_kind not in subscription.change_kinds:
             continue
         if _RELEASE_RANK.get(event.release_level, 4) > _RELEASE_RANK.get(subscription.maximum_release_level, 4):
+            continue
+        if event.restriction_markers and not set(event.restriction_markers) <= allowed_restrictions:
+            continue
+        if event.compartments and not set(event.compartments) <= allowed_compartments:
             continue
         selected.append(event)
     cursor_end = selected[-1].event_id if selected else subscription.cursor
@@ -302,6 +322,17 @@ def import_incremental_change_bundle_to_quarantine(
         subscription=subscription,
     )
     reasons = _policy_block_reasons(decision)
+    allowed_restrictions = set(subscription.allowed_restriction_markers)
+    allowed_compartments = set(subscription.allowed_compartments)
+    for event in bundle.events:
+        if _RELEASE_RANK.get(event.release_level, 4) > _RELEASE_RANK.get(subscription.maximum_release_level, 4):
+            reasons.append(f"event_exceeds_receiver_release_cap:{event.event_id}:{event.release_level}")
+        if event.restriction_markers and not set(event.restriction_markers) <= allowed_restrictions:
+            missing = ",".join(sorted(set(event.restriction_markers) - allowed_restrictions))
+            reasons.append(f"event_restriction_markers_not_accepted:{event.event_id}:{missing}")
+        if event.compartments and not set(event.compartments) <= allowed_compartments:
+            missing = ",".join(sorted(set(event.compartments) - allowed_compartments))
+            reasons.append(f"event_compartments_not_accepted:{event.event_id}:{missing}")
     if reasons:
         return FederationChangeImportResult(decision="rejected", bundle_id=bundle.manifest.bundle_id, producer_instance_id=bundle.manifest.producer_instance_id, reasons=reasons, policy_decision=decision.model_dump(mode="json") if decision else {})
     target = Path(quarantine_dir) / f"{bundle.manifest.bundle_id.replace('/', '_')}.json"

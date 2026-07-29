@@ -164,3 +164,79 @@ def test_catalog_tampering_is_detected(tmp_path: Path) -> None:
     tampered = catalog.model_copy(update={"entries": []})
     with pytest.raises(FederationPolicyError, match="content hash"):
         verify_federation_catalog(tampered, verification_key=KEY)
+
+
+def test_restricted_scope_absent_from_federation_catalog(tmp_path: Path) -> None:
+    store = _seed_catalog_store(tmp_path / "store")
+    store.save_scope(
+        ScopeRecord(
+            scope_id="scope-restricted",
+            scope_kind="project",
+            title="Restricted incident project",
+            release_level="confidential",
+            metadata={"restrictions": ["incident"], "restriction_policy_id": "incident-share-v1"},
+            current_status="reviewed",
+        )
+    )
+    store.save_work(
+        WorkRecord(
+            work_id="work-restricted",
+            work_kind="incident",
+            title="Restricted incident work",
+            scope_id="scope-restricted",
+            release_level="confidential",
+            metadata={"restrictions": ["incident"], "restriction_policy_id": "incident-share-v1"},
+            current_status="reviewed",
+        )
+    )
+
+    catalog = build_federation_catalog(
+        store.base_dir,
+        producer_instance_id="host-a",
+        target_release_level="confidential",
+        detail_level="descriptive",
+        signing_key=KEY,
+        key_id="host-a-catalog",
+        signature_algorithm="hmac-sha256",
+    )
+
+    serialized = catalog.model_dump_json()
+    assert "scope-restricted" not in serialized
+    assert "Restricted incident" not in serialized
+
+
+def test_restricted_catalog_does_not_leak_counts_or_topics(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_scope(
+        ScopeRecord(
+            scope_id="scope-restricted",
+            scope_kind="project",
+            title="Restricted source project",
+            release_level="confidential",
+            metadata={"restricted": True, "restriction_policy_id": "restricted-catalog-v1"},
+            current_status="reviewed",
+        )
+    )
+    store.save_work(
+        WorkRecord(
+            work_id="work-restricted",
+            work_kind="experiment",
+            title="Restricted source technique",
+            scope_id="scope-restricted",
+            release_level="confidential",
+            metadata={"restricted": True, "restriction_policy_id": "restricted-catalog-v1"},
+            current_status="reviewed",
+        )
+    )
+
+    catalog = build_federation_catalog(
+        store.base_dir,
+        producer_instance_id="host-a",
+        target_release_level="confidential",
+        detail_level="aggregate",
+        signing_key=KEY,
+        key_id="host-a-catalog",
+        signature_algorithm="hmac-sha256",
+    )
+
+    assert catalog.entries == []

@@ -32,7 +32,9 @@ from groundrecall.federation import (
     is_less_restrictive,
     list_quarantine_bundles,
     load_federation_trust_registry,
+    normalize_release_level,
     plan_quarantine_promotion,
+    record_restriction_markers,
     promote_quarantined_bundle,
     resolve_trust_key,
     revoke_federation_trust_key,
@@ -161,6 +163,12 @@ def test_release_lattice_blocks_broadening() -> None:
     assert not is_less_restrictive("confidential", "public")
 
 
+def test_restricted_is_not_confidential_alias() -> None:
+    assert normalize_release_level("restricted") is None
+    assert normalize_release_level("confidential") == "confidential"
+    assert record_restriction_markers(ClaimRecord(claim_id="c", claim_text="x", metadata={"classification": "restricted"})) == ["restricted"]
+
+
 def test_local_policy_grants_action_release_level_and_instance() -> None:
     policy = FederationLocalPolicy(
         policy_id="policy-test",
@@ -237,6 +245,8 @@ def test_role_directory_compiles_to_local_policy_grants() -> None:
                 release_levels=["public", "internal"],
                 instance_ids=["host-a"],
                 scopes=["project-alpha"],
+                restriction_markers=["source_protected"],
+                compartments=["project_compartment:alpha"],
             ),
             FederationRoleDefinition(
                 role_id="publisher",
@@ -255,6 +265,9 @@ def test_role_directory_compiles_to_local_policy_grants() -> None:
 
     assert policy.policy_id == "compiled-policy"
     assert len(policy.grants) == 3
+    reviewer_grant = next(grant for grant in policy.grants if grant.subject_id == "alice" and "import" in grant.actions)
+    assert reviewer_grant.restriction_markers == ["source_protected"]
+    assert reviewer_grant.compartments == ["project_compartment:alpha"]
     assert evaluate_federation_policy(
         policy,
         subject_id="alice",
@@ -262,7 +275,18 @@ def test_role_directory_compiles_to_local_policy_grants() -> None:
         release_level="internal",
         instance_id="host-a",
         scope_id="project-alpha",
+        restriction_markers=["source_protected"],
+        compartments=["project_compartment:alpha"],
     ).allowed is True
+    assert evaluate_federation_policy(
+        policy,
+        subject_id="alice",
+        action="promote",
+        release_level="internal",
+        instance_id="host-a",
+        scope_id="project-alpha",
+        restriction_markers=["hr"],
+    ).allowed is False
     assert evaluate_federation_policy(policy, subject_id="alice", action="export", release_level="public", instance_id="host-a").allowed is True
     assert evaluate_federation_policy(policy, subject_id="bob", action="export", release_level="public", instance_id="host-a").allowed is False
 
@@ -288,6 +312,8 @@ def test_signed_role_directory_publication_imports_with_local_caps(tmp_path: Pat
                 release_levels=["public", "internal"],
                 instance_ids=["*"],
                 scopes=["project-alpha", "project-beta"],
+                restriction_markers=["source_protected", "hr"],
+                compartments=["project_compartment:alpha", "project_compartment:beta"],
             )
         ],
         memberships=[
@@ -324,6 +350,8 @@ def test_signed_role_directory_publication_imports_with_local_caps(tmp_path: Pat
         allowed_release_levels=["public"],
         allowed_actions=["import"],
         allowed_scopes=["project-alpha"],
+        allowed_restriction_markers=["source_protected"],
+        allowed_compartments=["project_compartment:alpha"],
     )
 
     assert len(policy.grants) == 1
@@ -333,6 +361,8 @@ def test_signed_role_directory_publication_imports_with_local_caps(tmp_path: Pat
     assert grant.release_levels == ["public"]
     assert grant.instance_ids == ["host-a"]
     assert grant.scopes == ["project-alpha"]
+    assert grant.restriction_markers == ["source_protected"]
+    assert grant.compartments == ["project_compartment:alpha"]
     assert evaluate_federation_policy(
         policy,
         subject_id="alice",
@@ -551,6 +581,8 @@ def test_signed_public_keyset_imports_ed25519_keys_with_local_caps(tmp_path: Pat
         algorithm="ed25519",
         release_levels=["public", "internal"],
         trusted_actions=["import", "promote"],
+        restriction_markers=["source_protected", "hr"],
+        compartments=["project_compartment:alpha"],
         created_at="2026-07-26T00:00:00Z",
         expires_at="2026-10-24T00:00:00Z",
     )
@@ -576,6 +608,8 @@ def test_signed_public_keyset_imports_ed25519_keys_with_local_caps(tmp_path: Pat
         signer_key_id="host-a-root",
         allowed_release_levels=["public"],
         allowed_trusted_actions=["import"],
+        allowed_restriction_markers=["source_protected"],
+        allowed_compartments=["project_compartment:alpha"],
     )
 
     imported_key = receiver_registry.keys[0]
@@ -583,9 +617,21 @@ def test_signed_public_keyset_imports_ed25519_keys_with_local_caps(tmp_path: Pat
     assert imported_key.key_material == producer_public_pem.decode("utf-8")
     assert imported_key.release_levels == ["public"]
     assert imported_key.trusted_actions == ["import"]
+    assert imported_key.restriction_markers == ["source_protected"]
+    assert imported_key.compartments == ["project_compartment:alpha"]
     assert imported_key.expires_at == "2026-10-24T00:00:00Z"
     with pytest.raises(FederationPolicyError, match="does not allow release level"):
         resolve_trust_key(receiver_registry, instance_id="host-a", key_id="host-a-ed", release_level="internal", action="import", algorithm="ed25519")
+    with pytest.raises(FederationPolicyError, match="does not allow restriction markers"):
+        resolve_trust_key(
+            receiver_registry,
+            instance_id="host-a",
+            key_id="host-a-ed",
+            release_level="public",
+            action="import",
+            algorithm="ed25519",
+            restriction_markers=["hr"],
+        )
 
 
 def test_signed_public_keyset_rejects_tampering(tmp_path: Path) -> None:
@@ -783,6 +829,183 @@ def test_confidential_derivative_requires_redaction_policy_for_public_export(tmp
 
     assert [claim.claim_id for claim in bundle.snapshot.claims] == ["clm_redacted_summary"]
     assert any(finding.record_id == "clm_bad_summary" and finding.reason == "derivative_requires_redaction_policy" for finding in bundle.policy_report.findings)
+
+
+def test_restricted_record_is_not_federated_as_confidential(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_restricted",
+            claim_text="Restricted claim.",
+            metadata={"release_level": "confidential", "restrictions": ["source_protected"]},
+            current_status="promoted",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_confidential",
+            claim_text="Ordinary confidential claim.",
+            metadata={"release_level": "confidential"},
+            current_status="promoted",
+        )
+    )
+
+    bundle = export_federation_bundle(
+        store.base_dir,
+        tmp_path / "confidential.json",
+        target_release_level="confidential",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-confidential",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    assert [claim.claim_id for claim in bundle.snapshot.claims] == ["clm_confidential"]
+    finding = next(item for item in bundle.policy_report.findings if item.record_id == "clm_restricted")
+    assert finding.reason == "restricted_not_federated"
+    assert finding.restriction_markers == ["source_protected"]
+
+
+def test_restricted_derivative_requires_explicit_policy(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_restricted_derivative_blocked",
+            claim_text="Blocked restricted derivative.",
+            metadata={
+                "release_level": "public",
+                "restrictions": ["source_protected"],
+                "derived_from_release_levels": ["confidential"],
+            },
+            current_status="promoted",
+        )
+    )
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_restricted_derivative_allowed",
+            claim_text="Allowed restricted derivative.",
+            metadata={
+                "release_level": "public",
+                "restrictions": ["source_protected"],
+                "derived_from_release_levels": ["confidential"],
+                "restriction_policy_id": "restrict-public-v1",
+            },
+            current_status="promoted",
+        )
+    )
+
+    bundle = export_federation_bundle(
+        store.base_dir,
+        tmp_path / "restricted-derivative.json",
+        target_release_level="public",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-restricted-derivative",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    assert [claim.claim_id for claim in bundle.snapshot.claims] == ["clm_restricted_derivative_allowed"]
+    assert any(
+        finding.record_id == "clm_restricted_derivative_blocked"
+        and finding.reason == "restricted_derivative_requires_policy"
+        for finding in bundle.policy_report.findings
+    )
+
+
+def test_import_rejects_bundle_with_unaccepted_restriction_marker(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_restricted_allowed_by_producer_policy",
+            claim_text="Restricted claim with producer policy marker.",
+            metadata={"release_level": "confidential", "restrictions": ["source_protected"], "restriction_policy_id": "restrict-v1"},
+            current_status="promoted",
+        )
+    )
+    bundle_path = tmp_path / "restricted-confidential.json"
+    export_federation_bundle(
+        store.base_dir,
+        bundle_path,
+        target_release_level="confidential",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-restricted-confidential",
+        created_at="2026-07-26T00:00:00Z",
+    )
+
+    rejected = import_federation_bundle_to_quarantine(
+        bundle_path,
+        tmp_path / "quarantine-rejected",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["confidential"],
+    )
+    assert rejected.decision == "rejected"
+    assert any("restriction_markers_not_accepted:source_protected" in reason for reason in rejected.reasons)
+
+    accepted = import_federation_bundle_to_quarantine(
+        bundle_path,
+        tmp_path / "quarantine-accepted",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["confidential"],
+        accepted_restriction_markers=["source_protected"],
+    )
+    assert accepted.decision == "quarantined"
+
+
+def test_policy_plugin_receives_restriction_context(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_claim(
+        ClaimRecord(
+            claim_id="clm_restricted_policy_context",
+            claim_text="Restricted claim with producer policy.",
+            metadata={"release_level": "confidential", "restrictions": ["source_protected"], "restriction_policy_id": "restrict-v1"},
+            current_status="promoted",
+        )
+    )
+    bundle_path = tmp_path / "restricted-context.json"
+    export_federation_bundle(
+        store.base_dir,
+        bundle_path,
+        target_release_level="confidential",
+        producer_instance_id="host-a",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        snapshot_id="snap-restricted-context",
+        created_at="2026-07-26T00:00:00Z",
+    )
+    policy = tmp_path / "policy.yaml"
+    policy.write_text(
+        "\n".join(
+            [
+                "schema_version: groundrecall.policy_plugins.v1",
+                "providers:",
+                "  - type: static",
+                "    policy_id: import-review",
+                "    default_decision: allow",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = import_federation_bundle_to_quarantine(
+        bundle_path,
+        tmp_path / "quarantine",
+        signing_key=SIGNING_KEY,
+        key_id="test-key",
+        accepted_release_levels=["confidential"],
+        accepted_restriction_markers=["source_protected"],
+        policy_plugins_path=policy,
+        requester_id="alice",
+    )
+
+    metadata = result.policy_decision["metadata"]["component_decisions"][0]["metadata"]["request"]["metadata"]
+    assert metadata["restriction_markers"] == ["source_protected"]
+    assert metadata["producer_instance_id"] == "host-a"
 
 
 def test_hidden_basis_requires_redaction_policy_and_marks_partial_visibility(tmp_path: Path) -> None:

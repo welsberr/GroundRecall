@@ -77,13 +77,13 @@
 </tr>
 <tr class="odd">
 <td>Restricted material is treated as ordinary confidential material</td>
-<td>Roadmap requires <code>restricted</code> to be treated as a restriction marker, not a release-level alias; restricted federation should fail closed unless an explicit scoped policy authorizes transfer or derivative release.</td>
-<td>Current prototype needs restriction-aware federation hardening before restricted, compartmented, HR, legal, incident, source-protected, or export-controlled material should federate.</td>
+<td><code>restricted</code> is no longer normalized to <code>confidential</code>; restriction markers are separate from release level; restricted federation fails closed unless explicit policy metadata and receiver-side acceptance allow it.</td>
+<td>Current implementation is metadata-based; first-class restriction schema fields and external IAM/DLP integration remain future work.</td>
 </tr>
 <tr class="even">
 <td>Catalog discovery leaks protected existence metadata</td>
-<td>Roadmap requires restricted scopes to be absent from catalogs by default, including opaque/aggregate counts, topics, time coverage, and membership signals.</td>
-<td>Sanitized discovery metadata needs explicit policy design and tests.</td>
+<td>Restricted scopes and restricted dependent records are omitted from federation catalogs by default, including opaque/aggregate counts, topics, time coverage, and membership signals.</td>
+<td>Sanitized discovery metadata needs explicit policy design and tests beyond the default-deny behavior.</td>
 </tr>
 <tr class="odd">
 <td>Valid signature is mistaken for local authority</td>

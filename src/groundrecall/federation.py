@@ -57,7 +57,6 @@ RELEASE_VALUE_ALIASES: dict[str, ReleaseLevel] = {
     "organization": "internal",
     "organisation": "internal",
     "confidential": "confidential",
-    "restricted": "confidential",
     "sensitive": "confidential",
     "nonpublic": "confidential",
     "non_public": "confidential",
@@ -75,6 +74,27 @@ RELEASE_VALUE_ALIASES: dict[str, ReleaseLevel] = {
     "secret": "private",
 }
 
+RESTRICTION_METADATA_KEYS = (
+    "restriction",
+    "restrictions",
+    "restricted",
+    "compartment",
+    "compartments",
+    "purpose_restrictions",
+    "originator_controlled",
+    "export_controlled",
+    "legal_hold",
+    "privilege",
+)
+RESTRICTION_RELEASE_VALUE_MARKERS = {
+    "restricted",
+    "legal_privileged",
+    "attorney_client",
+    "medical",
+    "security",
+    "hr",
+}
+
 
 class FederationPolicyError(ValueError):
     """Raised when a federation bundle violates release or signature policy."""
@@ -86,6 +106,7 @@ class FederationExportFinding(BaseModel):
     reason: str
     release_level: ReleaseLevel | None = None
     field_path: str = ""
+    restriction_markers: list[str] = Field(default_factory=list)
 
 
 class FederationPolicyReport(BaseModel):
@@ -130,6 +151,7 @@ class FederationImportResult(BaseModel):
     record_count: int = 0
     origin_instance_id: str = ""
     target_release_level: ReleaseLevel
+    policy_decision: dict[str, Any] = Field(default_factory=dict)
 
 
 class FederationPolicyGrant(BaseModel):
@@ -138,6 +160,8 @@ class FederationPolicyGrant(BaseModel):
     release_levels: list[ReleaseLevel] = Field(default_factory=list)
     instance_ids: list[str] = Field(default_factory=lambda: ["*"])
     scopes: list[str] = Field(default_factory=list)
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
     allow_privileged: bool = False
 
 
@@ -152,6 +176,8 @@ class FederationRoleDefinition(BaseModel):
     release_levels: list[ReleaseLevel] = Field(default_factory=list)
     instance_ids: list[str] = Field(default_factory=lambda: ["*"])
     scopes: list[str] = Field(default_factory=list)
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
     allow_privileged: bool = False
 
 
@@ -197,6 +223,8 @@ class FederationTrustKey(BaseModel):
     superseded_by_key_id: str = ""
     release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
     trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
 
 
 class FederationTrustKeyMetadata(BaseModel):
@@ -211,6 +239,8 @@ class FederationTrustKeyMetadata(BaseModel):
     superseded_by_key_id: str = ""
     release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
     trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
     key_material_redacted: bool = True
     key_fingerprint: str = ""
 
@@ -240,6 +270,8 @@ class FederationPublicKeyEntry(BaseModel):
     superseded_by_key_id: str = ""
     release_levels: list[ReleaseLevel] = Field(default_factory=lambda: ["public"])
     trusted_actions: list[FederationAction] = Field(default_factory=lambda: ["import", "promote"])
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
 
 
 class FederationPublicKeySetManifest(BaseModel):
@@ -267,6 +299,8 @@ class FederationPolicyDecision(BaseModel):
     release_level: ReleaseLevel
     instance_id: str = ""
     scope_id: str = ""
+    restriction_markers: list[str] = Field(default_factory=list)
+    compartments: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     grant_index: int | None = None
 
@@ -380,6 +414,8 @@ def compile_federation_role_directory_to_policy(
                     release_levels=role.release_levels,
                     instance_ids=role.instance_ids,
                     scopes=role.scopes,
+                    restriction_markers=role.restriction_markers,
+                    compartments=role.compartments,
                     allow_privileged=role.allow_privileged,
                 )
             )
@@ -470,6 +506,8 @@ def import_federation_role_directory_publication_to_policy(
     allowed_release_levels: list[ReleaseLevel] | None = None,
     allowed_actions: list[FederationAction] | None = None,
     allowed_scopes: list[str] | None = None,
+    allowed_restriction_markers: list[str] | None = None,
+    allowed_compartments: list[str] | None = None,
 ) -> FederationLocalPolicy:
     parsed = verify_federation_role_directory_publication(publication, verification_key=verification_key, signer_key_id=signer_key_id)
     scoped_directory = filter_federation_role_directory(
@@ -480,6 +518,8 @@ def import_federation_role_directory_publication_to_policy(
         allowed_release_levels=allowed_release_levels or ["public"],
         allowed_actions=allowed_actions or ["import", "promote"],
         allowed_scopes=allowed_scopes,
+        allowed_restriction_markers=allowed_restriction_markers,
+        allowed_compartments=allowed_compartments,
     )
     return compile_federation_role_directory_to_policy(scoped_directory, policy_id=policy_id or f"compiled::{parsed.manifest.publication_id}")
 
@@ -493,6 +533,8 @@ def filter_federation_role_directory(
     allowed_release_levels: list[ReleaseLevel] | None = None,
     allowed_actions: list[FederationAction] | None = None,
     allowed_scopes: list[str] | None = None,
+    allowed_restriction_markers: list[str] | None = None,
+    allowed_compartments: list[str] | None = None,
 ) -> FederationRoleDirectory:
     subject_allow = set(allowed_subject_ids or [])
     role_allow = set(allowed_role_ids or [])
@@ -500,6 +542,8 @@ def filter_federation_role_directory(
     release_allow = set(allowed_release_levels or [])
     action_allow = set(allowed_actions or [])
     scope_allow = set(allowed_scopes or [])
+    restriction_allow = set(_normalize_marker(value) for value in (allowed_restriction_markers or []))
+    compartment_allow = set(_normalize_marker(value) for value in (allowed_compartments or []))
     roles: list[FederationRoleDefinition] = []
     retained_role_ids: set[str] = set()
     for role in directory.roles:
@@ -519,6 +563,18 @@ def filter_federation_role_directory(
                 scopes = sorted(scope_allow)
         else:
             scopes = list(role.scopes)
+        if restriction_allow:
+            restriction_markers = [marker for marker in role.restriction_markers if _normalize_marker(marker) in restriction_allow]
+        else:
+            restriction_markers = []
+        if compartment_allow:
+            compartments = [compartment for compartment in role.compartments if _normalize_marker(compartment) in compartment_allow]
+        else:
+            compartments = []
+        if role.restriction_markers and not restriction_markers:
+            continue
+        if role.compartments and not compartments:
+            continue
         if not actions or not release_levels or not instance_ids:
             continue
         if scope_allow and not scopes:
@@ -531,6 +587,8 @@ def filter_federation_role_directory(
                 release_levels=release_levels,
                 instance_ids=instance_ids,
                 scopes=scopes,
+                restriction_markers=restriction_markers,
+                compartments=compartments,
                 allow_privileged=allow_privileged,
             )
         )
@@ -584,6 +642,8 @@ def export_federation_trust_metadata(
             superseded_by_key_id=key.superseded_by_key_id,
             release_levels=key.release_levels,
             trusted_actions=key.trusted_actions,
+            restriction_markers=key.restriction_markers,
+            compartments=key.compartments,
             key_fingerprint=federation_key_fingerprint(key.key_material) if include_key_fingerprints else "",
         )
         for key in registry.keys
@@ -609,6 +669,8 @@ def add_federation_trust_key(
     key_material: str,
     release_levels: list[ReleaseLevel],
     trusted_actions: list[FederationAction],
+    restriction_markers: list[str] | None = None,
+    compartments: list[str] | None = None,
     algorithm: FederationSignatureAlgorithm = "hmac-sha256",
     active: bool = True,
     created_at: str | None = None,
@@ -632,6 +694,8 @@ def add_federation_trust_key(
             superseded_by_key_id=superseded_by_key_id,
             release_levels=release_levels,
             trusted_actions=trusted_actions,
+            restriction_markers=_normalize_marker_list(restriction_markers or []),
+            compartments=_normalize_marker_list(compartments or []),
         )
     )
     return registry.model_copy(update={"keys": keys})
@@ -660,6 +724,8 @@ def export_federation_public_keyset(
             superseded_by_key_id=key.superseded_by_key_id,
             release_levels=key.release_levels,
             trusted_actions=key.trusted_actions,
+            restriction_markers=key.restriction_markers,
+            compartments=key.compartments,
         )
         for key in registry.keys
         if key.algorithm == "ed25519" and (key.active or not active_only)
@@ -730,17 +796,27 @@ def import_federation_public_keyset_to_trust_registry(
     allowed_instance_ids: list[str] | None = None,
     allowed_release_levels: list[ReleaseLevel] | None = None,
     allowed_trusted_actions: list[FederationAction] | None = None,
+    allowed_restriction_markers: list[str] | None = None,
+    allowed_compartments: list[str] | None = None,
 ) -> FederationTrustRegistry:
     parsed = verify_federation_public_keyset(keyset, verification_key=verification_key, signer_key_id=signer_key_id)
     instance_allow = set(allowed_instance_ids or [parsed.manifest.producer_instance_id])
     release_allow = set(allowed_release_levels or ["public"])
     action_allow = set(allowed_trusted_actions or ["import", "promote"])
+    restriction_allow = set(_normalize_marker(value) for value in (allowed_restriction_markers or []))
+    compartment_allow = set(_normalize_marker(value) for value in (allowed_compartments or []))
     updated = registry
     for key in parsed.keys:
         if key.instance_id not in instance_allow:
             continue
         release_levels = [level for level in key.release_levels if level in release_allow]
         trusted_actions = [action for action in key.trusted_actions if action in action_allow]
+        restriction_markers = [marker for marker in key.restriction_markers if _normalize_marker(marker) in restriction_allow]
+        compartments = [compartment for compartment in key.compartments if _normalize_marker(compartment) in compartment_allow]
+        if key.restriction_markers and not restriction_markers:
+            continue
+        if key.compartments and not compartments:
+            continue
         if not release_levels or not trusted_actions:
             continue
         updated = add_federation_trust_key(
@@ -751,6 +827,8 @@ def import_federation_public_keyset_to_trust_registry(
             algorithm="ed25519",
             release_levels=release_levels,
             trusted_actions=trusted_actions,
+            restriction_markers=restriction_markers,
+            compartments=compartments,
             active=key.active,
             created_at=key.created_at,
             expires_at=key.expires_at,
@@ -799,6 +877,8 @@ def resolve_trust_key(
     key_id: str,
     release_level: ReleaseLevel,
     action: FederationAction,
+    restriction_markers: Iterable[str] = (),
+    compartments: Iterable[str] = (),
     algorithm: FederationSignatureAlgorithm | None = None,
     as_of: str | datetime | None = None,
 ) -> bytes:
@@ -823,6 +903,14 @@ def resolve_trust_key(
         raise FederationPolicyError(f"trusted key does not allow release level: {release_level}")
     if action not in key.trusted_actions:
         raise FederationPolicyError(f"trusted key does not allow action: {action}")
+    requested_restrictions = set(_normalize_marker_list(restriction_markers))
+    allowed_restrictions = set(_normalize_marker_list(key.restriction_markers))
+    if requested_restrictions and not requested_restrictions <= allowed_restrictions:
+        raise FederationPolicyError(f"trusted key does not allow restriction markers: {sorted(requested_restrictions - allowed_restrictions)}")
+    requested_compartments = set(_normalize_marker_list(compartments))
+    allowed_compartments = set(_normalize_marker_list(key.compartments))
+    if requested_compartments and not requested_compartments <= allowed_compartments:
+        raise FederationPolicyError(f"trusted key does not allow compartments: {sorted(requested_compartments - allowed_compartments)}")
     return key.key_material.encode("utf-8")
 
 
@@ -834,7 +922,11 @@ def evaluate_federation_policy(
     release_level: ReleaseLevel,
     instance_id: str = "",
     scope_id: str = "",
+    restriction_markers: Iterable[str] = (),
+    compartments: Iterable[str] = (),
 ) -> FederationPolicyDecision:
+    requested_restrictions = _normalize_marker_list(restriction_markers)
+    requested_compartments = _normalize_marker_list(compartments)
     if not subject_id:
         return FederationPolicyDecision(
             allowed=False,
@@ -844,6 +936,8 @@ def evaluate_federation_policy(
             release_level=release_level,
             instance_id=instance_id,
             scope_id=scope_id,
+            restriction_markers=requested_restrictions,
+            compartments=requested_compartments,
             reasons=["missing_subject_id"],
         )
     for index, grant in enumerate(policy.grants):
@@ -859,6 +953,12 @@ def evaluate_federation_policy(
             continue
         if grant.scopes and scope_id not in grant.scopes:
             continue
+        grant_restrictions = set(_normalize_marker_list(grant.restriction_markers))
+        if requested_restrictions and not set(requested_restrictions) <= grant_restrictions:
+            continue
+        grant_compartments = set(_normalize_marker_list(grant.compartments))
+        if requested_compartments and not set(requested_compartments) <= grant_compartments:
+            continue
         return FederationPolicyDecision(
             allowed=True,
             policy_id=policy.policy_id,
@@ -867,6 +967,8 @@ def evaluate_federation_policy(
             release_level=release_level,
             instance_id=instance_id,
             scope_id=scope_id,
+            restriction_markers=requested_restrictions,
+            compartments=requested_compartments,
             grant_index=index,
         )
     return FederationPolicyDecision(
@@ -877,6 +979,8 @@ def evaluate_federation_policy(
         release_level=release_level,
         instance_id=instance_id,
         scope_id=scope_id,
+        restriction_markers=requested_restrictions,
+        compartments=requested_compartments,
         reasons=["no_matching_federation_grant"],
     )
 
@@ -971,11 +1075,108 @@ def release_level_from_metadata(metadata: dict[str, Any]) -> ReleaseLevel | None
     return None
 
 
+def restriction_markers_from_metadata(metadata: dict[str, Any]) -> list[str]:
+    markers: list[str] = []
+    for key in RESTRICTION_METADATA_KEYS:
+        if key not in metadata:
+            continue
+        value = metadata.get(key)
+        if key == "restricted" and value is True:
+            markers.append("restricted")
+            continue
+        markers.extend(_markers_from_value(value))
+    for key in RELEASE_METADATA_KEYS:
+        if key not in metadata:
+            continue
+        normalized = _normalize_marker(metadata.get(key))
+        if normalized in RESTRICTION_RELEASE_VALUE_MARKERS:
+            markers.append(normalized)
+    return _normalize_marker_list(markers)
+
+
+def record_restriction_markers(record: Any) -> list[str]:
+    metadata = getattr(record, "metadata", None)
+    if not isinstance(metadata, dict):
+        return []
+    return restriction_markers_from_metadata(metadata)
+
+
+def record_compartments(record: Any) -> list[str]:
+    metadata = getattr(record, "metadata", None)
+    if not isinstance(metadata, dict):
+        return []
+    values: list[Any] = []
+    for key in ("compartment", "compartments", "compartment_id", "compartment_ids"):
+        if key in metadata:
+            values.append(metadata[key])
+    compartments: list[str] = []
+    for value in values:
+        compartments.extend(_markers_from_value(value))
+    return _normalize_marker_list(compartments)
+
+
+def restriction_block_reason(record: Any, action: str, target_release_level: ReleaseLevel) -> str | None:
+    markers = record_restriction_markers(record)
+    if not markers:
+        return None
+    if _has_restriction_federation_policy(record):
+        return None
+    if action == "catalog":
+        return "restricted_catalog_discovery_blocked"
+    metadata = getattr(record, "metadata", {})
+    if _source_release_levels(metadata if isinstance(metadata, dict) else {}):
+        return "restricted_derivative_requires_policy"
+    return "restricted_not_federated"
+
+
 def normalize_release_level(value: Any) -> ReleaseLevel | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
     return RELEASE_VALUE_ALIASES.get(normalized)
+
+
+def _markers_from_value(value: Any) -> list[str]:
+    if value is None or value is False:
+        return []
+    if value is True:
+        return ["restricted"]
+    if isinstance(value, str):
+        if not value.strip():
+            return []
+        return [_normalize_marker(value)]
+    if isinstance(value, dict):
+        markers: list[str] = []
+        for key, item in value.items():
+            if item is False or item is None:
+                continue
+            if item is True:
+                markers.append(str(key))
+            else:
+                markers.append(f"{key}:{item}")
+        return markers
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
+        markers = []
+        for item in value:
+            markers.extend(_markers_from_value(item))
+        return markers
+    return [_normalize_marker(value)]
+
+
+def _normalize_marker(value: Any) -> str:
+    return str(value).strip().lower().replace("-", "_").replace(" ", "_")
+
+
+def _normalize_marker_list(values: Iterable[Any]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        marker = _normalize_marker(value)
+        if not marker or marker in seen:
+            continue
+        seen.add(marker)
+        result.append(marker)
+    return result
 
 
 def is_less_restrictive(candidate: ReleaseLevel, source: ReleaseLevel) -> bool:
@@ -1358,6 +1559,8 @@ def import_federation_bundle_to_quarantine(
     *,
     signing_key: str | bytes,
     accepted_release_levels: Iterable[ReleaseLevel],
+    accepted_restriction_markers: Iterable[str] = (),
+    accepted_compartments: Iterable[str] = (),
     key_id: str | None = None,
     policy: FederationLocalPolicy | None = None,
     policy_plugins_path: str | Path | None = None,
@@ -1368,6 +1571,8 @@ def import_federation_bundle_to_quarantine(
     payload = json.loads(Path(bundle_path).read_text(encoding="utf-8"))
     bundle = verify_federation_bundle(payload, signing_key=signing_key, key_id=key_id)
     accepted = set(accepted_release_levels)
+    bundle_restrictions = _bundle_restriction_markers(bundle)
+    bundle_compartments = _bundle_compartments(bundle)
     reasons: list[str] = []
     policy_decision = None
     if policy is not None:
@@ -1378,6 +1583,8 @@ def import_federation_bundle_to_quarantine(
             release_level=bundle.manifest.target_release_level,
             instance_id=bundle.manifest.producer_instance_id,
             scope_id=scope_id,
+            restriction_markers=bundle_restrictions,
+            compartments=bundle_compartments,
         )
         if not policy_decision.allowed:
             reasons.extend(policy_decision.reasons)
@@ -1391,12 +1598,21 @@ def import_federation_bundle_to_quarantine(
         instance_id=bundle.manifest.producer_instance_id,
         scope_id=scope_id,
         durable_memory_change=True,
-        metadata={"bundle_id": bundle.manifest.bundle_id, "producer_instance_id": bundle.manifest.producer_instance_id},
+        metadata={
+            "bundle_id": bundle.manifest.bundle_id,
+            "producer_instance_id": bundle.manifest.producer_instance_id,
+            "restriction_markers": bundle_restrictions,
+            "compartment_ids": bundle_compartments,
+        },
     )
     reasons.extend(_policy_plugin_block_reasons(plugin_decision))
     if bundle.manifest.target_release_level not in accepted:
         reasons.append(f"target_release_level_not_accepted:{bundle.manifest.target_release_level}")
-    for finding in _bundle_policy_violations(bundle):
+    for finding in _bundle_policy_violations(
+        bundle,
+        accepted_restriction_markers=accepted_restriction_markers,
+        accepted_compartments=accepted_compartments,
+    ):
         reasons.append(finding)
     if reasons:
         result = FederationImportResult(
@@ -1406,6 +1622,7 @@ def import_federation_bundle_to_quarantine(
             record_count=bundle.manifest.record_count,
             origin_instance_id=bundle.manifest.producer_instance_id,
             target_release_level=bundle.manifest.target_release_level,
+            policy_decision=plugin_decision.model_dump(mode="json") if plugin_decision else {},
         )
         if audit_log_path is not None:
             append_federation_audit_event(
@@ -1434,6 +1651,7 @@ def import_federation_bundle_to_quarantine(
         record_count=bundle.manifest.record_count,
         origin_instance_id=bundle.manifest.producer_instance_id,
         target_release_level=bundle.manifest.target_release_level,
+        policy_decision=plugin_decision.model_dump(mode="json") if plugin_decision else {},
     )
     if audit_log_path is not None:
         append_federation_audit_event(
@@ -1477,9 +1695,13 @@ def plan_quarantine_promotion(
     signing_key: str | bytes,
     key_id: str | None = None,
     accepted_release_levels: Iterable[ReleaseLevel] = ("public",),
+    accepted_restriction_markers: Iterable[str] = (),
+    accepted_compartments: Iterable[str] = (),
 ) -> FederationPromotionPlan:
     bundle = verify_federation_bundle(json.loads(Path(bundle_path).read_text(encoding="utf-8")), signing_key=signing_key, key_id=key_id)
     accepted = set(accepted_release_levels)
+    bundle_restrictions = _bundle_restriction_markers(bundle)
+    bundle_compartments = _bundle_compartments(bundle)
     store = GroundRecallStore(store_dir)
     promotable_counts: dict[str, int] = {}
     unchanged_counts: dict[str, int] = {}
@@ -1494,6 +1716,19 @@ def plan_quarantine_promotion(
             }
         )
         conflict_counts["bundle"] = 1
+    for violation in _bundle_policy_violations(
+        bundle,
+        accepted_restriction_markers=accepted_restriction_markers,
+        accepted_compartments=accepted_compartments,
+    ):
+        conflicts.append(
+            {
+                "record_kind": "bundle",
+                "record_id": bundle.manifest.bundle_id,
+                "reason": violation,
+            }
+        )
+        conflict_counts["bundle"] = conflict_counts.get("bundle", 0) + 1
     for collection in _promotion_collections(bundle, store):
         _accumulate_promotion_collection(
             collection["record_kind"],
@@ -1525,6 +1760,8 @@ def promote_quarantined_bundle(
     signing_key: str | bytes,
     key_id: str | None = None,
     accepted_release_levels: Iterable[ReleaseLevel] = ("public",),
+    accepted_restriction_markers: Iterable[str] = (),
+    accepted_compartments: Iterable[str] = (),
     policy: FederationLocalPolicy | None = None,
     policy_plugins_path: str | Path | None = None,
     requester_id: str = "",
@@ -1533,6 +1770,8 @@ def promote_quarantined_bundle(
     apply: bool = False,
 ) -> FederationPromotionResult:
     bundle = verify_federation_bundle(json.loads(Path(bundle_path).read_text(encoding="utf-8")), signing_key=signing_key, key_id=key_id)
+    bundle_restrictions = _bundle_restriction_markers(bundle)
+    bundle_compartments = _bundle_compartments(bundle)
     policy_decision = None
     if policy is not None:
         policy_decision = evaluate_federation_policy(
@@ -1542,6 +1781,8 @@ def promote_quarantined_bundle(
             release_level=bundle.manifest.target_release_level,
             instance_id=bundle.manifest.producer_instance_id,
             scope_id=scope_id,
+            restriction_markers=bundle_restrictions,
+            compartments=bundle_compartments,
         )
         if not policy_decision.allowed:
             plan = plan_quarantine_promotion(
@@ -1550,6 +1791,8 @@ def promote_quarantined_bundle(
                 signing_key=signing_key,
                 key_id=key_id,
                 accepted_release_levels=accepted_release_levels,
+                accepted_restriction_markers=accepted_restriction_markers,
+                accepted_compartments=accepted_compartments,
             )
             result = FederationPromotionResult(decision="rejected", plan=plan, reasons=policy_decision.reasons)
             _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision)
@@ -1564,7 +1807,12 @@ def promote_quarantined_bundle(
         instance_id=bundle.manifest.producer_instance_id,
         scope_id=scope_id,
         durable_memory_change=True,
-        metadata={"bundle_id": bundle.manifest.bundle_id, "producer_instance_id": bundle.manifest.producer_instance_id},
+        metadata={
+            "bundle_id": bundle.manifest.bundle_id,
+            "producer_instance_id": bundle.manifest.producer_instance_id,
+            "restriction_markers": bundle_restrictions,
+            "compartment_ids": bundle_compartments,
+        },
     )
     plugin_block_reasons = _policy_plugin_block_reasons(plugin_decision)
     if plugin_block_reasons:
@@ -1574,6 +1822,8 @@ def promote_quarantined_bundle(
             signing_key=signing_key,
             key_id=key_id,
             accepted_release_levels=accepted_release_levels,
+            accepted_restriction_markers=accepted_restriction_markers,
+            accepted_compartments=accepted_compartments,
         )
         result = FederationPromotionResult(decision="rejected", plan=plan, reasons=plugin_block_reasons)
         _audit_promotion(audit_log_path, result, requester_id, bundle, policy_decision, plugin_decision=plugin_decision)
@@ -1585,6 +1835,8 @@ def promote_quarantined_bundle(
         signing_key=signing_key,
         key_id=key_id,
         accepted_release_levels=accepted_release_levels,
+        accepted_restriction_markers=accepted_restriction_markers,
+        accepted_compartments=accepted_compartments,
     )
     if plan.conflicts:
         result = FederationPromotionResult(decision="rejected", plan=plan, reasons=["promotion_conflicts"])
@@ -2026,11 +2278,26 @@ def _filter_records(
         record_id = str(getattr(record, id_field))
         level = _record_release_level(record, allow_unclassified_public=allow_unclassified_public)
         if level is None:
-            findings.append(FederationExportFinding(record_kind=record_kind, record_id=record_id, reason="missing_release_level"))
+            findings.append(
+                FederationExportFinding(
+                    record_kind=record_kind,
+                    record_id=record_id,
+                    reason="missing_release_level",
+                    restriction_markers=record_restriction_markers(record),
+                )
+            )
             continue
         blocked_reason = _record_block_reason(record, level, target_release_level)
         if blocked_reason is not None:
-            findings.append(FederationExportFinding(record_kind=record_kind, record_id=record_id, reason=blocked_reason, release_level=level))
+            findings.append(
+                FederationExportFinding(
+                    record_kind=record_kind,
+                    record_id=record_id,
+                    reason=blocked_reason,
+                    release_level=level,
+                    restriction_markers=record_restriction_markers(record),
+                )
+            )
             continue
         kept.append(record)
     return kept
@@ -2053,6 +2320,9 @@ def _record_block_reason(record: Any, level: ReleaseLevel, target_release_level:
         return "private_never_federated"
     if not is_allowed_for_target(level, target_release_level):
         return f"release_level_exceeds_target:{level}"
+    restricted_reason = restriction_block_reason(record, "export", target_release_level)
+    if restricted_reason is not None:
+        return restricted_reason
     secret_path = _secret_field_path(record.model_dump())
     if secret_path is not None:
         return f"secret_like_content:{secret_path}"
@@ -2080,7 +2350,22 @@ def _source_release_levels(metadata: dict[str, Any]) -> list[ReleaseLevel]:
 
 def _has_redaction_policy(record: Any) -> bool:
     metadata = getattr(record, "metadata", {})
-    return isinstance(metadata, dict) and bool(metadata.get("redaction_policy_id") or metadata.get("declassification_policy_id"))
+    return isinstance(metadata, dict) and bool(
+        metadata.get("redaction_policy_id")
+        or metadata.get("declassification_policy_id")
+        or metadata.get("restriction_policy_id")
+        or metadata.get("restricted_federation_policy_id")
+    )
+
+
+def _has_restriction_federation_policy(record: Any) -> bool:
+    metadata = getattr(record, "metadata", {})
+    return isinstance(metadata, dict) and bool(
+        metadata.get("restriction_policy_id")
+        or metadata.get("restricted_federation_policy_id")
+        or metadata.get("redaction_policy_id")
+        or metadata.get("declassification_policy_id")
+    )
 
 
 def _finding(record_kind: str, record_id: str, reason: str, record: Any) -> FederationExportFinding:
@@ -2089,6 +2374,7 @@ def _finding(record_kind: str, record_id: str, reason: str, record: Any) -> Fede
         record_id=record_id,
         reason=reason,
         release_level=_record_release_level(record, allow_unclassified_public=False),
+        restriction_markers=record_restriction_markers(record),
     )
 
 
@@ -2203,18 +2489,56 @@ def _canonical_json(payload: Any) -> str:
     return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
-def _bundle_policy_violations(bundle: FederationBundle) -> list[str]:
-    violations: list[str] = []
-    for record_kind, records, id_field in (
+def _bundle_record_groups(bundle: FederationBundle) -> tuple[tuple[str, list[Any], str], ...]:
+    return (
         ("source", bundle.snapshot.sources, "source_id"),
         ("fragment", bundle.snapshot.fragments, "fragment_id"),
         ("artifact", bundle.snapshot.artifacts, "artifact_id"),
+        ("scope", bundle.snapshot.scopes, "scope_id"),
+        ("work", bundle.snapshot.works, "work_id"),
+        ("decision", bundle.snapshot.decisions, "decision_id"),
+        ("contribution", bundle.snapshot.contributions, "contribution_id"),
+        ("contribution_review_receipt", bundle.snapshot.contribution_review_receipts, "receipt_id"),
+        ("review_receipt", bundle.snapshot.review_receipts, "receipt_id"),
+        ("federation_feedback", bundle.snapshot.federation_feedback, "feedback_id"),
+        ("stewardship", bundle.snapshot.stewardship, "stewardship_id"),
+        ("custody_event", bundle.snapshot.custody_events, "event_id"),
         ("observation", bundle.snapshot.observations, "observation_id"),
         ("claim", bundle.snapshot.claims, "claim_id"),
         ("contradiction_case", bundle.snapshot.contradiction_cases, "case_id"),
         ("concept", bundle.snapshot.concepts, "concept_id"),
         ("relation", bundle.snapshot.relations, "relation_id"),
-    ):
+        ("promotion", bundle.snapshot.promotions, "promotion_id"),
+        ("adjudication", bundle.snapshot.adjudications, "adjudication_id"),
+    )
+
+
+def _bundle_restriction_markers(bundle: FederationBundle) -> list[str]:
+    markers: list[str] = []
+    for _, records, _ in _bundle_record_groups(bundle):
+        for record in records:
+            markers.extend(record_restriction_markers(record))
+    return _normalize_marker_list(markers)
+
+
+def _bundle_compartments(bundle: FederationBundle) -> list[str]:
+    compartments: list[str] = []
+    for _, records, _ in _bundle_record_groups(bundle):
+        for record in records:
+            compartments.extend(record_compartments(record))
+    return _normalize_marker_list(compartments)
+
+
+def _bundle_policy_violations(
+    bundle: FederationBundle,
+    *,
+    accepted_restriction_markers: Iterable[str] = (),
+    accepted_compartments: Iterable[str] = (),
+) -> list[str]:
+    violations: list[str] = []
+    accepted_restrictions = set(_normalize_marker_list(accepted_restriction_markers))
+    accepted_compartments_set = set(_normalize_marker_list(accepted_compartments))
+    for record_kind, records, id_field in _bundle_record_groups(bundle):
         for record in records:
             record_id = str(getattr(record, id_field))
             level = _record_release_level(record, allow_unclassified_public=False)
@@ -2222,6 +2546,14 @@ def _bundle_policy_violations(bundle: FederationBundle) -> list[str]:
                 violations.append(f"{record_kind}:{record_id}:missing_release_level")
             elif not is_allowed_for_target(level, bundle.manifest.target_release_level):
                 violations.append(f"{record_kind}:{record_id}:release_level_exceeds_target:{level}")
+            restrictions = set(record_restriction_markers(record))
+            if restrictions and not restrictions <= accepted_restrictions:
+                missing = ",".join(sorted(restrictions - accepted_restrictions))
+                violations.append(f"{record_kind}:{record_id}:restriction_markers_not_accepted:{missing}")
+            compartments = set(record_compartments(record))
+            if compartments and not compartments <= accepted_compartments_set:
+                missing = ",".join(sorted(compartments - accepted_compartments_set))
+                violations.append(f"{record_kind}:{record_id}:compartments_not_accepted:{missing}")
     return violations
 
 

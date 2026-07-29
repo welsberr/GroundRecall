@@ -9,6 +9,7 @@ from groundrecall.policy import (
     StaticPolicyProvider,
     compose_policy_decisions,
     load_policy_plugins,
+    normalize_release_level,
 )
 
 def write_claimwright_policy(root: Path) -> Path:
@@ -83,6 +84,12 @@ def test_static_policy_provider_returns_structured_decision() -> None:
     assert decision.policy_id == "test.allow.v1"
     assert decision.decision_point == "read"
     assert decision.subject_id == "agent-1"
+    assert decision.metadata["request"]["metadata"] == {}
+
+
+def test_policy_release_normalization_does_not_treat_restricted_as_confidential() -> None:
+    assert normalize_release_level("restricted") is None
+    assert normalize_release_level("confidential") == "confidential"
 
 
 def test_composition_uses_conservative_decision_and_accumulates_obligations() -> None:
