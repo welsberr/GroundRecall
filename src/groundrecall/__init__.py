@@ -20,6 +20,7 @@ from .institutional_lifecycle import (
     ContributionTransitionError,
     transition_contribution,
 )
+from .prior_work import PRIOR_WORK_SCHEMA_VERSION, PriorWorkCandidate, PriorWorkReport, prior_work_search
 from .institutional_federation import (
     INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
     INSTITUTIONAL_POLICY_ACTIONS,
@@ -232,4 +233,8 @@ __all__ = [
     "VALID_CONTRIBUTION_TRANSITIONS",
     "ContributionTransitionError",
     "transition_contribution",
+    "PRIOR_WORK_SCHEMA_VERSION",
+    "PriorWorkCandidate",
+    "PriorWorkReport",
+    "prior_work_search",
 ]

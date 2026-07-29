@@ -20,6 +20,11 @@ stewardship, and custody-event records plus contribution transition validation
 are implemented. Reviewer authority and separation-of-duty enforcement remain
 in IF-03.
 
+IF-04 status (2026-07-29): policy-aware prior-work search is implemented for
+work, decision, and claim records, including negative/inconclusive outcomes,
+exact versus lexical candidate labels, release filtering, inaccessible-result
+counts, and CLI output. Semantic duplicate confirmation remains review-gated.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

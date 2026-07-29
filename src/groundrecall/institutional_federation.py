@@ -73,8 +73,12 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
         },
         {
             "capability_id": "prior_work_discovery",
-            "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-04"],
+            "status": "partial",
+            "evidence": [
+                "src/groundrecall/prior_work.py",
+                "tests/test_prior_work.py",
+                "docs/institutional-federation-implementation-roadmap.md#IF-04",
+            ],
         },
         {
             "capability_id": "signed_federation_catalogs",

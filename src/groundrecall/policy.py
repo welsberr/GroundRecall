@@ -370,6 +370,8 @@ def _mode_to_decision(mode: str) -> PolicyDecisionValue:
         return "hard_gate"
     if mode == "soft_gate":
         return "soft_gate"
+    if mode == "require_review":
+        return "require_review"
     if mode == "advisory":
         return "allow"
     return "allow"

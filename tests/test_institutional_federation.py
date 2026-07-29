@@ -52,7 +52,7 @@ def test_institutional_capability_report_is_deterministic_and_versioned() -> Non
     assert report == build_institutional_federation_capability_report()
     assert report["schema_version"] == INSTITUTIONAL_FEDERATION_SCHEMA_VERSION
     assert report["policy_action_count"] == len(INSTITUTIONAL_POLICY_ACTIONS)
-    assert report["summary"] == {"implemented": 2, "partial": 1, "future": 9}
+    assert report["summary"] == {"implemented": 2, "partial": 2, "future": 8}
 
     compact = build_institutional_federation_capability_report(compact=True)
     assert compact["schema_version"] == INSTITUTIONAL_FEDERATION_SCHEMA_VERSION
@@ -62,7 +62,7 @@ def test_institutional_capability_report_is_deterministic_and_versioned() -> Non
 def test_inspect_can_include_institutional_capability_report(tmp_path: Path) -> None:
     payload = inspect_store(tmp_path / "store", include_institutional_federation=True)
     assert payload["institutional_federation"]["schema_version"] == INSTITUTIONAL_FEDERATION_SCHEMA_VERSION
-    assert payload["institutional_federation"]["summary"]["partial"] == 1
+    assert payload["institutional_federation"]["summary"]["partial"] == 2
 
 
 def test_inspect_cli_can_emit_institutional_capability_report(tmp_path: Path, capsys) -> None:
@@ -80,7 +80,7 @@ def test_inspect_cli_can_emit_institutional_capability_report(tmp_path: Path, ca
         sys.argv = original_argv
     output = capsys.readouterr().out
     assert INSTITUTIONAL_FEDERATION_SCHEMA_VERSION in output
-    assert '"future": 9' in output
+    assert '"future": 8' in output
 
 
 def test_scope_and_work_records_round_trip_and_snapshot_compatibility(tmp_path: Path) -> None:

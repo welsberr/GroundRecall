@@ -180,6 +180,12 @@ The report distinguishes implemented exchange foundations from future
 institutional workflows. The coding-model execution plan is in
 [`docs/institutional-federation-implementation-roadmap.md`](docs/institutional-federation-implementation-roadmap.md).
 
+Run a prior-work review before starting a substantial initiative:
+
+```bash
+groundrecall prior-work .groundrecall/store "graph backfill" --scope-id project-alpha
+```
+
 Export assistant-neutral data:
 
 ```bash

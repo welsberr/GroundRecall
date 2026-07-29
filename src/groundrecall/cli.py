@@ -15,6 +15,7 @@ from . import (
     graph_maintenance,
     ingest,
     institutional_records,
+    prior_work,
     inspect,
     lint,
     promotion,
@@ -29,6 +30,7 @@ from . import (
 COMMANDS = {
     "import": ingest.main,
     "institutional": institutional_records.main,
+    "prior-work": prior_work.main,
     "lint": lint.main,
     "promote": promotion.main,
     "protocol-init": protocol.main,

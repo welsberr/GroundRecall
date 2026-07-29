@@ -55,6 +55,11 @@ def write_claimwright_policy(root: Path) -> Path:
                 "    actions: [accept_group_contribution, transfer_knowledge_custody]",
                 "    default_decision: hard_gate",
                 "    required_reviewers: [scope-steward, records-custodian]",
+                "  - id: prior_work_review",
+                "    decision_points: [query, propose]",
+                "    actions: [prior_work_review, initiate_durable_work]",
+                "    default_decision: require_review",
+                "    obligations: [record_prior_work_query, preserve_negative_results]",
             ]
         ),
         encoding="utf-8",
@@ -178,6 +183,17 @@ def test_claimwright_adapter_applies_institutional_collaboration_rules(tmp_path:
     assert "stewardship_required" in accepted.metadata["matched_collaboration_rules"]
     assert {"scope-steward", "records-custodian"} <= set(accepted.required_reviewers)
     assert "steward_role_ids" not in accepted.required_reviewers
+
+    prior_work = provider.evaluate(
+        PolicyRequest(
+            decision_point="query",
+            subject_id="alice",
+            action="prior_work_review",
+            scope_id="scope-alpha",
+        )
+    )
+    assert prior_work.decision == "require_review"
+    assert "record_prior_work_query" in prior_work.obligations
 
 
 def test_policy_plugin_loader_composes_claimwright_with_static_policy(tmp_path: Path) -> None:
