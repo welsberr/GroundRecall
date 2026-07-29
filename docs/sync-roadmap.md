@@ -18,6 +18,106 @@ Support these use cases cleanly:
 - federated project or entity knowledge across multiple GroundRecall instances
 - public, internal, confidential, and privileged release boundaries
 
+## Group-Valued Federation Goals
+
+Federation is not only a way to move records between GroundRecall instances.
+Its larger purpose is to turn appropriately released member knowledge into a
+durable group capability without treating every member's local memory as
+automatically authoritative or shareable.
+
+The group-valued goods are:
+
+1. **Member-to-group knowledge propagation.** Useful individual observations,
+   sources, techniques, and decisions can become reviewed group knowledge.
+2. **Silo reduction.** Teams, departments, projects, and geographically
+   separated hosts can discover relevant work outside their immediate local
+   context.
+3. **Avoidance of duplicate exploration.** Members can find techniques,
+   prototypes, searches, experiments, and projects that were already attempted,
+   including negative or inconclusive results.
+4. **Institutional continuity.** Knowledge can survive an individual's
+   departure from a project, group, host, or entity while respecting provenance,
+   release, retention, and revocation rules.
+5. **Faster onboarding and succession.** New members can recover the current
+   state, vocabulary, evidence, decision history, unresolved questions, and
+   responsible stewards without reconstructing them from chat archives.
+6. **Preservation of decision rationale.** The group retains why an approach
+   was chosen, rejected, superseded, or deferred—not merely the latest
+   conclusion.
+7. **Shared situational awareness.** Relevant changes, contradictions,
+   dependencies, risks, expiries, and supersessions can reach affected members
+   and projects.
+8. **Expertise and stewardship discovery.** Provenance and contribution
+   history can help members find knowledgeable people or responsible roles
+   without turning contribution metrics into simplistic performance scores.
+9. **Cross-project dependency and impact discovery.** A change in one body of
+   knowledge can identify claims, procedures, artifacts, and projects elsewhere
+   that may need review.
+10. **Collective quality improvement.** Independent evidence, review,
+    contradiction detection, and adjudication can improve group knowledge while
+    preserving minority positions and unresolved disagreement.
+11. **Operational consistency with local discretion.** Shared reviewed
+    procedures and policies can reduce accidental divergence, while local
+    authority can reject or qualify knowledge that does not fit local conditions.
+12. **Incident and failure learning.** Lessons, mitigations, and contributing
+    conditions can be retained and reused without requiring unrestricted
+    circulation of sensitive incident material.
+13. **Accountability and defensible governance.** The entity can show the
+    provenance, authority, review state, release decision, and change history
+    behind consequential shared knowledge.
+14. **Controlled reuse and publication.** Reviewed knowledge can be repackaged
+    for other projects, partners, or the public with license, attribution,
+    redaction, and provenance-visibility controls.
+15. **Resilience against host, account, and organizational change.** Important
+    knowledge need not disappear with one device, service tenancy, or team
+    reorganization; custody and stewardship can be transferred explicitly.
+16. **Recombination and innovation.** Discoverable knowledge from different
+    specialties can reveal useful connections that are unlikely to appear
+    within a single member's or project's memory.
+
+These benefits are conditional. Federation can otherwise amplify stale,
+incorrect, duplicated, confidential, or malicious material. The design must
+therefore preserve the difference between contribution, receipt, local
+acceptance, current applicability, and authority.
+
+## Current GroundRecall Contribution And Gaps
+
+GroundRecall already supplies a substantial exchange-control foundation, but it
+does not yet supply the discovery, dissemination, stewardship, or continuity
+services needed to realize all of the group benefits above.
+
+| Group need | What GroundRecall provides now | Modification still needed |
+| --- | --- | --- |
+| Safe member-to-group propagation | Signed, content-hashed bundles; release filtering; quarantine-before-promotion; local policy gates | A contribution workflow with group destination, contribution intent, steward/reviewer assignment, and explicit accepted/rejected/deferred outcomes |
+| Silo reduction and discovery | Typed claims, concepts, relations, provenance, snapshots, and portable bundles | A federated catalog of available scopes, topics, time coverage, record kinds, and release levels; authorized cross-instance query or catalog subscription; relevance routing |
+| Duplicate-work avoidance | Search, source identity, stable record IDs, hashes, provenance, supersession, and graph relations | First-class project, technique, experiment, decision, and negative-result records; semantic/identity duplicate detection; a policy-checkable prior-work query at project or task initiation |
+| Continuity past member tenancy | Origin identity, immutable bundle manifests, canonical promotion, audit history, and non-destructive lifecycle state | Group ownership/custody distinct from origin; steward roles; custody-transfer events; retention and legal-hold policy; orphan detection; tested restore and rehydration procedures |
+| Onboarding and succession | Reviewed canonical snapshots and query bundles | Scope-specific orientation packs, vocabulary maps, decision timelines, unresolved-conflict lists, freshness indicators, and named role/steward handoffs |
+| Decision-rationale preservation | Claims, observations, promotions, adjudications, contradiction cases, supersession, and provenance | First-class decision records with alternatives, constraints, evidence, outcome, review date, and links to projects and affected knowledge |
+| Shared situational awareness | Temporal validity, contradiction cases, graph links, query conflict summaries, and audit events | Subscriptions/watch rules, incremental change feeds, affected-scope routing, acknowledgements, and escalation for high-impact changes |
+| Expertise and stewardship discovery | Source/contribution provenance and role-directory primitives | Privacy-aware contributor/steward indexes, topic responsibility records, opt-out/redaction policy, and safeguards against using raw activity as personnel evaluation |
+| Cross-project impact discovery | Concepts, relations, contradiction cues, graph expansion, and provenance links | Stable project/scope entities, dependency relation types, reverse-impact queries, change-impact events, and review queues for affected scopes |
+| Collective quality improvement | Review-gated promotion, confidence metadata, contradiction cases, candidate review, and adjudication | Multi-reviewer decisions, review quorum/separation-of-duty policy, origin diversity indicators, calibrated trust transfer, and receiver feedback to the producer |
+| Consistent operations with local discretion | Signed role directories with receiver-side caps; local policy remains authoritative | Versioned policy/procedure distribution, applicability conditions, local exception records, drift detection, and explicit reconciliation rather than silent convergence |
+| Incident and failure learning | Release lattice, provenance visibility, redaction metadata, privileged policy paths, and audit logs | Incident/lesson record types, compartmented scopes, sanitized derivatives, need-to-know routing, retention controls, and post-incident review lifecycle |
+| Accountability and governance | Signatures, trust registries, policy decisions, audit events, release levels, and content hashes | Append-only event-chain verification, durable review receipts, access-decision reporting, retention/erasure linkage, and governance health reports |
+| Controlled reuse/publication | Public-release filtering, redaction/declassification metadata model, deterministic snapshots | License and attribution fields, release-pack generation, derivative lineage validation, reproducible builds, and publication withdrawal/revocation notices |
+| Host/account/reorganization resilience | Portable file-backed store, deterministic JSON, signed bundles, key lifecycle, and trust metadata | Replication policy, custody quorum, encrypted backup/restore, key recovery and rotation drills, instance retirement, namespace transfer, and stale-replica reconciliation |
+| Recombination and innovation | Cross-linked concepts, claims, relations, graph search, and federated snapshots | Authorized cross-scope graph discovery, provenance-preserving recommendation, novelty/related-work views, and review gates before inferred connections become durable group knowledge |
+
+The central implementation gap is therefore not cryptographic exchange. It is
+the governed social lifecycle around exchange:
+
+```text
+member knowledge
+    ↓ contribution proposal
+group review and release check
+    ↓ accepted shared knowledge
+catalog, subscriptions, and impact routing
+    ↓ use, challenge, correction, or supersession
+durable stewardship, retention, and custody transfer
+```
+
 ## Planned Model
 
 The intended model is:
@@ -195,6 +295,81 @@ local policy acceptance and, for shared scopes, review authority.
   publish, redact, and revoke authorities
 - release-pack generation for public and internal knowledge bundles
 - audit logs for federation import, export, redaction, and revocation decisions
+- contribution proposals with destination scope, intent, and assigned steward
+- first-class project, technique, experiment, negative-result, and decision
+  records for prior-work discovery
+- multi-reviewer or quorum policy for high-impact promotion and adjudication
+- scope catalogs, subscriptions, change feeds, and impact-review queues
+- custody transfer, orphan detection, retention, and instance-retirement
+  workflows
+
+### Phase 6: Institutional Discovery And Continuity
+
+- publish a signed, release-filtered catalog describing which scopes, topics,
+  record kinds, and time ranges an instance can offer without leaking protected
+  record contents
+- support authorized catalog subscription and incremental bundle exchange
+- route relevant changes, contradictions, expiries, and supersessions to
+  affected scopes
+- add prior-work queries over projects, techniques, experiments, decisions, and
+  negative results
+- add group custody, stewardship, succession, and orphaned-knowledge review
+- add tested backup, restore, rehydration, instance retirement, and namespace
+  transfer procedures
+- add feedback records so receivers can report local acceptance, rejection,
+  contradiction, or supersession without granting producers authority over the
+  receiver's canonical store
+- add governance health reports for stale knowledge, unowned scopes, unresolved
+  conflicts, policy drift, incomplete provenance, and unacknowledged high-impact
+  changes
+
+Acceptance criteria:
+
+- an authorized member can discover relevant work without first knowing which
+  host or team holds it;
+- a project-start query can surface materially similar prior work and negative
+  results with provenance and review state;
+- departure of a member or retirement of an instance produces an explicit
+  custody/orphan review rather than silent knowledge loss;
+- consumers can subscribe to bounded changes and see why a change was routed
+  to them;
+- producer and receiver decisions remain separate, attributable, and locally
+  governed;
+- catalog metadata, expertise discovery, and operational reports do not expose
+  protected content or become unreviewed personnel-surveillance mechanisms.
+
+## Priority Order For Group-Value Federation
+
+The following sequence builds on the implemented signed-bundle foundation and
+prioritizes benefits that do not require real-time distributed consensus:
+
+1. **Define group objects and stewardship.** Add stable entity, group, project,
+   technique, experiment, decision, and contribution-proposal records, plus
+   owner, steward, retention, and custody-transfer fields.
+2. **Make prior work findable.** Add a local prior-work query and duplicate/
+   related-work candidate generation before attempting cross-host discovery.
+3. **Add signed federation catalogs.** Exchange release-filtered descriptions of
+   available knowledge scopes, not raw contents, and apply receiver-side policy
+   caps.
+4. **Add subscriptions and incremental change bundles.** Let authorized
+   consumers request bounded updates and route supersession, contradiction,
+   expiry, and revocation events.
+5. **Deepen group review.** Support multi-reviewer/quorum rules, separation of
+   contribution from approval, receiver feedback, and cross-instance
+   adjudication records.
+6. **Implement continuity operations.** Add orphan detection, custody transfer,
+   instance retirement, restore/rehydration tests, and stale-replica
+   reconciliation.
+7. **Add institutional views.** Generate onboarding packs, decision timelines,
+   unresolved-question lists, expertise/steward directories, dependency impact
+   reports, and governance health reports with privacy guardrails.
+8. **Complete controlled release.** Add license-aware public/internal packs,
+   reproducible build manifests, and withdrawal/revocation notices.
+
+This sequence deliberately treats network transport as replaceable
+infrastructure. The durable protocol should first define identities, objects,
+events, authority, review, and lifecycle semantics so it can operate over files,
+MCP adapters, repositories, polling, or later network services.
 
 ## Federation Implementation Milestones
 

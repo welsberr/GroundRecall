@@ -433,7 +433,8 @@ Acceptance criteria:
 ### R5: Interoperability, Shared Memory, And Sync
 
 **Outcome:** GroundRecall participates in agent ecosystems without allowing
-framework-specific semantics to become canonical.
+framework-specific semantics to become canonical, and federation produces
+durable group benefits rather than merely copying records between hosts.
 
 - Add adapters for common session stores, memory blocks, file memories, and
   MCP resources.
@@ -447,6 +448,14 @@ framework-specific semantics to become canonical.
 - Classify shareable content as `private`, `public`, `internal`,
   `confidential`, or `privileged`, with redaction/declassification policy
   required before any derived artifact crosses to a less restrictive level.
+- Add group/project/technique/experiment/decision/contribution records so
+  prior work, negative results, and decision rationale are discoverable.
+- Add release-filtered federation catalogs, bounded subscriptions, incremental
+  change routing, and cross-scope impact review.
+- Separate origin from group custody; support stewards, custody transfer,
+  orphan detection, retention, instance retirement, and rehydration.
+- Support privacy-aware onboarding, expertise/stewardship, unresolved-conflict,
+  and governance-health views.
 
 Acceptance criteria:
 
@@ -458,6 +467,12 @@ Acceptance criteria:
   full, partial, redacted, or hidden;
 - confidential and privileged material cannot be federated or summarized into a
   lower release level without an explicit policy-approved derivative artifact.
+- authorized members can discover materially related prior work without first
+  knowing which member, host, or team holds it;
+- member or host departure triggers an explicit custody/orphan review rather
+  than silent knowledge loss;
+- producer contribution, receiver acceptance, and group authority remain
+  distinct, attributable states.
 
 This phase completes the distributed portions of
 [sync-roadmap.md](sync-roadmap.md), including the federation milestones, only
