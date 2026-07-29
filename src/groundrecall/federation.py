@@ -1899,6 +1899,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["public", "internal", "confidential", "privileged"],
         help="Accepted target release level. May be repeated.",
     )
+    import_parser.add_argument("--accept-restriction-marker", action="append", default=[], help="Restriction marker accepted from the bundle. May be repeated; restricted markers are rejected by default.")
+    import_parser.add_argument("--accept-compartment", action="append", default=[], help="Compartment accepted from the bundle. May be repeated; compartment-tagged records are rejected by default.")
     list_parser = subparsers.add_parser("list-quarantine", help="List quarantined federation bundles.")
     list_parser.add_argument("quarantine_dir")
 
@@ -1915,6 +1917,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["public", "internal", "confidential", "privileged"],
         help="Accepted target release level. May be repeated.",
     )
+    promote_parser.add_argument("--accept-restriction-marker", action="append", default=[], help="Restriction marker accepted for promotion. May be repeated; restricted markers are rejected by default.")
+    promote_parser.add_argument("--accept-compartment", action="append", default=[], help="Compartment accepted for promotion. May be repeated; compartment-tagged records are rejected by default.")
     promote_parser.add_argument("--policy-file", default=None, help="Optional local federation policy JSON file.")
     promote_parser.add_argument("--policy-plugins", default=None, help="Optional generic policy-plugin YAML config.")
     promote_parser.add_argument("--requester-id", default="", help="Subject/principal requesting promotion.")
@@ -1967,6 +1971,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum locally allowed actions to grant. Defaults to import and promote.",
     )
     role_import_parser.add_argument("--allow-scope", action="append", default=[], help="Scope ID allowed in imported grants. May be repeated.")
+    role_import_parser.add_argument("--allow-restriction-marker", action="append", default=[], help="Restriction marker authority allowed in imported grants. May be repeated.")
+    role_import_parser.add_argument("--allow-compartment", action="append", default=[], help="Compartment authority allowed in imported grants. May be repeated.")
 
     trust_add_parser = subparsers.add_parser("trust-add", help="Add or replace a trusted federation key in a local registry.")
     trust_add_parser.add_argument("registry_path")
@@ -1990,6 +1996,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     trust_add_parser.add_argument("--expires-at", default="", help="UTC timestamp after which this trusted key is rejected.")
     trust_add_parser.add_argument("--inactive", action="store_true")
+    trust_add_parser.add_argument("--restriction-marker", action="append", default=[], help="Restriction marker this key may authorize. May be repeated.")
+    trust_add_parser.add_argument("--compartment", action="append", default=[], help="Compartment this key may authorize. May be repeated.")
 
     trust_revoke_parser = subparsers.add_parser("trust-revoke", help="Revoke a trusted federation key in a local registry.")
     trust_revoke_parser.add_argument("registry_path")
@@ -2049,6 +2057,8 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["export", "import", "promote"],
         help="Maximum locally allowed actions to grant from the keyset. Defaults to import and promote.",
     )
+    trust_import_keyset_parser.add_argument("--allow-restriction-marker", action="append", default=[], help="Restriction marker authority allowed from the keyset. May be repeated.")
+    trust_import_keyset_parser.add_argument("--allow-compartment", action="append", default=[], help="Compartment authority allowed from the keyset. May be repeated.")
 
     trust_list_parser = subparsers.add_parser("trust-list", help="List trusted federation keys in a local registry.")
     trust_list_parser.add_argument("registry_path")
@@ -2087,6 +2097,8 @@ def main() -> None:
             allowed_release_levels=args.allow_release_level or ["public"],
             allowed_actions=args.allow_action or ["import", "promote"],
             allowed_scopes=args.allow_scope or None,
+            allowed_restriction_markers=args.allow_restriction_marker or None,
+            allowed_compartments=args.allow_compartment or None,
         )
         save_federation_policy(args.policy_path, policy)
         print(json.dumps(policy.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -2104,6 +2116,8 @@ def main() -> None:
             trusted_actions=args.trusted_action or ["import", "promote"],
             active=not args.inactive,
             expires_at=args.expires_at,
+            restriction_markers=args.restriction_marker,
+            compartments=args.compartment,
         )
         save_federation_trust_registry(path, registry)
         print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -2153,6 +2167,8 @@ def main() -> None:
             allowed_instance_ids=args.allow_instance_id or None,
             allowed_release_levels=args.allow_release_level or ["public"],
             allowed_trusted_actions=args.allow_trusted_action or ["import", "promote"],
+            allowed_restriction_markers=args.allow_restriction_marker or None,
+            allowed_compartments=args.allow_compartment or None,
         )
         save_federation_trust_registry(path, registry)
         print(json.dumps(registry.model_dump(mode="json"), indent=2, sort_keys=True))
@@ -2202,6 +2218,8 @@ def main() -> None:
             requester_id=args.requester_id,
             scope_id=args.scope_id,
             audit_log_path=args.audit_log,
+            accepted_restriction_markers=args.accept_restriction_marker,
+            accepted_compartments=args.accept_compartment,
         )
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
         return
@@ -2219,6 +2237,8 @@ def main() -> None:
             requester_id=args.requester_id,
             scope_id=args.scope_id,
             audit_log_path=args.audit_log,
+            accepted_restriction_markers=args.accept_restriction_marker,
+            accepted_compartments=args.accept_compartment,
             apply=args.apply,
         )
         print(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))

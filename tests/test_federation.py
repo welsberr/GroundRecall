@@ -1772,6 +1772,37 @@ def test_federation_cli_publishes_and_imports_signed_role_directory(tmp_path: Pa
     assert output["grants"][0]["scopes"] == ["project-alpha"]
 
 
+def test_federation_cli_exposes_restriction_and_compartment_caps() -> None:
+    parsed = federation.build_parser().parse_args(
+        [
+            "import",
+            "bundle.json",
+            "quarantine",
+            "--accept-restriction-marker",
+            "legal",
+            "--accept-compartment",
+            "team-red",
+        ]
+    )
+    assert parsed.accept_restriction_marker == ["legal"]
+    assert parsed.accept_compartment == ["team-red"]
+    role = federation.build_parser().parse_args(
+        [
+            "policy-import-roles",
+            "publication.json",
+            "policy.json",
+            "--signer-key-file",
+            "key.pub",
+            "--allow-restriction-marker",
+            "legal",
+            "--allow-compartment",
+            "team-red",
+        ]
+    )
+    assert role.allow_restriction_marker == ["legal"]
+    assert role.allow_compartment == ["team-red"]
+
+
 def test_federation_cli_trust_registry_can_sign_verify_and_promote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     store = GroundRecallStore(tmp_path / "store")
     _seed_federation_store(store)

@@ -386,6 +386,8 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--change-kind", action="append", default=[])
     create.add_argument("--maximum-release-level", choices=tuple(_RELEASE_RANK), default="private")
     create.add_argument("--purpose", required=True)
+    create.add_argument("--allowed-restriction-marker", action="append", default=[], help="Restriction marker accepted by this subscription. May be repeated.")
+    create.add_argument("--allowed-compartment", action="append", default=[], help="Compartment accepted by this subscription. May be repeated.")
     export = subparsers.add_parser("export")
     export.add_argument("store_dir")
     export.add_argument("subscription_path")
@@ -422,6 +424,8 @@ def main() -> None:
             change_kinds=args.change_kind or ["upsert", "state"],
             maximum_release_level=args.maximum_release_level,
             purpose=args.purpose,
+            allowed_restriction_markers=args.allowed_restriction_marker,
+            allowed_compartments=args.allowed_compartment,
         )
         save_subscription(args.path, subscription)
         print(subscription.model_dump_json(indent=2))

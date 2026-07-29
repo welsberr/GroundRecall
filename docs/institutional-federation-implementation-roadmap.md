@@ -134,6 +134,9 @@ restriction markers. GroundRecall no longer normalizes `restricted` to
 `confidential`; restricted records fail closed for federation export by default;
 imports, promotion plans, catalogs, role directories, trust keysets, and
 incremental change feeds now carry or enforce restriction/compartment caps.
+The federation, catalog, change-feed, role-directory, and trust-key CLIs expose
+explicit allow/cap flags for restriction markers and compartments; omission of
+those flags preserves the fail-closed default.
 Future schema work may add first-class restriction fields beyond metadata.
 
 This package should precede additional high-risk federation feature expansion.
@@ -289,8 +292,10 @@ Exit criteria:
 - imports reject unaccepted restrictions even when signatures and release
   levels are otherwise valid;
 - policy decisions and audit findings preserve restriction reasons;
-- tests cover export, import, catalog, role directory, trust key, and policy
-  plugin paths.
+- tests cover export, import, catalog, role directory, trust key, change-feed,
+  and policy-plugin paths;
+- operators can express the same restriction and compartment caps through the
+  supported CLI entry points as through the Python API.
 
 ## Policy Mapping
 
