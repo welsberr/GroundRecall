@@ -1,0 +1,12 @@
+{
+  "acknowledged_cursor": "change:a3134f185c313a63a7ee9b1830bba8ffac2efdc38ae3bae322967affb4ecf74d",
+  "cursor_matches_bundle": true,
+  "demo": "incremental_subscription",
+  "event_record_ids": [
+    "work-public"
+  ],
+  "import_decision": "quarantined",
+  "internal_work_excluded": true,
+  "replay_detected": true,
+  "result": "pass"
+}

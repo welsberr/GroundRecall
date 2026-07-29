@@ -15,6 +15,14 @@ from groundrecall.contradictions import (
     list_contradiction_candidate_batch,
     sync_contradiction_cases_for_store,
 )
+from groundrecall.catalog import build_federation_catalog, import_federation_catalog_to_quarantine, query_federation_catalog
+from groundrecall.change_feed import (
+    FederationSubscription,
+    acknowledge_change_bundle,
+    build_incremental_change_bundle,
+    import_incremental_change_bundle_to_quarantine,
+    save_subscription,
+)
 from groundrecall.federation import (
     FederationLocalPolicy,
     FederationPolicyGrant,
@@ -24,20 +32,47 @@ from groundrecall.federation import (
     plan_quarantine_promotion,
     promote_quarantined_bundle,
 )
+from groundrecall.institutional_custody import (
+    CustodyPolicyError,
+    orphan_stewardship_report,
+    plan_instance_retirement,
+    plan_tenancy_departure,
+    record_custody_event,
+)
+from groundrecall.institutional_release import build_release_pack, build_withdrawal_notice, verify_release_pack, verify_withdrawal_notice
+from groundrecall.institutional_review import (
+    QuorumRule,
+    build_feedback_bundle,
+    evaluate_review_quorum,
+    record_federation_feedback,
+    record_review_receipt,
+    unresolved_federation_disagreements,
+    verify_feedback_bundle,
+)
+from groundrecall.institutional_write import InstitutionalWriteError, save_institutional_record, transition_contribution_with_policy
 from groundrecall.ingest import run_groundrecall_import
 from groundrecall.models import (
     ArtifactRecord,
     ClaimRecord,
+    ContributionRecord,
+    CustodyEventRecord,
+    DecisionRecord,
+    FederationFeedbackRecord,
     ConceptRecord,
     ObservationRecord,
     PromotionRecord,
     ProvenanceRecord,
+    ReviewReceiptRecord,
+    ScopeRecord,
     SourceRecord,
     RelationRecord,
     ReviewCandidateRecord,
+    StewardshipRecord,
+    WorkRecord,
 )
-from groundrecall.policy import PolicyRequest, load_policy_plugins
+from groundrecall.policy import PolicyRequest, StaticPolicyProvider, load_policy_plugins
 from groundrecall.promotion import PromotionGateError, promote_import_to_store
+from groundrecall.prior_work import prior_work_search
 from groundrecall.query import query_concept
 from groundrecall.query import build_graph_search_bundle, build_query_bundle_for_concept
 from groundrecall.relation_review import RelationReviewPolicyError, apply_relation_review_batch
@@ -731,6 +766,353 @@ def demo_search_mode_timing(work_dir: Path) -> dict[str, Any]:
     }
 
 
+def demo_prior_work_discovery(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "prior_work_store")
+    store.save_work(
+        WorkRecord(
+            work_id="work_graph_backfill_inconclusive",
+            work_kind="experiment",
+            title="Graph backfill failed",
+            summary="The approach was inconclusive and should not be repeated without new evidence.",
+            outcome="inconclusive",
+            release_level="public",
+            current_status="reviewed",
+        )
+    )
+    store.save_work(
+        WorkRecord(
+            work_id="work_graph_backfill_confidential",
+            work_kind="experiment",
+            title="Graph backfill failed privately",
+            summary="Confidential implementation details.",
+            outcome="failed",
+            release_level="confidential",
+            current_status="reviewed",
+        )
+    )
+    store.save_decision(
+        DecisionRecord(
+            decision_id="decision_graph_backfill_review",
+            question="Should graph backfill be repeated?",
+            outcome="Repeat only with new evidence and review.",
+            rationale="The earlier approach lacked evidence.",
+            release_level="public",
+            current_status="reviewed",
+        )
+    )
+    report = prior_work_search(store.base_dir, "graph backfill failed", maximum_release_level="public")
+    return {
+        "demo": "prior_work_discovery",
+        "candidate_count": report.candidate_count,
+        "top_candidate_id": report.candidates[0].candidate_id if report.candidates else "",
+        "top_candidate_outcome": report.candidates[0].outcome if report.candidates else "",
+        "review_required": report.candidates[0].review_required if report.candidates else False,
+        "inaccessible_count": report.inaccessible_count,
+        "inaccessible_by_release_level": report.inaccessible_by_release_level,
+        "negative_or_inconclusive_result_found": any(item.outcome in {"failed", "inconclusive"} for item in report.candidates),
+        "result": "pass",
+    }
+
+
+def demo_signed_catalog_discovery(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "catalog_store")
+    store.save_scope(ScopeRecord(scope_id="scope-public", scope_kind="project", title="Public project", release_level="public", current_status="reviewed"))
+    store.save_scope(ScopeRecord(scope_id="scope-internal", scope_kind="project", title="Internal project", release_level="internal", current_status="reviewed"))
+    store.save_work(WorkRecord(work_id="work-public", work_kind="technique", title="Public graph technique", scope_id="scope-public", release_level="public", current_status="reviewed"))
+    store.save_work(WorkRecord(work_id="work-internal", work_kind="experiment", title="Internal experiment", scope_id="scope-internal", release_level="internal", current_status="reviewed"))
+    catalog_path = work_dir / "catalog.json"
+    catalog = build_federation_catalog(
+        store.base_dir,
+        producer_instance_id="host-a",
+        target_release_level="internal",
+        detail_level="descriptive",
+        signing_key=SIGNING_KEY,
+        key_id=KEY_ID,
+        signature_algorithm="hmac-sha256",
+        out_path=catalog_path,
+        created_at=CREATED_AT,
+    )
+    public_quarantine = import_federation_catalog_to_quarantine(
+        catalog_path,
+        work_dir / "catalog_quarantine",
+        verification_key=SIGNING_KEY,
+        key_id=KEY_ID,
+        allowed_release_level="public",
+        allowed_instance_ids=["host-a"],
+    )
+    matches = query_federation_catalog(public_quarantine.quarantine_path, "Public project")
+    internal_matches = query_federation_catalog(public_quarantine.quarantine_path, "Internal project")
+    return {
+        "demo": "signed_catalog_discovery",
+        "catalog_entry_count": len(catalog.entries),
+        "catalog_content_hash_present": bool(catalog.manifest.content_hash),
+        "catalog_signature_present": bool(catalog.manifest.signature),
+        "receiver_accepted_entry_count": public_quarantine.accepted_entry_count,
+        "receiver_excluded_entry_count": public_quarantine.excluded_entry_count,
+        "public_query_scope_ids": [entry.scope_id for entry in matches],
+        "internal_scope_hidden_by_receiver_cap": all(entry.scope_id != "scope-internal" for entry in internal_matches),
+        "result": "pass",
+    }
+
+
+def demo_incremental_subscription(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "change_store")
+    store.save_scope(ScopeRecord(scope_id="scope-public", scope_kind="project", title="Public", release_level="public", current_status="reviewed"))
+    store.save_scope(ScopeRecord(scope_id="scope-internal", scope_kind="project", title="Internal", release_level="internal", current_status="reviewed"))
+    store.save_work(WorkRecord(work_id="work-public", work_kind="technique", title="Public technique", scope_id="scope-public", release_level="public", current_status="reviewed"))
+    store.save_work(WorkRecord(work_id="work-internal", work_kind="experiment", title="Internal experiment", scope_id="scope-internal", release_level="internal", current_status="reviewed"))
+    subscription = FederationSubscription(
+        subscription_id="sub-preprint",
+        producer_instance_id="host-a",
+        scope_ids=["scope-public"],
+        record_kinds=["work"],
+        maximum_release_level="public",
+        purpose="preprint team project",
+    )
+    subscription_path = work_dir / "subscription.json"
+    save_subscription(subscription_path, subscription)
+    bundle_path = work_dir / "change_bundle.json"
+    bundle = build_incremental_change_bundle(
+        store.base_dir,
+        subscription,
+        signing_key=SIGNING_KEY,
+        key_id=KEY_ID,
+        signature_algorithm="hmac-sha256",
+        out_path=bundle_path,
+        created_at=CREATED_AT,
+    )
+    import_result = import_incremental_change_bundle_to_quarantine(
+        bundle_path,
+        work_dir / "change_quarantine",
+        verification_key=SIGNING_KEY,
+        subscription=subscription,
+        key_id=KEY_ID,
+    )
+    replay = import_incremental_change_bundle_to_quarantine(
+        bundle_path,
+        work_dir / "change_quarantine",
+        verification_key=SIGNING_KEY,
+        subscription=subscription,
+        key_id=KEY_ID,
+    )
+    acknowledged = acknowledge_change_bundle(subscription_path, bundle_path, verification_key=SIGNING_KEY, key_id=KEY_ID)
+    return {
+        "demo": "incremental_subscription",
+        "event_record_ids": [event.record_id for event in bundle.events],
+        "internal_work_excluded": "work-internal" not in [event.record_id for event in bundle.events],
+        "import_decision": import_result.decision,
+        "replay_detected": replay.replayed,
+        "acknowledged_cursor": acknowledged.cursor,
+        "cursor_matches_bundle": acknowledged.cursor == bundle.manifest.cursor_end,
+        "result": "pass",
+    }
+
+
+def _review_receipt(receipt_id: str, reviewer: str, role: str, decision: str = "approve", reviewed_hash: str = "hash-current") -> ReviewReceiptRecord:
+    return ReviewReceiptRecord(
+        receipt_id=receipt_id,
+        subject_type="claim",
+        subject_id="claim-review-demo",
+        reviewer_principal_id=reviewer,
+        reviewer_role_id=role,
+        decision=decision,
+        rationale=f"{decision} by {reviewer}",
+        reviewed_content_hash=reviewed_hash,
+        policy_id="claimwright.review.v1",
+        reviewed_at=CREATED_AT,
+        release_level="internal",
+    )
+
+
+def demo_multi_party_review_feedback(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "review_store")
+    receipts = [
+        _review_receipt("review-author", "author", "group-reviewer"),
+        _review_receipt("review-steward", "reviewer-b", "scope-steward"),
+        _review_receipt("review-duplicate", "reviewer-b", "scope-steward"),
+        _review_receipt("review-dissent", "reviewer-c", "adversarial-reviewer", decision="dissent"),
+        _review_receipt("review-old", "reviewer-d", "group-reviewer", reviewed_hash="old-hash"),
+    ]
+    for receipt in receipts:
+        record_review_receipt(store.base_dir, receipt)
+    quorum = evaluate_review_quorum(
+        receipts,
+        subject_type="claim",
+        subject_id="claim-review-demo",
+        rule=QuorumRule(
+            subject_type="claim",
+            minimum_approvals=2,
+            required_role_ids=["group-reviewer", "scope-steward"],
+            independent_from_principal_ids=["author"],
+        ),
+        current_content_hash="hash-current",
+    )
+    record_federation_feedback(
+        store.base_dir,
+        FederationFeedbackRecord(
+            feedback_id="feedback-dissent",
+            origin_instance_id="receiver-a",
+            target_instance_id="producer-a",
+            subject_type="claim",
+            subject_id="claim-review-demo",
+            decision="dissent",
+            rationale="Receiver preserves disagreement.",
+            related_receipt_ids=["review-dissent"],
+            release_level="internal",
+        ),
+    )
+    disagreements = unresolved_federation_disagreements(store.base_dir)
+    bundle = build_feedback_bundle(
+        store.base_dir,
+        origin_instance_id="receiver-a",
+        target_instance_id="producer-a",
+        signing_key=SIGNING_KEY,
+        key_id=KEY_ID,
+        out_path=work_dir / "feedback_bundle.json",
+    )
+    verified = verify_feedback_bundle(bundle, verification_key=SIGNING_KEY, key_id=KEY_ID)
+    return {
+        "demo": "multi_party_review_feedback",
+        "quorum_satisfied": quorum.satisfied,
+        "approval_count": quorum.approval_count,
+        "duplicate_principal_ids": quorum.duplicate_principal_ids,
+        "non_independent_principal_ids": quorum.non_independent_principal_ids,
+        "dissent_receipt_ids": quorum.dissent_receipt_ids,
+        "invalidated_receipt_ids": quorum.invalidated_receipt_ids,
+        "unresolved_disagreement_count": len(disagreements),
+        "feedback_bundle_verified": verified.content_hash == bundle.content_hash,
+        "result": "pass",
+    }
+
+
+def demo_custody_planning(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "custody_store")
+    store.save_scope(ScopeRecord(scope_id="scope-group", scope_kind="project", title="Group project", owner_principal_ids=["group-a"], release_level="internal", current_status="reviewed"))
+    store.save_scope(ScopeRecord(scope_id="scope-private", scope_kind="project", title="Private notes", owner_principal_ids=["alice"], release_level="private", current_status="reviewed"))
+    store.save_work(WorkRecord(work_id="work-group", work_kind="project", title="Reviewed group work", scope_id="scope-group", release_level="internal", current_status="reviewed"))
+    store.save_work(WorkRecord(work_id="work-orphan", work_kind="lesson", title="Needs steward", scope_id="scope-group", release_level="internal", current_status="reviewed"))
+    store.save_contribution(ContributionRecord(contribution_id="contrib-private", origin_instance_id="host-a", contributor_id="alice", destination_scope_id="scope-private", contribution_intent="personal note", proposed_release_level="private", release_level="private", state="proposed"))
+    store.save_stewardship(StewardshipRecord(stewardship_id="steward-group", subject_type="work", subject_id="work-group", scope_id="scope-group", steward_principal_id="alice", status="active", release_level="internal", current_status="reviewed"))
+    orphan_report = orphan_stewardship_report(store.base_dir)
+    departure = plan_tenancy_departure(store.base_dir, departing_principal_id="alice", planned_at=CREATED_AT)
+    retirement = plan_instance_retirement(store.base_dir, instance_id="host-a", planned_at=CREATED_AT, replacement_instance_id="host-new")
+    return {
+        "demo": "custody_planning",
+        "orphan_count": orphan_report.orphan_count,
+        "orphan_subject_ids": [item.subject_id for item in orphan_report.items],
+        "departure_dry_run": departure.dry_run,
+        "handoff_required_count": len(departure.handoff_required),
+        "private_personal_record_ids": [item["record_id"] for item in departure.private_personal_records],
+        "group_owned_record_ids_retained": [item["record_id"] for item in departure.group_owned_records_retained],
+        "retirement_required_actions": retirement.required_actions,
+        "retirement_pending_contribution_count": retirement.pending_contribution_count,
+        "result": "pass",
+    }
+
+
+def demo_release_pack_withdrawal(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "release_pack_store")
+    store.save_source(SourceRecord(source_id="source-a", title="Source A", url="https://example.test/source-a", license_id="CC-BY-4.0", attribution="Example Source", source_release_level="public", current_status="reviewed"))
+    store.save_claim(
+        ClaimRecord(
+            claim_id="claim-release-a",
+            claim_text="A release-ready claim.",
+            license_id="CC-BY-4.0",
+            attribution="Example Source",
+            source_release_level="public",
+            metadata={"release_level": "public", "provenance_visibility": "redacted"},
+            redaction_policy_id="redact-public-v1",
+            derivative_source_ids=["source-a"],
+            provenance=ProvenanceRecord(source_url="https://private.example.test/source", origin_path="/private/source.md"),
+            current_status="reviewed",
+        )
+    )
+    pack = build_release_pack(
+        store.base_dir,
+        out_dir=work_dir / "release_pack",
+        target_release_level="public",
+        allowed_license_ids=["CC-BY-4.0"],
+        signing_key=SIGNING_KEY,
+        key_id=KEY_ID,
+        created_at=CREATED_AT,
+        pack_id="pack-preprint-a",
+        review_receipt_ids=["review-release-a"],
+        policy_id="claimwright.release.v1",
+    )
+    verified_pack = verify_release_pack(pack, verification_key=SIGNING_KEY, key_id=KEY_ID)
+    notice = build_withdrawal_notice(
+        pack_id="pack-preprint-a",
+        signing_key=SIGNING_KEY,
+        key_id=KEY_ID,
+        withdrawn_at="2026-07-29T01:00:00Z",
+        reason="superseded evidence",
+        superseded_by_pack_id="pack-preprint-b",
+        authority="publication-gatekeeper",
+        out_path=work_dir / "withdrawal.json",
+    )
+    verified_notice = verify_withdrawal_notice(notice, verification_key=SIGNING_KEY, key_id=KEY_ID)
+    return {
+        "demo": "release_pack_withdrawal",
+        "pack_verified": verified_pack.manifest.pack_id == "pack-preprint-a",
+        "license_ids": pack.manifest.license_ids,
+        "attribution_count": pack.manifest.attribution_count,
+        "redaction_policy_ids": pack.manifest.redaction_policy_ids,
+        "private_origin_path_redacted": "/private/source.md" not in str(pack.records),
+        "withdrawal_verified": verified_notice.pack_id == "pack-preprint-a",
+        "withdrawal_distinct_from_erasure": verified_notice.distinct_from_erasure,
+        "withdrawal_preserves_historical_audit": verified_notice.preserve_historical_audit,
+        "result": "pass",
+    }
+
+
+def demo_policy_gated_institutional_writes(work_dir: Path) -> dict[str, Any]:
+    store = _base_store(work_dir / "institutional_write_store")
+    allowed_scope = ScopeRecord(scope_id="scope-write-allowed", scope_kind="project", title="Allowed", release_level="internal", current_status="reviewed")
+    allowed_result = save_institutional_record(store, allowed_scope)
+    deny_provider = StaticPolicyProvider(default_decision="hard_gate", policy_id="preprint.write.hard_gate")
+    blocked_write = False
+    try:
+        save_institutional_record(
+            store,
+            WorkRecord(work_id="work-write-blocked", work_kind="experiment", title="Blocked write", scope_id="scope-write-allowed", release_level="internal"),
+            policy_provider=deny_provider,
+        )
+    except InstitutionalWriteError:
+        blocked_write = store.get_work("work-write-blocked") is None
+    contribution = ContributionRecord(
+        contribution_id="contrib-write-demo",
+        contributor_id="alice",
+        destination_scope_id="scope-write-allowed",
+        contribution_intent="share result",
+        contributed_record_ids=["work-alpha"],
+        contributed_content_hashes=["sha256:abc"],
+        release_level="internal",
+        proposed_release_level="internal",
+    )
+    store.save_contribution(contribution)
+    transition_result = transition_contribution_with_policy(store, "contrib-write-demo", target_state="triaged", reviewer_id="bob", reviewer_role="group-reviewer", rationale="ready for review", receipt_id="receipt-write-demo")
+    blocked_custody = False
+    try:
+        record_custody_event(
+            store.base_dir,
+            CustodyEventRecord(event_id="custody-write-blocked", event_kind="transfer", subject_type="scope", subject_id="scope-write-allowed", new_custodian_id="bob", release_level="internal"),
+            authority="scope-steward",
+            policy_provider=deny_provider,
+        )
+    except CustodyPolicyError:
+        blocked_custody = store.get_custody_event("custody-write-blocked") is None
+    return {
+        "demo": "policy_gated_institutional_writes",
+        "allowed_scope_write_performed": allowed_result.writes_performed,
+        "blocked_work_write_left_no_record": blocked_write,
+        "transition_written_record_ids": transition_result.written_record_ids,
+        "contribution_state_after_transition": store.get_contribution("contrib-write-demo").state,
+        "review_receipt_written": store.get_contribution_review_receipt("receipt-write-demo") is not None,
+        "blocked_custody_event_left_no_record": blocked_custody,
+        "result": "pass",
+    }
+
+
 def run(output_dir: Path) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="groundrecall-preprint-demos-") as tmp:
         work_dir = Path(tmp)
@@ -743,6 +1125,13 @@ def run(output_dir: Path) -> dict[str, Any]:
             demo_local_authority(work_dir),
             demo_policy_plugin_boundary(work_dir),
             demo_search_mode_timing(work_dir),
+            demo_prior_work_discovery(work_dir),
+            demo_signed_catalog_discovery(work_dir),
+            demo_incremental_subscription(work_dir),
+            demo_multi_party_review_feedback(work_dir),
+            demo_custody_planning(work_dir),
+            demo_release_pack_withdrawal(work_dir),
+            demo_policy_gated_institutional_writes(work_dir),
         ]
     for payload in demos:
         _write_json(output_dir / f"{payload['demo']}.json", payload)

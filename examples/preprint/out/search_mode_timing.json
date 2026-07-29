@@ -8,20 +8,20 @@
     "graph_edge_count": 7,
     "graph_node_count": 11,
     "match_count": 12,
-    "max_ms": 57.706,
-    "median_ms": 37.316,
-    "min_ms": 35.403,
+    "max_ms": 85.564,
+    "median_ms": 43.588,
+    "min_ms": 39.134,
     "root_concept_count": 4
   },
   "indexed_search": {
     "match_count": 12,
-    "max_ms": 0.985,
-    "median_ms": 0.739,
-    "min_ms": 0.71
+    "max_ms": 1.044,
+    "median_ms": 0.771,
+    "min_ms": 0.724
   },
   "interpretation": "Indexed search is the lower-latency lookup path in this local fixture; indexed plus graph search adds graph neighborhoods and review context at additional query cost.",
   "measurement_scope": "local synthetic GroundRecall store; post-index query timing only; not comparable to external memory-layer products",
-  "median_graph_over_indexed_ratio": 50.495,
+  "median_graph_over_indexed_ratio": 56.534,
   "query": "governed memory policy search",
   "relation_count": 23,
   "repetitions": 31,

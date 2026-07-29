@@ -38,6 +38,13 @@ Generated summaries:
 - `local_authority.json`
 - `policy_plugin_boundary.json`
 - `search_mode_timing.json`
+- `prior_work_discovery.json`
+- `signed_catalog_discovery.json`
+- `incremental_subscription.json`
+- `multi_party_review_feedback.json`
+- `custody_planning.json`
+- `release_pack_withdrawal.json`
+- `policy_gated_institutional_writes.json`
 - `manifest.json`
 - `revision_evidence_snapshot.json`
 
@@ -49,3 +56,8 @@ against external memory-layer products.
 `revision_evidence_snapshot.json` is an engineering evidence snapshot for
 preprint revision. It is not production certification, benchmark superiority
 evidence, legal compliance evidence, or a complete security proof.
+
+The institutional federation demonstrations cover preprint-readiness roadmap
+item PRR-02: prior-work discovery, signed catalog discovery, incremental
+subscription/change-bundle handling, multi-party review and feedback, custody
+planning, release withdrawal, and policy-gated institutional writes.

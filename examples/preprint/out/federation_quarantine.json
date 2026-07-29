@@ -1,5 +1,5 @@
 {
-  "bundle_id": "federation::host-a::federation-demo-snapshot::1a13eb3ec88a",
+  "bundle_id": "federation::host-a::federation-demo-snapshot::8382a08f5aa1",
   "demo": "federation_quarantine",
   "import_decision": "quarantined",
   "planned_promotable_counts": {

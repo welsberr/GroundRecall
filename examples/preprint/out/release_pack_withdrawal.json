@@ -1,0 +1,16 @@
+{
+  "attribution_count": 2,
+  "demo": "release_pack_withdrawal",
+  "license_ids": [
+    "CC-BY-4.0"
+  ],
+  "pack_verified": true,
+  "private_origin_path_redacted": true,
+  "redaction_policy_ids": [
+    "redact-public-v1"
+  ],
+  "result": "pass",
+  "withdrawal_distinct_from_erasure": true,
+  "withdrawal_preserves_historical_audit": true,
+  "withdrawal_verified": true
+}

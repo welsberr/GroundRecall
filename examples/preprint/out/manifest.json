@@ -1,5 +1,5 @@
 {
-  "demo_count": 8,
+  "demo_count": 15,
   "demo_suite": "groundrecall_preprint_governed_memory_demos",
   "generated_at": "2026-07-27T00:00:00Z",
   "outputs": [
@@ -10,16 +10,30 @@
     "federation_quarantine.json",
     "local_authority.json",
     "policy_plugin_boundary.json",
-    "search_mode_timing.json"
+    "search_mode_timing.json",
+    "prior_work_discovery.json",
+    "signed_catalog_discovery.json",
+    "incremental_subscription.json",
+    "multi_party_review_feedback.json",
+    "custody_planning.json",
+    "release_pack_withdrawal.json",
+    "policy_gated_institutional_writes.json"
   ],
   "results": {
     "contradiction_adjudication": "pass",
     "contradiction_candidate_review": "pass",
+    "custody_planning": "pass",
     "federation_quarantine": "pass",
+    "incremental_subscription": "pass",
     "local_authority": "pass",
+    "multi_party_review_feedback": "pass",
+    "policy_gated_institutional_writes": "pass",
     "policy_plugin_boundary": "pass",
+    "prior_work_discovery": "pass",
     "provenance_promotion": "pass",
     "release_filtering": "pass",
-    "search_mode_timing": "pass"
+    "release_pack_withdrawal": "pass",
+    "search_mode_timing": "pass",
+    "signed_catalog_discovery": "pass"
   }
 }

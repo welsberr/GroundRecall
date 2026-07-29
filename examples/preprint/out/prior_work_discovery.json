@@ -1,0 +1,13 @@
+{
+  "candidate_count": 2,
+  "demo": "prior_work_discovery",
+  "inaccessible_by_release_level": {
+    "confidential": 1
+  },
+  "inaccessible_count": 1,
+  "negative_or_inconclusive_result_found": true,
+  "result": "pass",
+  "review_required": true,
+  "top_candidate_id": "work_graph_backfill_inconclusive",
+  "top_candidate_outcome": "inconclusive"
+}

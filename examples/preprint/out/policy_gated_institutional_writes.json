@@ -1,0 +1,13 @@
+{
+  "allowed_scope_write_performed": true,
+  "blocked_custody_event_left_no_record": true,
+  "blocked_work_write_left_no_record": true,
+  "contribution_state_after_transition": "triaged",
+  "demo": "policy_gated_institutional_writes",
+  "result": "pass",
+  "review_receipt_written": true,
+  "transition_written_record_ids": [
+    "contrib-write-demo",
+    "receipt-write-demo"
+  ]
+}

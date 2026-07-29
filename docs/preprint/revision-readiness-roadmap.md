@@ -45,7 +45,9 @@ Exit:
 
 ### PRR-02: Institutional Demonstration Expansion
 
-Add or refresh JSON demonstrations for:
+Status: completed on 2026-07-29.
+
+Added or refreshed JSON demonstrations for:
 
 - prior-work discovery, including negative/inconclusive work;
 - signed catalog discovery;
@@ -60,6 +62,9 @@ Exit:
 - each demo has a stable JSON output under `examples/preprint/out/`;
 - each demo has a corresponding row in the claim-to-evidence matrix;
 - the demo manifest names every generated output.
+
+Follow-up: PRR-04 must add corresponding claim-to-evidence rows for the new
+demonstrations before manuscript revision.
 
 ### PRR-03: Implemented Feature Summary Refresh
 

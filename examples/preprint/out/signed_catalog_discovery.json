@@ -1,0 +1,13 @@
+{
+  "catalog_content_hash_present": true,
+  "catalog_entry_count": 2,
+  "catalog_signature_present": true,
+  "demo": "signed_catalog_discovery",
+  "internal_scope_hidden_by_receiver_cap": true,
+  "public_query_scope_ids": [
+    "scope-public"
+  ],
+  "receiver_accepted_entry_count": 1,
+  "receiver_excluded_entry_count": 1,
+  "result": "pass"
+}

@@ -1,0 +1,20 @@
+{
+  "approval_count": 2,
+  "demo": "multi_party_review_feedback",
+  "dissent_receipt_ids": [
+    "review-dissent"
+  ],
+  "duplicate_principal_ids": [
+    "reviewer-b"
+  ],
+  "feedback_bundle_verified": true,
+  "invalidated_receipt_ids": [
+    "review-old"
+  ],
+  "non_independent_principal_ids": [
+    "author"
+  ],
+  "quorum_satisfied": false,
+  "result": "pass",
+  "unresolved_disagreement_count": 1
+}

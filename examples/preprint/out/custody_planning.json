@@ -1,0 +1,32 @@
+{
+  "demo": "custody_planning",
+  "departure_dry_run": true,
+  "group_owned_record_ids_retained": [
+    "scope-group",
+    "work-group",
+    "work-orphan"
+  ],
+  "handoff_required_count": 1,
+  "orphan_count": 4,
+  "orphan_subject_ids": [
+    "contrib-private",
+    "scope-group",
+    "scope-private",
+    "work-orphan"
+  ],
+  "private_personal_record_ids": [
+    "contrib-private",
+    "scope-private"
+  ],
+  "result": "pass",
+  "retirement_pending_contribution_count": 1,
+  "retirement_required_actions": [
+    "revoke_or_supersede_trust_keys",
+    "disable_or_transfer_subscriptions",
+    "archive_catalogs_and_feedback",
+    "resolve_pending_contributions",
+    "handoff_active_stewardship",
+    "preserve_quarantine_and_audit_history",
+    "verify_backup_before_shutdown"
+  ]
+}
