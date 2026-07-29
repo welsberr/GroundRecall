@@ -134,7 +134,9 @@ GroundRecall currently supports these plugin provider config types:
 - `claimwright.directory`
 
 The ClaimWright provider is an adapter over ClaimWright-style policy directory
-content. It is not the policy contract authority.
+content. When present, `policies/collaboration.yaml` contributes structured
+institutional rules for contribution, review, promotion, custody, and rationale
+preservation. It is not the policy contract authority.
 
 ## Plugin Config File
 

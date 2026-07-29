@@ -152,18 +152,21 @@ class ClaimWrightPolicyProvider(BaseModel):
     root_dir: str
     enforcement: dict[str, Any] = Field(default_factory=dict)
     claim_states: dict[str, Any] = Field(default_factory=dict)
+    collaboration: dict[str, Any] = Field(default_factory=dict)
 
     @classmethod
     def from_directory(cls, root_dir: str | Path) -> "ClaimWrightPolicyProvider":
         root = Path(root_dir)
         enforcement = _load_yaml(root / "policies" / "enforcement.yaml")
         claim_states = _load_yaml(root / "policies" / "claim_states.yaml")
+        collaboration = _load_yaml(root / "policies" / "collaboration.yaml")
         version = str(enforcement.get("version", "") or claim_states.get("version", ""))
         return cls(
             root_dir=str(root),
             policy_version=version,
             enforcement=enforcement,
             claim_states=claim_states,
+            collaboration=collaboration,
         )
 
     def evaluate(self, request: PolicyRequest) -> PolicyDecision:
@@ -172,6 +175,29 @@ class ClaimWrightPolicyProvider(BaseModel):
         required_reviewers: list[str] = []
         audit_tags: list[str] = [self.provider_id]
         decision: PolicyDecisionValue = "allow"
+        matched_collaboration_rules: list[str] = []
+
+        collaboration_rules = self.collaboration.get("rules", [])
+        if isinstance(collaboration_rules, list):
+            for rule in collaboration_rules:
+                if not isinstance(rule, dict):
+                    continue
+                decision_points = rule.get("decision_points", [])
+                actions = rule.get("actions", [])
+                if request.decision_point not in decision_points or request.action not in actions:
+                    continue
+                rule_id = str(rule.get("id", "unnamed"))
+                if rule_id == "destination_scope_required" and request.scope_id:
+                    continue
+                matched_collaboration_rules.append(rule_id)
+                decision = _max_decision(decision, _mode_to_decision(str(rule.get("default_decision", ""))))
+                reasons.append(f"collaboration_rule:{rule_id}")
+                obligations.extend(_string_list(rule.get("obligations")))
+                required_reviewers.extend(_string_list(rule.get("required_reviewers")))
+                if rule_id == "destination_scope_required" and not request.scope_id:
+                    reasons.append("collaboration_missing_destination_scope")
+        if matched_collaboration_rules:
+            audit_tags.append(str(self.collaboration.get("policy_id", "claimwright.collaboration_policy")))
 
         if request.public_facing or request.decision_point in {"publish", "cite_publicly"}:
             default = _enforcement_default(self.enforcement, "public_release")
@@ -231,7 +257,10 @@ class ClaimWrightPolicyProvider(BaseModel):
             required_reviewers=_dedupe(required_reviewers),
             allowed_release_level=_most_restrictive_release([request.release_level, request.target_release_level]),
             audit_tags=_dedupe(audit_tags),
-            metadata={"claimwright_root": self.root_dir},
+            metadata={
+                "claimwright_root": self.root_dir,
+                "matched_collaboration_rules": _dedupe(matched_collaboration_rules),
+            },
         )
 
 
@@ -344,6 +373,14 @@ def _mode_to_decision(mode: str) -> PolicyDecisionValue:
     if mode == "advisory":
         return "allow"
     return "allow"
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
 
 
 def _max_decision(left: PolicyDecisionValue, right: PolicyDecisionValue) -> PolicyDecisionValue:

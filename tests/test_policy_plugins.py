@@ -39,6 +39,26 @@ def write_claimwright_policy(root: Path) -> Path:
         ),
         encoding="utf-8",
     )
+    (root / "policies" / "collaboration.yaml").write_text(
+        "\n".join(
+            [
+                "schema_version: claimwright.collaboration_policy.v1",
+                "policy_id: claimwright.collaboration.test.v1",
+                "rules:",
+                "  - id: destination_scope_required",
+                "    decision_points: [propose, promote]",
+                "    actions: [propose_group_contribution, accept_group_contribution]",
+                "    default_decision: hard_gate",
+                "    obligations: [record_destination_scope]",
+                "  - id: stewardship_required",
+                "    decision_points: [promote, act]",
+                "    actions: [accept_group_contribution, transfer_knowledge_custody]",
+                "    default_decision: hard_gate",
+                "    required_reviewers: [scope-steward, records-custodian]",
+            ]
+        ),
+        encoding="utf-8",
+    )
     return root
 
 
@@ -126,6 +146,38 @@ def test_claimwright_adapter_requires_review_for_conditional_public_claim_state(
     assert "claim_state_conditionally_public:supported_by_primary_evidence" in decision.reasons
     assert "claim-auditor" in decision.required_reviewers
     assert "publication-gatekeeper" in decision.required_reviewers
+
+
+def test_claimwright_adapter_applies_institutional_collaboration_rules(tmp_path: Path) -> None:
+    provider = ClaimWrightPolicyProvider.from_directory(write_claimwright_policy(tmp_path))
+
+    missing_scope = provider.evaluate(
+        PolicyRequest(
+            decision_point="propose",
+            subject_id="alice",
+            action="propose_group_contribution",
+            durable_memory_change=True,
+        )
+    )
+    assert missing_scope.decision == "hard_gate"
+    assert "collaboration_missing_destination_scope" in missing_scope.reasons
+    assert "record_destination_scope" in missing_scope.obligations
+    assert "claimwright.collaboration.test.v1" in missing_scope.audit_tags
+
+    accepted = provider.evaluate(
+        PolicyRequest(
+            decision_point="promote",
+            subject_id="reviewer",
+            action="accept_group_contribution",
+            scope_id="scope-alpha",
+            durable_memory_change=True,
+            metadata={"steward_role_ids": ["scope-steward"]},
+        )
+    )
+    assert accepted.decision == "hard_gate"
+    assert "stewardship_required" in accepted.metadata["matched_collaboration_rules"]
+    assert {"scope-steward", "records-custodian"} <= set(accepted.required_reviewers)
+    assert "steward_role_ids" not in accepted.required_reviewers
 
 
 def test_policy_plugin_loader_composes_claimwright_with_static_policy(tmp_path: Path) -> None:
