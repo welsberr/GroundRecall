@@ -87,6 +87,8 @@ Exit:
 
 ### PRR-04: Claim-To-Evidence Matrix Refresh
 
+Status: completed on 2026-07-29.
+
 Update Appendix A for:
 
 - conformance evidence report;
