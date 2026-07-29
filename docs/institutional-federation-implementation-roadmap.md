@@ -138,6 +138,9 @@ The federation, catalog, change-feed, role-directory, and trust-key CLIs expose
 explicit allow/cap flags for restriction markers and compartments; omission of
 those flags preserves the fail-closed default.
 Future schema work may add first-class restriction fields beyond metadata.
+Export and catalog policy-plugin preflight now receives the aggregate
+restriction and compartment context observed in the local snapshot; import and
+promotion already receive the corresponding bundle context.
 
 This package should precede additional high-risk federation feature expansion.
 It corrects the current lossy behavior where `restricted` metadata normalizes to

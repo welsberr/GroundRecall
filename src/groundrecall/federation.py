@@ -1115,6 +1115,20 @@ def record_compartments(record: Any) -> list[str]:
     return _normalize_marker_list(compartments)
 
 
+def _snapshot_restriction_context(snapshot: GroundRecallSnapshot) -> tuple[list[str], list[str]]:
+    """Return deduplicated restriction context for policy-plugin preflight."""
+    restrictions: list[str] = []
+    compartments: list[str] = []
+    for field_name in GroundRecallSnapshot.model_fields:
+        values = getattr(snapshot, field_name, None)
+        if not isinstance(values, list):
+            continue
+        for record in values:
+            restrictions.extend(record_restriction_markers(record))
+            compartments.extend(record_compartments(record))
+    return _normalize_marker_list(restrictions), _normalize_marker_list(compartments)
+
+
 def restriction_block_reason(record: Any, action: str, target_release_level: ReleaseLevel) -> str | None:
     markers = record_restriction_markers(record)
     if not markers:
@@ -1213,6 +1227,18 @@ def export_federation_bundle(
         raise FederationPolicyError("private is local-only and cannot be used as a federation target")
     if target_release_level == "privileged" and not allow_privileged:
         raise FederationPolicyError("privileged federation requires allow_privileged=True")
+    store = GroundRecallStore(store_dir)
+    timestamp = created_at or now_utc()
+    snapshot = store.build_snapshot(
+        snapshot_id=snapshot_id or f"federation-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
+        created_at=timestamp,
+        metadata={
+            "export_kind": "federation",
+            "producer_instance_id": producer_instance_id,
+            "target_release_level": target_release_level,
+        },
+    )
+    snapshot_restrictions, snapshot_compartments = _snapshot_restriction_context(snapshot)
     policy_decision = None
     if policy is not None:
         policy_decision = evaluate_federation_policy(
@@ -1247,7 +1273,13 @@ def export_federation_bundle(
         instance_id=producer_instance_id,
         scope_id=scope_id,
         public_facing=target_release_level == "public",
-        metadata={"producer_instance_id": producer_instance_id, "owner_instance_id": owner_instance_id},
+        metadata={
+            "producer_instance_id": producer_instance_id,
+            "owner_instance_id": owner_instance_id,
+            "restriction_markers": snapshot_restrictions,
+            "compartment_ids": snapshot_compartments,
+            "derivative_policy_id": "",
+        },
     )
     plugin_block_reasons = _policy_plugin_block_reasons(plugin_decision)
     if plugin_block_reasons:
@@ -1267,17 +1299,6 @@ def export_federation_bundle(
             )
         raise FederationPolicyError(";".join(plugin_block_reasons))
 
-    store = GroundRecallStore(store_dir)
-    timestamp = created_at or now_utc()
-    snapshot = store.build_snapshot(
-        snapshot_id=snapshot_id or f"federation-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}",
-        created_at=timestamp,
-        metadata={
-            "export_kind": "federation",
-            "producer_instance_id": producer_instance_id,
-            "target_release_level": target_release_level,
-        },
-    )
     filtered, report = filter_snapshot_for_federation(
         snapshot,
         target_release_level=target_release_level,

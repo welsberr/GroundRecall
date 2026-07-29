@@ -95,6 +95,8 @@ def _policy_decision(
     target_release_level: str,
     producer_instance_id: str = "",
     scope_id: str = "",
+    restriction_markers: list[str] | None = None,
+    compartment_ids: list[str] | None = None,
 ) -> PolicyDecision | None:
     if policy_plugins_path is None:
         return None
@@ -108,7 +110,12 @@ def _policy_decision(
             target_release_level=target_release_level,  # type: ignore[arg-type]
             scope_id=scope_id,
             public_facing=target_release_level == "public",
-            metadata={"producer_instance_id": producer_instance_id, "catalog_detail_level": "aggregate"},
+            metadata={
+                "producer_instance_id": producer_instance_id,
+                "catalog_detail_level": "aggregate",
+                "restriction_markers": restriction_markers or [],
+                "compartment_ids": compartment_ids or [],
+            },
         )
     )
 
@@ -160,6 +167,27 @@ def build_federation_catalog(
     requester_id: str = "",
     out_path: str | Path | None = None,
 ) -> FederationCatalog:
+    store = GroundRecallStore(store_dir)
+    snapshot = store.build_snapshot(
+        snapshot_id=f"catalog-source-{producer_instance_id}",
+        created_at=created_at or now_utc(),
+        metadata={"export_kind": "federation_catalog", "target_release_level": target_release_level},
+    )
+    restriction_markers: list[str] = []
+    compartment_ids: list[str] = []
+    for field_name in GroundRecallSnapshot.model_fields:
+        records = getattr(snapshot, field_name, None)
+        if not isinstance(records, list):
+            continue
+        for record in records:
+            restriction_markers.extend(record_restriction_markers(record))
+            metadata = getattr(record, "metadata", {})
+            if isinstance(metadata, dict):
+                values = metadata.get("compartments", metadata.get("compartment_ids", metadata.get("compartment", [])))
+                if isinstance(values, str):
+                    values = [values]
+                if isinstance(values, (list, tuple, set)):
+                    compartment_ids.extend(str(value).strip().lower() for value in values if str(value).strip())
     decision = _policy_decision(
         policy_plugins_path,
         decision_point="federate_export",
@@ -168,16 +196,12 @@ def build_federation_catalog(
         release_level=target_release_level,
         target_release_level=target_release_level,
         producer_instance_id=producer_instance_id,
+        restriction_markers=sorted(set(restriction_markers)),
+        compartment_ids=sorted(set(compartment_ids)),
     )
     reasons = _block_reasons(decision)
     if reasons:
         raise FederationPolicyError(";".join(reasons))
-    store = GroundRecallStore(store_dir)
-    snapshot = store.build_snapshot(
-        snapshot_id=f"catalog-source-{producer_instance_id}",
-        created_at=created_at or now_utc(),
-        metadata={"export_kind": "federation_catalog", "target_release_level": target_release_level},
-    )
     filtered, report = filter_snapshot_for_federation(snapshot, target_release_level=target_release_level)
     scopes = {scope.scope_id: scope for scope in filtered.scopes}
     grouped: dict[str, list[tuple[str, Any]]] = {scope_id: [] for scope_id in scopes}
