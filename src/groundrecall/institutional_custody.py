@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from .catalog import _RELEASE_RANK
 from .federation import FederationPolicyError, FederationTrustRegistry
 from .models import CustodyEventRecord, ReleaseLevel, StewardshipRecord
+from .policy import PolicyDecision, PolicyDecisionProvider, PolicyRequest
 from .store import GroundRecallStore
 
 
@@ -69,11 +70,20 @@ class InstanceRetirementPlan(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class CustodyPolicyError(FederationPolicyError):
+    """Raised when policy blocks a custody event write."""
+
+    def __init__(self, message: str, *, decision: PolicyDecision):
+        super().__init__(message)
+        self.decision = decision
+
+
 def record_custody_event(
     store_dir: str | Path,
     event: CustodyEventRecord,
     *,
     authority: str = "",
+    policy_provider: PolicyDecisionProvider | None = None,
 ) -> CustodyEventRecord:
     store = GroundRecallStore(store_dir)
     subject = _subject_record(store, event.subject_type, event.subject_id)
@@ -83,6 +93,28 @@ def record_custody_event(
             raise FederationPolicyError("custody event cannot broaden subject release level")
     if authority and not event.authority_id:
         event = event.model_copy(update={"authority_id": authority})
+    if policy_provider is not None:
+        decision = policy_provider.evaluate(
+            PolicyRequest(
+                decision_point="act",
+                subject_id=event.subject_id,
+                action="transfer_knowledge_custody",
+                record_kind="custody_event",
+                record_id=event.event_id,
+                release_level=event.release_level,
+                scope_id=event.scope_id,
+                durable_memory_change=True,
+                metadata={
+                    "groundrecall.custody_event_kind": event.event_kind,
+                    "groundrecall.custody_subject_type": event.subject_type,
+                    "groundrecall.previous_custodian_id": event.previous_custodian_id,
+                    "groundrecall.new_custodian_id": event.new_custodian_id,
+                    "groundrecall.authority_id": event.authority_id,
+                },
+            )
+        )
+        if decision.decision in {"deny", "hard_gate"}:
+            raise CustodyPolicyError("policy blocked custody event write", decision=decision)
     return store.save_custody_event(event)
 
 

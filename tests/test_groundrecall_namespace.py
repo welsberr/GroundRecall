@@ -115,14 +115,14 @@ def test_policy_coverage_report_summarizes_enforcement_surfaces() -> None:
     assert payload["schema_version"] == "groundrecall.policy_coverage.v1"
     assert payload["summary"]["route_count"] >= 1
     assert payload["summary"]["covered_route_count"] >= 1
-    assert payload["summary"]["partial_route_count"] == 15
+    assert payload["summary"]["partial_route_count"] == 14
     assert payload["summary"]["future_route_count"] == 1
     assert payload["summary"]["covered_durable_mutation_route_count"] >= 1
     assert not any(item["route_id"] == "cli.import" for item in payload["open_items"])
     assert not any(item["route_id"] == "cli.graph_augment.write_candidates" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.review.quorum" and item["status"] == "partial" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.review.feedback_bundle" and item["status"] == "partial" for item in payload["open_items"])
-    assert any(item["route_id"] == "python_api.custody.record_event" and item["status"] == "partial" for item in payload["open_items"])
+    assert not any(item["route_id"] == "python_api.custody.record_event" for item in payload["open_items"])
     assert not any(item["route_id"] == "python_api.institutional.save_records" for item in payload["open_items"])
     assert not any(item["route_id"] == "python_api.institutional.transition_contribution" for item in payload["open_items"])
     assert any(item["route_id"] == "cli.views.orientation" and item["status"] == "partial" for item in payload["open_items"])

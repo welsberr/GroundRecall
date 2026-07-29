@@ -7,12 +7,15 @@ import pytest
 from groundrecall.federation import FederationPolicyError, FederationTrustKey, FederationTrustRegistry
 from groundrecall.institutional_custody import (
     CUSTODY_PLAN_SCHEMA_VERSION,
+    CustodyPolicyError,
     orphan_stewardship_report,
     plan_instance_retirement,
     plan_tenancy_departure,
     record_custody_event,
 )
 from groundrecall.models import ContributionRecord, CustodyEventRecord, ScopeRecord, StewardshipRecord, WorkRecord
+from groundrecall.policy import StaticPolicyProvider
+from groundrecall.policy_coverage import build_policy_coverage_report
 from groundrecall.store import GroundRecallStore
 
 
@@ -152,6 +155,64 @@ def test_record_custody_event_blocks_release_broadening(tmp_path: Path) -> None:
         authority="scope-steward",
     )
     assert saved.authority_id == "scope-steward"
+
+
+def test_record_custody_event_policy_preflight_blocks_before_write(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_store(store)
+    provider = StaticPolicyProvider(default_decision="hard_gate", policy_id="test.custody.hard_gate")
+
+    with pytest.raises(CustodyPolicyError) as exc_info:
+        record_custody_event(
+            store.base_dir,
+            CustodyEventRecord(
+                event_id="custody-blocked",
+                event_kind="transfer",
+                subject_type="work",
+                subject_id="work-group",
+                previous_custodian_id="alice",
+                new_custodian_id="bob",
+                release_level="internal",
+            ),
+            authority="scope-steward",
+            policy_provider=provider,
+        )
+
+    assert exc_info.value.decision.decision == "hard_gate"
+    assert exc_info.value.decision.action == "transfer_knowledge_custody"
+    assert store.get_custody_event("custody-blocked") is None
+
+
+def test_record_custody_event_policy_preflight_allows_write(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    _seed_store(store)
+    provider = StaticPolicyProvider(default_decision="allow", policy_id="test.custody.allow")
+
+    saved = record_custody_event(
+        store.base_dir,
+        CustodyEventRecord(
+            event_id="custody-allowed",
+            event_kind="transfer",
+            subject_type="work",
+            subject_id="work-group",
+            previous_custodian_id="alice",
+            new_custodian_id="bob",
+            release_level="internal",
+        ),
+        authority="scope-steward",
+        policy_provider=provider,
+    )
+
+    assert saved.event_id == "custody-allowed"
+    assert store.get_custody_event("custody-allowed") == saved
+
+
+def test_custody_policy_coverage_is_no_longer_partial() -> None:
+    report = build_policy_coverage_report()
+    routes = {item["route_id"]: item for item in report["routes"]}
+
+    assert routes["python_api.custody.record_event"]["status"] == "covered"
+    assert not any(item["route_id"] == "python_api.custody.record_event" for item in report["open_items"])
 
 
 def test_instance_retirement_plan_reports_required_surfaces(tmp_path: Path) -> None:

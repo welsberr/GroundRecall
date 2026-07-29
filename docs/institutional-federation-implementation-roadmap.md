@@ -46,6 +46,12 @@ before persisting the updated contribution plus append-only review receipt.
 Direct low-level store methods remain trusted primitives, not public authority
 surfaces.
 
+IF-14 status (2026-07-29): `record_custody_event` now accepts an optional
+policy provider and blocks policy `deny` / `hard_gate` results before persisting
+append-only custody events. Release-broadening protection remains in place, and
+explicit role/authority validation remains a follow-up beyond policy-provider
+preflight.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

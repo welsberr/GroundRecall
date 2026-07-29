@@ -65,6 +65,7 @@ from .institutional_conformance import (
 )
 from .institutional_custody import (
     CUSTODY_PLAN_SCHEMA_VERSION,
+    CustodyPolicyError,
     InstanceRetirementPlan,
     OrphanStewardshipItem,
     OrphanStewardshipReport,
@@ -309,6 +310,7 @@ __all__ = [
     "INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION",
     "build_institutional_conformance_report",
     "CUSTODY_PLAN_SCHEMA_VERSION",
+    "CustodyPolicyError",
     "InstanceRetirementPlan",
     "OrphanStewardshipItem",
     "OrphanStewardshipReport",
