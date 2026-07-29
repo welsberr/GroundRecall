@@ -371,6 +371,10 @@ infrastructure. The durable protocol should first define identities, objects,
 events, authority, review, and lifecycle semantics so it can operate over files,
 MCP adapters, repositories, polling, or later network services.
 
+The coding-model-ready cross-repository work packages, schemas, policy action
+mapping, test requirements, and acceptance criteria are maintained in
+[institutional-federation-implementation-roadmap.md](institutional-federation-implementation-roadmap.md).
+
 ## Federation Implementation Milestones
 
 Initial implementation status, 2026-07-26: GroundRecall now has federation
