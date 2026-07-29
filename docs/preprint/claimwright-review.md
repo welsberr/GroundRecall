@@ -23,7 +23,7 @@ Reviewed artifacts:
 - `examples/preprint/out/revision_evidence_snapshot.json`
 
 Applied ClaimWright materials from the canonical ClaimWright repository at
-commit `6d85ff7`:
+commit `a040a64`:
 
 - `MOU.md`
 - `policies/principles.yaml`
@@ -176,3 +176,10 @@ complete.
 This review originally failed to catch one local absolute path in its own review
 scope statement. That path was replaced with canonical-repository wording before
 public-facing rerendering.
+
+Follow-up prevention was also added to ClaimWright at commit `a040a64`:
+
+- `local_path_publication` is now an explicit public-release hard gate;
+- `public_artifact_leak_scan` is now an explicit post-action check for
+  rendered public artifacts;
+- the ClaimWright checker now fails if those controls are missing.

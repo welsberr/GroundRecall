@@ -36,7 +36,7 @@
 <li><code>docs/preprint/threat-model.md</code></li>
 <li><code>examples/preprint/out/revision_evidence_snapshot.json</code></li>
 </ul>
-<p>Applied ClaimWright materials from the canonical ClaimWright repository at commit <code>6d85ff7</code>:</p>
+<p>Applied ClaimWright materials from the canonical ClaimWright repository at commit <code>a040a64</code>:</p>
 <ul>
 <li><code>MOU.md</code></li>
 <li><code>policies/principles.yaml</code></li>
@@ -352,5 +352,11 @@
 </table>
 <h2 id="correction-note">Correction Note</h2>
 <p>This review originally failed to catch one local absolute path in its own review scope statement. That path was replaced with canonical-repository wording before public-facing rerendering.</p>
+<p>Follow-up prevention was also added to ClaimWright at commit <code>a040a64</code>:</p>
+<ul>
+<li><code>local_path_publication</code> is now an explicit public-release hard gate;</li>
+<li><code>public_artifact_leak_scan</code> is now an explicit post-action check for rendered public artifacts;</li>
+<li>the ClaimWright checker now fails if those controls are missing.</li>
+</ul>
 </body>
 </html>
