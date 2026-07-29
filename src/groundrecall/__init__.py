@@ -33,6 +33,20 @@ from .catalog import (
     query_federation_catalog,
     verify_federation_catalog,
 )
+from .change_feed import (
+    CHANGE_FEED_SCHEMA_VERSION,
+    FederationChangeBundle,
+    FederationChangeEvent,
+    FederationChangeImportResult,
+    FederationSubscription,
+    acknowledge_change_bundle,
+    build_incremental_change_bundle,
+    import_incremental_change_bundle_to_quarantine,
+    list_change_events,
+    load_subscription,
+    save_subscription,
+    verify_incremental_change_bundle,
+)
 from .institutional_federation import (
     INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
     INSTITUTIONAL_POLICY_ACTIONS,
@@ -259,4 +273,16 @@ __all__ = [
     "import_federation_catalog_to_quarantine",
     "query_federation_catalog",
     "verify_federation_catalog",
+    "CHANGE_FEED_SCHEMA_VERSION",
+    "FederationChangeBundle",
+    "FederationChangeEvent",
+    "FederationChangeImportResult",
+    "FederationSubscription",
+    "acknowledge_change_bundle",
+    "build_incremental_change_bundle",
+    "import_incremental_change_bundle_to_quarantine",
+    "list_change_events",
+    "load_subscription",
+    "save_subscription",
+    "verify_incremental_change_bundle",
 ]

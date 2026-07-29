@@ -91,8 +91,8 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
         },
         {
             "capability_id": "incremental_change_subscriptions",
-            "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-06"],
+            "status": "partial",
+            "evidence": ["src/groundrecall/change_feed.py", "tests/test_change_feed.py", "docs/institutional-federation-implementation-roadmap.md#IF-06"],
         },
         {
             "capability_id": "multi_party_review_feedback",

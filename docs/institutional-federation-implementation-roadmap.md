@@ -437,6 +437,14 @@ Exit:
 
 ### IF-06: Subscriptions And Incremental Change Bundles
 
+Status (2026-07-29): a file-based, signed and resumable first transport is
+implemented in `src/groundrecall/change_feed.py`. Receiver-local subscriptions
+filter by scope, record kind, change kind, release ceiling, and cursor; imports
+are verified and quarantined idempotently, and acknowledgements advance only
+after cursor continuity (and optional signature verification). Network
+transport, canonical promotion, and bounded cron orchestration remain follow-up
+work.
+
 GroundRecall:
 
 - define receiver-local subscriptions by producer, scope, topic, record kind,

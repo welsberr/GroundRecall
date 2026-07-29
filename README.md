@@ -180,6 +180,32 @@ The report distinguishes implemented exchange foundations from future
 institutional workflows. The coding-model execution plan is in
 [`docs/institutional-federation-implementation-roadmap.md`](docs/institutional-federation-implementation-roadmap.md).
 
+Create a bounded federation subscription and exchange signed incremental
+change bundles:
+
+```bash
+groundrecall changes subscription-create .groundrecall/store .groundrecall/subscriptions/team-alpha.json \
+  --subscription-id team-alpha-public \
+  --producer-id host-a \
+  --scope-id project-alpha \
+  --release-ceiling public
+groundrecall changes export .groundrecall/store .groundrecall/subscriptions/team-alpha.json exports/team-alpha-change-bundle \
+  --signing-key-file federation-signing.key \
+  --key-id host-a-2026
+groundrecall changes import .groundrecall/store .groundrecall/subscriptions/team-alpha.json exports/team-alpha-change-bundle \
+  --key-file federation-signing.pub \
+  --key-id host-a-2026 \
+  --quarantine-dir .groundrecall/quarantine
+groundrecall changes ack .groundrecall/subscriptions/team-alpha.json exports/team-alpha-change-bundle \
+  --key-file federation-signing.pub \
+  --key-id host-a-2026
+```
+
+Imports verify the bundle hash, signature, subscription, producer, and cursor,
+then write quarantine records instead of promoting imported content directly.
+Acknowledgement advances the receiver-local cursor only after the bundle is
+accepted, so scheduled exchange can be retried without duplicating state.
+
 Run a prior-work review before starting a substantial initiative:
 
 ```bash
