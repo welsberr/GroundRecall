@@ -10,9 +10,13 @@ BASE_DIR = Path(__file__).resolve().parent
 DEFAULT_PREPRINT_STEM = "2026-elsberry-governed-memory-layer-principles-r02"
 PREPRINT_STEM = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_PREPRINT_STEM
 MAIN_DRAFT = BASE_DIR / f"{PREPRINT_STEM}-source.md"
+SOURCE_HTML_OUT = BASE_DIR / f"{PREPRINT_STEM}-source.html"
 COMBINED_DRAFT = BASE_DIR / f"{PREPRINT_STEM}.md"
 HTML_OUT = BASE_DIR / f"{PREPRINT_STEM}.html"
 PDF_OUT = BASE_DIR / f"{PREPRINT_STEM}.pdf"
+HTML_HEADER = BASE_DIR / "preprint-html-header.html"
+LATEX_HEADER = BASE_DIR / "preprint-latex-header.tex"
+LINEBREAK_FILTER = BASE_DIR / "preprint-linebreaks.lua"
 
 APPENDICES = [
     ("# Appendix A: Claim-To-Evidence Matrix", BASE_DIR / "claim-evidence-matrix.md"),
@@ -91,11 +95,27 @@ def convert_tables_for_pdf(text: str) -> str:
     return "\n".join(converted).strip()
 
 
+def linkify_bare_urls(text: str) -> str:
+    """Convert bare URLs to autolinks so Pandoc can wrap them safely.
+
+    The source and appendices intentionally include copyable raw URLs. Pandoc's
+    LaTeX writer treats bare URLs as ordinary text unless they are explicit
+    autolinks, which makes long URLs overrun margins in the rendered PDF.
+    """
+
+    def replace_line(line: str) -> str:
+        if line.lstrip().startswith("```"):
+            return line
+        return re.sub(r"(?<!<)(?<!\]\()(https?://[^\s<>()]+)", r"<\1>", line)
+
+    return "\n".join(replace_line(line) for line in text.splitlines())
+
+
 def build_combined_markdown() -> None:
-    parts = [convert_tables_for_pdf(MAIN_DRAFT.read_text(encoding="utf-8")).strip()]
+    parts = [linkify_bare_urls(convert_tables_for_pdf(MAIN_DRAFT.read_text(encoding="utf-8"))).strip()]
     for heading, path in APPENDICES:
         appendix = strip_yaml_front_matter(path.read_text(encoding="utf-8"))
-        appendix = convert_tables_for_pdf(demote_headings(appendix))
+        appendix = linkify_bare_urls(convert_tables_for_pdf(demote_headings(appendix)))
         parts.append(f"{heading}\n\n{appendix}")
     COMBINED_DRAFT.write_text("\n\n\\newpage\n\n".join(parts) + "\n", encoding="utf-8")
 
@@ -107,6 +127,10 @@ def build_pdf() -> None:
             str(COMBINED_DRAFT.name),
             "-s",
             "--pdf-engine=xelatex",
+            "--include-in-header",
+            str(LATEX_HEADER.name),
+            "--lua-filter",
+            str(LINEBREAK_FILTER.name),
             "-o",
             str(PDF_OUT.name),
         ],
@@ -119,14 +143,43 @@ def build_html() -> None:
     subprocess.run(
         [
             "pandoc",
+            str(MAIN_DRAFT.name),
+            "-s",
+            "--include-in-header",
+            str(HTML_HEADER.name),
+            "-o",
+            str(SOURCE_HTML_OUT.name),
+        ],
+        cwd=BASE_DIR,
+        check=True,
+    )
+    subprocess.run(
+        [
+            "pandoc",
             str(COMBINED_DRAFT.name),
             "-s",
+            "--include-in-header",
+            str(HTML_HEADER.name),
             "-o",
             str(HTML_OUT.name),
         ],
         cwd=BASE_DIR,
         check=True,
     )
+    for _, path in APPENDICES:
+        subprocess.run(
+            [
+                "pandoc",
+                str(path.name),
+                "-s",
+                "--include-in-header",
+                str(HTML_HEADER.name),
+                "-o",
+                str(path.with_suffix(".html").name),
+            ],
+            cwd=BASE_DIR,
+            check=True,
+        )
 
 
 def main() -> None:

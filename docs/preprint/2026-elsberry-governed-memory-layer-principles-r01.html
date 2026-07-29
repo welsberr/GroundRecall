@@ -15,6 +15,19 @@
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
     ul.task-list{list-style: none;}
   </style>
+  <style>
+    a,
+    code,
+    pre,
+    .uri {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    pre {
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
 <body>
 <header id="title-block-header">
@@ -1379,56 +1392,56 @@ query/export/federation</code></pre>
 </ul>
 <h3 id="source-links-used-for-verification">Source Links Used For Verification</h3>
 <ul>
-<li>Park et al., <em>Generative Agents</em>: https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/</li>
-<li>arXiv <code>2304.03442</code>: https://arxiv.org/abs/2304.03442</li>
-<li>arXiv <code>2310.08560</code>: https://arxiv.org/abs/2310.08560</li>
-<li>HippoRAG ML Anthology page: https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/</li>
-<li>arXiv <code>2502.12110</code>: https://arxiv.org/abs/2502.12110</li>
-<li>arXiv <code>2504.19413</code>: https://arxiv.org/abs/2504.19413</li>
-<li>arXiv <code>2506.06326</code>: https://arxiv.org/abs/2506.06326</li>
-<li>arXiv <code>2507.03724</code>: https://arxiv.org/abs/2507.03724</li>
-<li>IJCAI AriGraph page: https://www.ijcai.org/proceedings/2025/0002</li>
-<li>ACM TOIS memory survey DOI: https://doi.org/10.1145/3748302</li>
-<li>AAAI KG alignment paper: https://ojs.aaai.org/index.php/AAAI/article/view/34716</li>
-<li>NIST AI RMF 1.0: https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10</li>
-<li>NIST SP 800-53 Rev. 5: https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final</li>
-<li>NIST SP 800-207 Zero Trust Architecture: https://www.nist.gov/publications/zero-trust-architecture-0</li>
-<li>W3C PROV Overview: https://www.w3.org/TR/prov-overview/</li>
-<li>W3C PROV-DM: https://www.w3.org/TR/prov-dm/</li>
-<li>SLSA v1.2 provenance: https://slsa.dev/spec/v1.2/provenance</li>
-<li>Sigstore overview: https://www.sigstore.dev/docs/what_is_sigstore</li>
-<li>The Update Framework specification: https://theupdateframework.github.io/specification/</li>
-<li>Golightly et al. access-control survey: https://www.sciencedirect.com/science/article/pii/S2772918423000036</li>
-<li>LongMemEval: https://arxiv.org/abs/2410.10813</li>
-<li>LoCoMo ACL paper: https://aclanthology.org/2024.acl-long.747/</li>
-<li>LoCoMo project repository: https://github.com/snap-research/locomo</li>
-<li>MemoryAgentBench: https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/</li>
-<li>LoCoMo-Plus: https://arxiv.org/abs/2602.10715</li>
-<li>GraphRAG local-to-global summarization: https://arxiv.org/abs/2404.16130</li>
-<li>GraphRAG survey DOI: https://doi.org/10.1145/3777378</li>
-<li>GraphRAG survey arXiv record: https://arxiv.org/abs/2501.13958</li>
-<li>GraphRAG-Bench: https://arxiv.org/abs/2506.05690</li>
-<li>GraphRAG-Bench project: https://graphrag-bench.github.io/</li>
-<li>Agentic GraphRAG survey: https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979</li>
-<li>Agent-Memory Protocol: https://proceedings.mlr.press/v317/wu26a.html</li>
-<li>CAMS memory security article: https://www.sciencedirect.com/science/article/pii/S1110866526001003</li>
-<li>Permission-Aware RAG DOI: https://doi.org/10.1109/ACCESS.2025.3628960</li>
-<li>Permission-Aware RAG source page: https://snu.elsevierpure.com/en/publications/permission-aware-rag-identity-and-access-management-iam-based-acc/</li>
-<li>Decentralized information-flow control DOI: https://doi.org/10.1145/268998.266669</li>
-<li>Decentralized information-flow control author page: https://www.cs.cornell.edu/andru/papers/iflow-sosp97/paper.html</li>
-<li>Decentralized Label Model privacy article DOI: https://doi.org/10.1145/363516.363526</li>
-<li>Capabilities and confused deputy DOI: https://doi.org/10.1109/CSF.2016.18</li>
-<li>Capabilities and confused deputy repository page: https://kar.kent.ac.uk/90601/</li>
-<li>RFC 9162 Certificate Transparency 2.0: https://www.rfc-editor.org/info/rfc9162</li>
-<li>Transparency logs via append-only authenticated dictionaries DOI: https://doi.org/10.1145/3319535.3345652</li>
-<li>Data provenance in security and privacy DOI: https://doi.org/10.1145/3593294</li>
-<li>Honest Computing DOI: https://doi.org/10.1017/dap.2024.68</li>
-<li>AgentPoison arXiv record: https://arxiv.org/abs/2407.12784</li>
-<li>AgentPoison NeurIPS code/citation page: https://github.com/AI-secure/AgentPoison</li>
-<li>MEXTRA / Unveiling Privacy Risks in LLM Agent Memory: https://aclanthology.org/2025.acl-long.1227/</li>
-<li>MEXTRA arXiv record: https://arxiv.org/abs/2502.13172</li>
-<li>Cross-MCP memory exfiltration DOI: https://doi.org/10.1145/3733802.3764057</li>
-<li>FragFuse USENIX page: https://www.usenix.org/conference/usenixsecurity26/presentation/rao</li>
+<li>Park et al., <em>Generative Agents</em>: <a href="https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/" class="uri">https://research.google/pubs/generative-agents-interactive-simulacra-of-human-behavior/</a></li>
+<li>arXiv <code>2304.03442</code>: <a href="https://arxiv.org/abs/2304.03442" class="uri">https://arxiv.org/abs/2304.03442</a></li>
+<li>arXiv <code>2310.08560</code>: <a href="https://arxiv.org/abs/2310.08560" class="uri">https://arxiv.org/abs/2310.08560</a></li>
+<li>HippoRAG ML Anthology page: <a href="https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/" class="uri">https://mlanthology.org/neurips/2024/gutierrez2024neurips-hipporag/</a></li>
+<li>arXiv <code>2502.12110</code>: <a href="https://arxiv.org/abs/2502.12110" class="uri">https://arxiv.org/abs/2502.12110</a></li>
+<li>arXiv <code>2504.19413</code>: <a href="https://arxiv.org/abs/2504.19413" class="uri">https://arxiv.org/abs/2504.19413</a></li>
+<li>arXiv <code>2506.06326</code>: <a href="https://arxiv.org/abs/2506.06326" class="uri">https://arxiv.org/abs/2506.06326</a></li>
+<li>arXiv <code>2507.03724</code>: <a href="https://arxiv.org/abs/2507.03724" class="uri">https://arxiv.org/abs/2507.03724</a></li>
+<li>IJCAI AriGraph page: <a href="https://www.ijcai.org/proceedings/2025/0002" class="uri">https://www.ijcai.org/proceedings/2025/0002</a></li>
+<li>ACM TOIS memory survey DOI: <a href="https://doi.org/10.1145/3748302" class="uri">https://doi.org/10.1145/3748302</a></li>
+<li>AAAI KG alignment paper: <a href="https://ojs.aaai.org/index.php/AAAI/article/view/34716" class="uri">https://ojs.aaai.org/index.php/AAAI/article/view/34716</a></li>
+<li>NIST AI RMF 1.0: <a href="https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10" class="uri">https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10</a></li>
+<li>NIST SP 800-53 Rev. 5: <a href="https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final" class="uri">https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final</a></li>
+<li>NIST SP 800-207 Zero Trust Architecture: <a href="https://www.nist.gov/publications/zero-trust-architecture-0" class="uri">https://www.nist.gov/publications/zero-trust-architecture-0</a></li>
+<li>W3C PROV Overview: <a href="https://www.w3.org/TR/prov-overview/" class="uri">https://www.w3.org/TR/prov-overview/</a></li>
+<li>W3C PROV-DM: <a href="https://www.w3.org/TR/prov-dm/" class="uri">https://www.w3.org/TR/prov-dm/</a></li>
+<li>SLSA v1.2 provenance: <a href="https://slsa.dev/spec/v1.2/provenance" class="uri">https://slsa.dev/spec/v1.2/provenance</a></li>
+<li>Sigstore overview: <a href="https://www.sigstore.dev/docs/what_is_sigstore" class="uri">https://www.sigstore.dev/docs/what_is_sigstore</a></li>
+<li>The Update Framework specification: <a href="https://theupdateframework.github.io/specification/" class="uri">https://theupdateframework.github.io/specification/</a></li>
+<li>Golightly et al. access-control survey: <a href="https://www.sciencedirect.com/science/article/pii/S2772918423000036" class="uri">https://www.sciencedirect.com/science/article/pii/S2772918423000036</a></li>
+<li>LongMemEval: <a href="https://arxiv.org/abs/2410.10813" class="uri">https://arxiv.org/abs/2410.10813</a></li>
+<li>LoCoMo ACL paper: <a href="https://aclanthology.org/2024.acl-long.747/" class="uri">https://aclanthology.org/2024.acl-long.747/</a></li>
+<li>LoCoMo project repository: <a href="https://github.com/snap-research/locomo" class="uri">https://github.com/snap-research/locomo</a></li>
+<li>MemoryAgentBench: <a href="https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/" class="uri">https://mlanthology.org/iclr/2026/hu2026iclr-evaluating/</a></li>
+<li>LoCoMo-Plus: <a href="https://arxiv.org/abs/2602.10715" class="uri">https://arxiv.org/abs/2602.10715</a></li>
+<li>GraphRAG local-to-global summarization: <a href="https://arxiv.org/abs/2404.16130" class="uri">https://arxiv.org/abs/2404.16130</a></li>
+<li>GraphRAG survey DOI: <a href="https://doi.org/10.1145/3777378" class="uri">https://doi.org/10.1145/3777378</a></li>
+<li>GraphRAG survey arXiv record: <a href="https://arxiv.org/abs/2501.13958" class="uri">https://arxiv.org/abs/2501.13958</a></li>
+<li>GraphRAG-Bench: <a href="https://arxiv.org/abs/2506.05690" class="uri">https://arxiv.org/abs/2506.05690</a></li>
+<li>GraphRAG-Bench project: <a href="https://graphrag-bench.github.io/" class="uri">https://graphrag-bench.github.io/</a></li>
+<li>Agentic GraphRAG survey: <a href="https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979" class="uri">https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6713979</a></li>
+<li>Agent-Memory Protocol: <a href="https://proceedings.mlr.press/v317/wu26a.html" class="uri">https://proceedings.mlr.press/v317/wu26a.html</a></li>
+<li>CAMS memory security article: <a href="https://www.sciencedirect.com/science/article/pii/S1110866526001003" class="uri">https://www.sciencedirect.com/science/article/pii/S1110866526001003</a></li>
+<li>Permission-Aware RAG DOI: <a href="https://doi.org/10.1109/ACCESS.2025.3628960" class="uri">https://doi.org/10.1109/ACCESS.2025.3628960</a></li>
+<li>Permission-Aware RAG source page: <a href="https://snu.elsevierpure.com/en/publications/permission-aware-rag-identity-and-access-management-iam-based-acc/" class="uri">https://snu.elsevierpure.com/en/publications/permission-aware-rag-identity-and-access-management-iam-based-acc/</a></li>
+<li>Decentralized information-flow control DOI: <a href="https://doi.org/10.1145/268998.266669" class="uri">https://doi.org/10.1145/268998.266669</a></li>
+<li>Decentralized information-flow control author page: <a href="https://www.cs.cornell.edu/andru/papers/iflow-sosp97/paper.html" class="uri">https://www.cs.cornell.edu/andru/papers/iflow-sosp97/paper.html</a></li>
+<li>Decentralized Label Model privacy article DOI: <a href="https://doi.org/10.1145/363516.363526" class="uri">https://doi.org/10.1145/363516.363526</a></li>
+<li>Capabilities and confused deputy DOI: <a href="https://doi.org/10.1109/CSF.2016.18" class="uri">https://doi.org/10.1109/CSF.2016.18</a></li>
+<li>Capabilities and confused deputy repository page: <a href="https://kar.kent.ac.uk/90601/" class="uri">https://kar.kent.ac.uk/90601/</a></li>
+<li>RFC 9162 Certificate Transparency 2.0: <a href="https://www.rfc-editor.org/info/rfc9162" class="uri">https://www.rfc-editor.org/info/rfc9162</a></li>
+<li>Transparency logs via append-only authenticated dictionaries DOI: <a href="https://doi.org/10.1145/3319535.3345652" class="uri">https://doi.org/10.1145/3319535.3345652</a></li>
+<li>Data provenance in security and privacy DOI: <a href="https://doi.org/10.1145/3593294" class="uri">https://doi.org/10.1145/3593294</a></li>
+<li>Honest Computing DOI: <a href="https://doi.org/10.1017/dap.2024.68" class="uri">https://doi.org/10.1017/dap.2024.68</a></li>
+<li>AgentPoison arXiv record: <a href="https://arxiv.org/abs/2407.12784" class="uri">https://arxiv.org/abs/2407.12784</a></li>
+<li>AgentPoison NeurIPS code/citation page: <a href="https://github.com/AI-secure/AgentPoison" class="uri">https://github.com/AI-secure/AgentPoison</a></li>
+<li>MEXTRA / Unveiling Privacy Risks in LLM Agent Memory: <a href="https://aclanthology.org/2025.acl-long.1227/" class="uri">https://aclanthology.org/2025.acl-long.1227/</a></li>
+<li>MEXTRA arXiv record: <a href="https://arxiv.org/abs/2502.13172" class="uri">https://arxiv.org/abs/2502.13172</a></li>
+<li>Cross-MCP memory exfiltration DOI: <a href="https://doi.org/10.1145/3733802.3764057" class="uri">https://doi.org/10.1145/3733802.3764057</a></li>
+<li>FragFuse USENIX page: <a href="https://www.usenix.org/conference/usenixsecurity26/presentation/rao" class="uri">https://www.usenix.org/conference/usenixsecurity26/presentation/rao</a></li>
 </ul>
 <h3 id="next-bibliography-expansion-targets">Next Bibliography Expansion Targets</h3>
 <ul>
