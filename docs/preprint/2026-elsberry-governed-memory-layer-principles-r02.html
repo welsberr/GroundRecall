@@ -951,7 +951,7 @@ query/export/federation</code></pre>
 <li><code>docs/preprint/threat-model.md</code></li>
 <li><code>examples/preprint/out/revision_evidence_snapshot.json</code></li>
 </ul>
-<p>Applied ClaimWright materials from <code>/home/netuser/bin/ClaimWright</code> at commit <code>6d85ff7</code>:</p>
+<p>Applied ClaimWright materials from the canonical ClaimWright repository at commit <code>6d85ff7</code>:</p>
 <ul>
 <li><code>MOU.md</code></li>
 <li><code>policies/principles.yaml</code></li>
@@ -1098,8 +1098,8 @@ query/export/federation</code></pre>
 </ul></li>
 <li><strong>Private material in public output</strong>
 <ul>
-<li><strong>Result:</strong> Pass with path caveat</li>
-<li><strong>Notes:</strong> Public evidence references use repository-relative paths; review provenance itself includes local absolute paths only to identify reviewed repositories.</li>
+<li><strong>Result:</strong> Pass after correction</li>
+<li><strong>Notes:</strong> Public evidence references use repository-relative paths; local absolute paths are not included in the rendered public artifacts.</li>
 </ul></li>
 <li><strong>Destructive irreversible action</strong>
 <ul>
@@ -1147,6 +1147,8 @@ query/export/federation</code></pre>
 <li><strong>Branch outcome:</strong> Conservative/balanced branch: keep manifesto framing, accept focused bibliography, and avoid production-security or benchmark claims.</li>
 <li><strong>Broader review trigger:</strong> Yes. Run another ClaimWright/publication-gate review before submission or authoritative public release.</li>
 </ul>
+<h3 id="correction-note">Correction Note</h3>
+<p>This review originally failed to catch one local absolute path in its own review scope statement. That path was replaced with canonical-repository wording before public-facing rerendering.</p>
 <h1 id="appendix-c-memory-layer-bibliography-notes">Appendix C: Memory-Layer Bibliography Notes</h1>
 <h2 id="memory-layer-technology-seed-bibliography">Memory-Layer Technology Seed Bibliography</h2>
 <p>Date: 2026-07-29</p>

@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
-PREPRINT_STEM = "2026-elsberry-governed-memory-layer-principles-r02"
+DEFAULT_PREPRINT_STEM = "2026-elsberry-governed-memory-layer-principles-r02"
+PREPRINT_STEM = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_PREPRINT_STEM
 MAIN_DRAFT = BASE_DIR / f"{PREPRINT_STEM}-source.md"
 COMBINED_DRAFT = BASE_DIR / f"{PREPRINT_STEM}.md"
 HTML_OUT = BASE_DIR / f"{PREPRINT_STEM}.html"

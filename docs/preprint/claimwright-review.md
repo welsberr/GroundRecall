@@ -22,8 +22,8 @@ Reviewed artifacts:
 - `docs/preprint/threat-model.md`
 - `examples/preprint/out/revision_evidence_snapshot.json`
 
-Applied ClaimWright materials from `/home/netuser/bin/ClaimWright` at commit
-`6d85ff7`:
+Applied ClaimWright materials from the canonical ClaimWright repository at
+commit `6d85ff7`:
 
 - `MOU.md`
 - `policies/principles.yaml`
@@ -116,7 +116,7 @@ The strongest objections after PRR-07 are:
 | --- | --- | --- |
 | Unresolved high-risk public claims | Pass with caveats | High-risk implementation/security claims are scoped to prototype evidence and limitations. |
 | Fabricated or unverified citations | Pass | Reviewed citations have source links, DOI/arXiv/source pages, or explicit venue caveats. |
-| Private material in public output | Pass with path caveat | Public evidence references use repository-relative paths; review provenance itself includes local absolute paths only to identify reviewed repositories. |
+| Private material in public output | Pass after correction | Public evidence references use repository-relative paths; local absolute paths are not included in the rendered public artifacts. |
 | Destructive irreversible action | Pass | Documentation-only review; git-revertable. |
 | Contradicted or stale claims | Soft gate | Two stale manuscript statements need PRR-09 cleanup: prior-review/future-demo language and the incomplete demo-output list. |
 | Final human publication approval | Required | ClaimWright does not substitute for author approval. |
@@ -170,3 +170,9 @@ complete.
 | Unresolved risks | Final publication approval remains required; systematic-review scope remains undecided; future empirical/security evaluation remains outside current evidence. |
 | Branch outcome | Conservative/balanced branch: keep manifesto framing, accept focused bibliography, and avoid production-security or benchmark claims. |
 | Broader review trigger | Yes. Run another ClaimWright/publication-gate review before submission or authoritative public release. |
+
+## Correction Note
+
+This review originally failed to catch one local absolute path in its own review
+scope statement. That path was replaced with canonical-repository wording before
+public-facing rerendering.

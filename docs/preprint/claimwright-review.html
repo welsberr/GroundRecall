@@ -36,7 +36,7 @@
 <li><code>docs/preprint/threat-model.md</code></li>
 <li><code>examples/preprint/out/revision_evidence_snapshot.json</code></li>
 </ul>
-<p>Applied ClaimWright materials from <code>/home/netuser/bin/ClaimWright</code> at commit <code>6d85ff7</code>:</p>
+<p>Applied ClaimWright materials from the canonical ClaimWright repository at commit <code>6d85ff7</code>:</p>
 <ul>
 <li><code>MOU.md</code></li>
 <li><code>policies/principles.yaml</code></li>
@@ -267,8 +267,8 @@
 </tr>
 <tr class="odd">
 <td>Private material in public output</td>
-<td>Pass with path caveat</td>
-<td>Public evidence references use repository-relative paths; review provenance itself includes local absolute paths only to identify reviewed repositories.</td>
+<td>Pass after correction</td>
+<td>Public evidence references use repository-relative paths; local absolute paths are not included in the rendered public artifacts.</td>
 </tr>
 <tr class="even">
 <td>Destructive irreversible action</td>
@@ -350,5 +350,7 @@
 </tr>
 </tbody>
 </table>
+<h2 id="correction-note">Correction Note</h2>
+<p>This review originally failed to catch one local absolute path in its own review scope statement. That path was replaced with canonical-repository wording before public-facing rerendering.</p>
 </body>
 </html>

@@ -831,8 +831,8 @@ Reviewed artifacts:
 - `docs/preprint/threat-model.md`
 - `examples/preprint/out/revision_evidence_snapshot.json`
 
-Applied ClaimWright materials from `/home/netuser/bin/ClaimWright` at commit
-`6d85ff7`:
+Applied ClaimWright materials from the canonical ClaimWright repository at
+commit `6d85ff7`:
 
 - `MOU.md`
 - `policies/principles.yaml`
@@ -970,8 +970,8 @@ The strongest objections after PRR-07 are:
   - **Result:** Pass
   - **Notes:** Reviewed citations have source links, DOI/arXiv/source pages, or explicit venue caveats.
 - **Private material in public output**
-  - **Result:** Pass with path caveat
-  - **Notes:** Public evidence references use repository-relative paths; review provenance itself includes local absolute paths only to identify reviewed repositories.
+  - **Result:** Pass after correction
+  - **Notes:** Public evidence references use repository-relative paths; local absolute paths are not included in the rendered public artifacts.
 - **Destructive irreversible action**
   - **Result:** Pass
   - **Notes:** Documentation-only review; git-revertable.
@@ -1030,6 +1030,13 @@ complete.
 - **Unresolved risks:** Final publication approval remains required; systematic-review scope remains undecided; future empirical/security evaluation remains outside current evidence.
 - **Branch outcome:** Conservative/balanced branch: keep manifesto framing, accept focused bibliography, and avoid production-security or benchmark claims.
 - **Broader review trigger:** Yes. Run another ClaimWright/publication-gate review before submission or authoritative public release.
+
+
+### Correction Note
+
+This review originally failed to catch one local absolute path in its own review
+scope statement. That path was replaced with canonical-repository wording before
+public-facing rerendering.
 
 \newpage
 

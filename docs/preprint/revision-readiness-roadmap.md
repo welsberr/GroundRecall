@@ -3,9 +3,9 @@
 Date: 2026-07-29
 Status: completed revision-preparation plan
 
-This roadmap starts from the committed IF-14 state in the canonical
-repositories under `/home/netuser/bin`. Its purpose is to get the manuscript
-ready for a substantive revision without continuing open-ended feature work.
+This roadmap starts from the committed IF-14 state in the canonical local
+repositories. Its purpose is to get the manuscript ready for a substantive
+revision without continuing open-ended feature work.
 
 Completion output: `2026-elsberry-governed-memory-layer-principles-r02.md`,
 `2026-elsberry-governed-memory-layer-principles-r02.html`, and
