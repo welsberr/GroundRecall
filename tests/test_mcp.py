@@ -170,6 +170,36 @@ def test_mcp_policy_hard_gate_blocks_operation_before_store_access(tmp_path: Pat
     assert "test.hard_gate" in text
 
 
+def test_mcp_policy_hard_gate_blocks_epistemap_assessment_before_graph_parse(tmp_path: Path) -> None:
+    config = tmp_path / "policy-plugins.yaml"
+    config.write_text(
+        "\n".join(
+            [
+                "policy_id: mcp.epistemap.blocking",
+                "providers:",
+                "  - type: static",
+                "    policy_id: test.epistemap.hard_gate",
+                "    default_decision: hard_gate",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    response = handle_request(
+        {
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "tools/call",
+            "params": {
+                "name": "epistemap_assessment",
+                "arguments": {"policy_config": str(config), "graph_bundle": {"invalid": "payload"}},
+            },
+        }
+    )
+    payload = response["result"]["content"][0]["text"]
+    assert '"blocked_by_policy": true' in payload
+    assert "test.epistemap.hard_gate" in payload
+
+
 def _seed_institutional_store(store: GroundRecallStore) -> None:
     store.save_scope(ScopeRecord(scope_id="scope-a", scope_kind="project", title="Scope A", release_level="public", current_status="reviewed"))
     store.save_concept(ConceptRecord(concept_id="concept::alpha", title="Alpha", current_status="reviewed"))

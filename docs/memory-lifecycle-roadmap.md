@@ -381,6 +381,12 @@ Implementation order:
 5. Document how MCP adapters interact with federation quarantine and local
    authority.
 
+Current implementation status: the versioned GroundRecall MCP surface includes
+the policy-gated `epistemap_assessment` bridge for diagnostics, epistemic and
+Bayesian reports, and assessment-readiness validation. A hard-gate regression
+confirms policy denial occurs before graph parsing. Host authentication and
+network deployment remain outside the local adapter.
+
 ### R3: Review-Gated Consolidation And Lifecycle Maintenance
 
 **Outcome:** maintenance reduces duplication and staleness without silently
