@@ -127,6 +127,8 @@ Exit:
 
 ### PRR-06: IF Status Table
 
+Status: completed on 2026-07-29.
+
 Create a compact IF-00 through IF-14 table for the paper appendix.
 
 Columns:

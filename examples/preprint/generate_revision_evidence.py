@@ -55,13 +55,15 @@ def build_revision_evidence(
             },
             "institutional_conformance": conformance,
         },
-        "demo_outputs": demos,
-        "paper_ready_next_steps": [
+        "completed_preprint_readiness_steps": [
             "refresh institutional demonstrations for IF-06 through IF-14",
             "update implemented-feature summary through IF-14",
             "update claim-to-evidence matrix through IF-14",
             "align limitation language with policy coverage open items",
             "add compact IF-00 through IF-14 status table",
+        ],
+        "demo_outputs": demos,
+        "paper_ready_next_steps": [
             "perform focused bibliography update without claiming systematic-review completeness",
         ],
         "non_goals_before_revision": [

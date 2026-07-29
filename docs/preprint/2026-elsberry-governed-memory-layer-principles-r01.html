@@ -282,6 +282,115 @@ query/export/federation</code></pre>
 <li><strong>Acceptable manuscript use:</strong> Supports limitation and roadmap claims only.</li>
 </ul></li>
 </ul>
+<h3 id="institutional-federation-package-status">Institutional Federation Package Status</h3>
+<p>This table compactly summarizes the IF-00 through IF-14 institutional-federation implementation packages. It is derived from <code>docs/institutional-federation-implementation-roadmap.md</code>, <code>docs/implemented-features-summary.md</code>, <code>src/groundrecall/policy_coverage.py</code>, and the current demonstration manifest. “Implemented” means the scoped local prototype slice has code and tests. “Partial” means a useful slice exists but the roadmap still records missing runtime wiring, network transport, publication gating, post-render filtering, destructive apply, production IAM, or distributed propagation.</p>
+<ul>
+<li><strong>IF-00 Baseline and contract fixtures</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_federation.py</code>; <code>src/groundrecall/policy_coverage.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_federation.py</code>; ClaimWright policy fixtures</li>
+<li><strong>Remaining caveat:</strong> Capability reports and fixtures are evidence, not production certification.</li>
+</ul></li>
+<li><strong>IF-01 Scope and work records</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/models.py</code>; <code>src/groundrecall/store.py</code>; <code>src/groundrecall/institutional_records.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_federation.py</code></li>
+<li><strong>Remaining caveat:</strong> Local file-backed records only; contribution/stewardship behavior is handled in later packages.</li>
+</ul></li>
+<li><strong>IF-02 Decision, contribution, and stewardship records</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/models.py</code>; <code>src/groundrecall/institutional_records.py</code>; <code>src/groundrecall/store.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_federation.py</code></li>
+<li><strong>Remaining caveat:</strong> Reviewer authority and separation-of-duty policy are not complete enterprise authorization.</li>
+</ul></li>
+<li><strong>IF-03 ClaimWright institutional policy provider</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/policy.py</code>; <code>src/groundrecall/policy_coverage.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_policy_plugins.py</code>; ClaimWright collaboration fixtures</li>
+<li><strong>Remaining caveat:</strong> ClaimWright is adapter-provided policy content; not a required GroundRecall dependency or full policy engine.</li>
+</ul></li>
+<li><strong>IF-04 Prior-work and duplicate-effort discovery</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/prior_work.py</code>; <code>src/groundrecall/mcp.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_prior_work.py</code>; <code>tests/test_mcp.py</code>; <code>examples/preprint/out/prior_work_discovery.json</code></li>
+<li><strong>Remaining caveat:</strong> Semantic duplicate confirmation remains review-gated.</li>
+</ul></li>
+<li><strong>IF-05 Signed federation catalogs</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/catalog.py</code>; <code>src/groundrecall/mcp.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_catalog.py</code>; <code>tests/test_mcp.py</code>; <code>examples/preprint/out/signed_catalog_discovery.json</code></li>
+<li><strong>Remaining caveat:</strong> No network transport or protected-topic inference evaluation yet.</li>
+</ul></li>
+<li><strong>IF-06 Subscriptions and incremental change bundles</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/change_feed.py</code>; <code>src/groundrecall/mcp.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_change_feed.py</code>; <code>tests/test_mcp.py</code>; <code>examples/preprint/out/incremental_subscription.json</code></li>
+<li><strong>Remaining caveat:</strong> File-based transport only; network polling and automatic canonical promotion remain future work.</li>
+</ul></li>
+<li><strong>IF-07 Multi-party review and federation feedback</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_review.py</code>; <code>src/groundrecall/models.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_review.py</code>; <code>examples/preprint/out/multi_party_review_feedback.json</code></li>
+<li><strong>Remaining caveat:</strong> Quorum results are not automatically wired into every promotion path; direct feedback-bundle import remains future work.</li>
+</ul></li>
+<li><strong>IF-08 Custody, tenancy departure, and instance retirement</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_custody.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_custody.py</code>; <code>examples/preprint/out/custody_planning.json</code></li>
+<li><strong>Remaining caveat:</strong> Dry-run planning and guarded writes exist; destructive apply and full role/authority validation remain future work.</li>
+</ul></li>
+<li><strong>IF-09 Institutional views and impact routing</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_views.py</code>; <code>src/groundrecall/mcp.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_views.py</code>; <code>tests/test_mcp.py</code></li>
+<li><strong>Remaining caveat:</strong> Policy-plugin preflight and post-render filtering remain follow-up work.</li>
+</ul></li>
+<li><strong>IF-10 License-aware release packs and withdrawal</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_release.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_release.py</code>; <code>examples/preprint/out/release_pack_withdrawal.json</code></li>
+<li><strong>Remaining caveat:</strong> Direct ClaimWright publication-gate preflight and distributed withdrawal propagation remain future work.</li>
+</ul></li>
+<li><strong>IF-11 MCP and adapter coverage</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/mcp.py</code>; <code>src/groundrecall/policy_coverage.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_mcp.py</code>; ClaimWright MCP fixtures</li>
+<li><strong>Remaining caveat:</strong> MCP policy remains caller-supplied rather than mandatory server-side configuration.</li>
+</ul></li>
+<li><strong>IF-12 Evaluation, operations, and paper evidence</strong>
+<ul>
+<li><strong>Implemented status:</strong> Partial</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_conformance.py</code>; <code>examples/preprint/generate_revision_evidence.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_preprint_revision_evidence.py</code>; <code>examples/preprint/out/revision_evidence_snapshot.json</code></li>
+<li><strong>Remaining caveat:</strong> Evidence mapping is not benchmark superiority evidence, legal compliance evidence, or production certification.</li>
+</ul></li>
+<li><strong>IF-13 Policy-gated institutional write helpers</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_write.py</code>; <code>src/groundrecall/policy_coverage.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_write.py</code>; <code>examples/preprint/out/policy_gated_institutional_writes.json</code></li>
+<li><strong>Remaining caveat:</strong> Direct low-level store methods remain trusted primitives, not public authority surfaces.</li>
+</ul></li>
+<li><strong>IF-14 Custody-event policy preflight</strong>
+<ul>
+<li><strong>Implemented status:</strong> Implemented</li>
+<li><strong>Main code evidence:</strong> <code>src/groundrecall/institutional_custody.py</code>; <code>src/groundrecall/policy_coverage.py</code></li>
+<li><strong>Main test / artifact evidence:</strong> <code>tests/test_institutional_custody.py</code>; <code>examples/preprint/out/policy_gated_institutional_writes.json</code></li>
+<li><strong>Remaining caveat:</strong> Explicit role/authority validation remains future work beyond policy-provider preflight.</li>
+</ul></li>
+</ul>
 <h3 id="core-manuscript-claims">Core Manuscript Claims</h3>
 <ul>
 <li><strong>Durable AI memory needs governance, not only retrieval.</strong>
