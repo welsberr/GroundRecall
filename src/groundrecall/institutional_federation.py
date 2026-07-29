@@ -106,8 +106,8 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
         },
         {
             "capability_id": "institutional_views_and_impact_routing",
-            "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-09"],
+            "status": "partial",
+            "evidence": ["src/groundrecall/institutional_views.py", "tests/test_institutional_views.py", "docs/institutional-federation-implementation-roadmap.md#IF-09"],
         },
         {
             "capability_id": "license_aware_release_withdrawal",

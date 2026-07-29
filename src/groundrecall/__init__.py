@@ -77,6 +77,17 @@ from .institutional_review import (
     unresolved_federation_disagreements,
     verify_feedback_bundle,
 )
+from .institutional_views import (
+    INSTITUTIONAL_VIEW_SCHEMA_VERSION,
+    ChangeImpactReport,
+    GovernanceHealthReport,
+    ScopeOrientationPack,
+    StewardshipView,
+    change_impact_report,
+    governance_health_report,
+    scope_orientation_pack,
+    stewardship_view,
+)
 from .graph_augment import GraphAugmentPolicyError, augment_store_relations_from_claims
 from .graph_maintenance import run_graph_maintenance_slice
 from .ingest import ImportPolicyError, ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
@@ -294,6 +305,15 @@ __all__ = [
     "record_review_receipt",
     "unresolved_federation_disagreements",
     "verify_feedback_bundle",
+    "INSTITUTIONAL_VIEW_SCHEMA_VERSION",
+    "ChangeImpactReport",
+    "GovernanceHealthReport",
+    "ScopeOrientationPack",
+    "StewardshipView",
+    "change_impact_report",
+    "governance_health_report",
+    "scope_orientation_pack",
+    "stewardship_view",
     "build_query_parser",
     "query_main",
     "summarize_store",

@@ -567,6 +567,14 @@ Exit:
 
 ### IF-09: Institutional Views And Impact Routing
 
+Status (2026-07-29): a read-only first slice is implemented in
+`src/groundrecall/institutional_views.py`. GroundRecall now generates scope
+orientation packs, reverse dependency/change-impact reports, governance-health
+reports, and explicit stewardship views with release-cap filtering, contradiction
+and confidence state, incomplete-basis labels, and anti-ranking labels. Direct
+policy-plugin preflight/post-render filtering, deeper graph dependency expansion,
+and richer policy-drift detection remain follow-up work.
+
 GroundRecall:
 
 - generate scope orientation packs with vocabulary, reviewed decisions,

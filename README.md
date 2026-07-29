@@ -247,6 +247,19 @@ groundrecall custody retirement-plan .groundrecall/store \
 These commands produce reviewable plans. They do not revoke keys, delete
 records, promote private material to group ownership, or shut down instances.
 
+Generate institutional views with release caps and explicit incomplete-basis
+labels:
+
+```bash
+groundrecall views orientation .groundrecall/store --scope-id project-alpha --release-cap internal
+groundrecall views impact .groundrecall/store --subject-type claim --subject-id claim-123 --release-cap internal
+groundrecall views governance .groundrecall/store --release-cap internal --subscriptions-dir .groundrecall/subscriptions
+groundrecall views stewardship .groundrecall/store --release-cap internal
+```
+
+Stewardship views are based on explicit stewardship records. They suppress raw
+activity rankings and inferred familiarity by default.
+
 Run a prior-work review before starting a substantial initiative:
 
 ```bash
