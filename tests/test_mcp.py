@@ -30,10 +30,19 @@ def test_mcp_lists_tools() -> None:
         "impact_report",
         "stewardship_orphans",
         "propose_contribution",
+        "epistemap_assessment",
     } <= names
     search_schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "search_store")
     assert "policy_config" in search_schema["properties"]
     assert "policy_request" in search_schema["properties"]
+
+
+def test_mcp_epistemap_assessment_is_policy_gated_and_read_only() -> None:
+    graph = {"graph_id": "mcp-graph", "nodes": [{"id": "claim", "type": "claim", "title": "Claim"}], "edges": []}
+    response = handle_request({"jsonrpc": "2.0", "id": 20, "method": "tools/call", "params": {"name": "epistemap_assessment", "arguments": {"graph_bundle": graph, "operation": "diagnostics"}}})
+    payload = json.loads(response["result"]["content"][0]["text"])
+    assert payload["schema_version"] == "groundrecall.mcp.epistemap_assessment.v1"
+    assert payload["payload"]["summary"]["node_count"] == 1
 
 
 def test_mcp_initializes() -> None:

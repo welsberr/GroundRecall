@@ -14,9 +14,10 @@ work may extend calibration and cross-repository validation, but those are not
 unfinished G1-G4 acceptance items.
 
 GroundRecall consumes the portable confidence contract from Epistemap
-`v0.1.0a2`. This is an immutable Git-tag dependency; it does not imply that the
-remaining GroundRecall migration phases or legacy-field deprecation are
-complete.
+`v0.1.0a4`. This is an immutable Git-tag dependency. GroundRecall's MCP layer
+can now run read-only Epistemap assessments over compatible graph bundles;
+GroundRecall policy remains the authority boundary and must gate access before
+those derived operations are invoked.
 
 GroundRecall's primary product direction is a review-gated,
 provenance-first memory substrate for long-lived AI work.

@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from typing import Any, Callable
 
+from epistemap import GraphBundle, bayesian_assessment_report, diagnostics, epistemic_report, validate_assessment_readiness
+
 from .catalog import query_federation_catalog
 from .change_feed import load_subscription
 from .export import export_canonical_snapshot
@@ -149,6 +151,30 @@ def _evaluate_policy(arguments: dict[str, Any]) -> dict[str, Any]:
     request_payload = dict(arguments.get("request") or {})
     decision = provider.evaluate(PolicyRequest(**request_payload))
     return _json_text(decision.model_dump(mode="json"))
+
+
+def _epistemap_assessment(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(
+        arguments,
+        {"decision_point": "query", "action": "epistemap_assessment", "subject_id": str(arguments.get("subject_id", "")), "record_kind": "epistemap_graph"},
+    )
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    bundle = GraphBundle.model_validate(arguments["graph_bundle"])
+    operation = str(arguments.get("operation", "diagnostics"))
+    node_types = set(arguments.get("node_types", []) or []) or None
+    if operation == "diagnostics":
+        payload = diagnostics(bundle, node_types=node_types)
+    elif operation == "epistemic_report":
+        payload = epistemic_report(bundle, node_types=node_types)
+    elif operation == "bayesian_assessment":
+        payload = bayesian_assessment_report(bundle, node_types=node_types)
+    elif operation == "validate_graph":
+        payload = validate_assessment_readiness(bundle)
+    else:
+        raise ValueError(f"unsupported Epistemap assessment operation: {operation}")
+    return _json_text(_attach_policy({"schema_version": "groundrecall.mcp.epistemap_assessment.v1", "operation": operation, "graph_id": bundle.graph_id, "payload": payload}, decision))
 
 
 def _prior_work(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -397,6 +423,20 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["policy_config", "request"],
         },
         "handler": _evaluate_policy,
+    },
+    "epistemap_assessment": {
+        "description": "Run a read-only Epistemap graph assessment over a supplied GroundRecall-compatible graph bundle.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "graph_bundle": {"type": "object"},
+                "operation": {"type": "string", "enum": ["diagnostics", "epistemic_report", "bayesian_assessment", "validate_graph"], "default": "diagnostics"},
+                "node_types": {"type": "array", "items": {"type": "string"}},
+                **POLICY_ARGUMENT_PROPERTIES,
+            },
+            "required": ["graph_bundle"],
+        },
+        "handler": _epistemap_assessment,
     },
     "prior_work_review": {
         "description": "Run a policy-aware prior-work review over a GroundRecall store without writing results.",
