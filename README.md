@@ -226,6 +226,27 @@ groundrecall review feedback-bundle .groundrecall/store exports/feedback.json \
 Review receipts are content-hash scoped. If the reviewed content changes, the
 old receipt is reported as invalidated rather than silently reused.
 
+Plan custody handoff, tenancy departure, and instance retirement without
+destructive writes:
+
+```bash
+groundrecall custody orphans .groundrecall/store
+groundrecall custody departure-plan .groundrecall/store \
+  --departing-principal-id alice \
+  --planned-at 2026-07-29T00:00:00Z
+groundrecall custody retirement-plan .groundrecall/store \
+  --instance-id host-a \
+  --replacement-instance-id host-b \
+  --registry-path .groundrecall/federation/trust-registry.json \
+  --subscriptions-dir .groundrecall/subscriptions \
+  --catalogs-dir .groundrecall/catalogs \
+  --quarantine-dir .groundrecall/quarantine \
+  --backups-dir .groundrecall/backups
+```
+
+These commands produce reviewable plans. They do not revoke keys, delete
+records, promote private material to group ownership, or shut down instances.
+
 Run a prior-work review before starting a substantial initiative:
 
 ```bash

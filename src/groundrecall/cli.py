@@ -14,6 +14,7 @@ from . import (
     graph_augment,
     graph_maintenance,
     ingest,
+    institutional_custody,
     institutional_records,
     institutional_review,
     catalog,
@@ -33,6 +34,7 @@ from . import (
 COMMANDS = {
     "import": ingest.main,
     "institutional": institutional_records.main,
+    "custody": institutional_custody.main,
     "review": institutional_review.main,
     "prior-work": prior_work.main,
     "catalog": catalog.main,

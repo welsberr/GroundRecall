@@ -521,6 +521,16 @@ Exit:
 
 ### IF-08: Custody, Tenancy Departure, And Instance Retirement
 
+Status (2026-07-29): a dry-run planning slice is implemented in
+`src/groundrecall/institutional_custody.py`. GroundRecall now reports subjects
+without active stewardship, plans tenancy departures without deleting or
+silently converting private personal records, plans instance retirement across
+trust keys, subscriptions, catalogs, pending contributions, stewardship,
+canonical counts, quarantine, and backups, and provides a guarded custody-event
+helper that blocks release broadening. Destructive apply commands, full
+role/authority policy preflight, and automated key/subscription shutdown remain
+follow-up work.
+
 GroundRecall:
 
 - implement custody assign/accept/transfer/decline/orphan/recover events;
