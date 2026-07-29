@@ -19,7 +19,9 @@ from .models import (
     AdjudicationRecord,
     RelationRecord,
     ReviewCandidateRecord,
+    ScopeRecord,
     SourceRecord,
+    WorkRecord,
 )
 
 
@@ -32,6 +34,8 @@ class GroundRecallStore:
         self.sources_dir = self.base_dir / "sources"
         self.fragments_dir = self.base_dir / "fragments"
         self.artifacts_dir = self.base_dir / "artifacts"
+        self.scopes_dir = self.base_dir / "scopes"
+        self.works_dir = self.base_dir / "works"
         self.observations_dir = self.base_dir / "observations"
         self.claims_dir = self.base_dir / "claims"
         self.contradiction_cases_dir = self.base_dir / "contradiction_cases"
@@ -45,6 +49,8 @@ class GroundRecallStore:
             self.sources_dir,
             self.fragments_dir,
             self.artifacts_dir,
+            self.scopes_dir,
+            self.works_dir,
             self.observations_dir,
             self.claims_dir,
             self.contradiction_cases_dir,
@@ -122,6 +128,26 @@ class GroundRecallStore:
 
     def list_artifacts(self) -> list[ArtifactRecord]:
         return self._list(self.artifacts_dir, ArtifactRecord)
+
+    def save_scope(self, record: ScopeRecord) -> ScopeRecord:
+        self._save(self.scopes_dir, record.scope_id, record)
+        return record
+
+    def get_scope(self, scope_id: str) -> ScopeRecord | None:
+        return self._load(self.scopes_dir, scope_id, ScopeRecord)
+
+    def list_scopes(self) -> list[ScopeRecord]:
+        return self._list(self.scopes_dir, ScopeRecord)
+
+    def save_work(self, record: WorkRecord) -> WorkRecord:
+        self._save(self.works_dir, record.work_id, record)
+        return record
+
+    def get_work(self, work_id: str) -> WorkRecord | None:
+        return self._load(self.works_dir, work_id, WorkRecord)
+
+    def list_works(self) -> list[WorkRecord]:
+        return self._list(self.works_dir, WorkRecord)
 
     def save_observation(self, record: ObservationRecord) -> ObservationRecord:
         self._save(self.observations_dir, record.observation_id, record)
@@ -220,6 +246,8 @@ class GroundRecallStore:
             sources=self.list_sources(),
             fragments=self.list_fragments(),
             artifacts=self.list_artifacts(),
+            scopes=self.list_scopes(),
+            works=self.list_works(),
             observations=self.list_observations(),
             claims=self.list_claims(),
             contradiction_cases=self.list_contradiction_cases(),

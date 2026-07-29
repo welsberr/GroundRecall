@@ -104,6 +104,9 @@ def is_public_exportable_record(record: BaseModel, record_kind: str, record_id: 
         return False, GuardrailFinding(record_kind, record_id, f"status:{status}")
 
     payload = record.model_dump()
+    explicit_release = payload.get("release_level")
+    if explicit_release is not None and explicit_release != "public":
+        return False, GuardrailFinding(record_kind, record_id, f"release_level:{explicit_release}")
     metadata_reason = _private_metadata_reason(payload)
     if metadata_reason is not None:
         return False, GuardrailFinding(record_kind, record_id, metadata_reason)
@@ -143,6 +146,14 @@ def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[G
 
     artifacts = _filter_records(snapshot.artifacts, "artifact", lambda item: item.artifact_id, findings)
     allowed_artifact_ids = {item.artifact_id for item in artifacts}
+
+    scopes = _filter_records(snapshot.scopes, "scope", lambda item: item.scope_id, findings)
+    allowed_scope_ids = {item.scope_id for item in scopes}
+    works = [
+        item
+        for item in _filter_records(snapshot.works, "work", lambda item: item.work_id, findings)
+        if not item.scope_id or _keep_dependency("work", item.work_id, item.scope_id, allowed_scope_ids, "scope", findings)
+    ]
 
     observations = [
         item
@@ -222,6 +233,8 @@ def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[G
             "sources": sources,
             "fragments": fragments,
             "artifacts": artifacts,
+            "scopes": scopes,
+            "works": works,
             "observations": observations,
             "claims": claims,
             "concepts": concepts,

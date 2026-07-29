@@ -11,6 +11,10 @@ IF-00 status (2026-07-29): implemented in `ff32ae7` with a deterministic
 capability report, CLI inspection flags, and a versioned 18-action policy
 fixture. ClaimWright's matching fixture/checker slice is `94b26f3`.
 
+IF-01 status (2026-07-29): scope/work records, additive snapshots, release
+filtering, inspection counts, and CLI CRUD are implemented locally. Contribution
+and stewardship records remain in IF-02.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

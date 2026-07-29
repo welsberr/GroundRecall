@@ -13,6 +13,10 @@ except ImportError:  # pragma: no cover - optional local integration fallback
 LifecycleStatus = Literal["draft", "triaged", "reviewed", "promoted", "superseded", "archived", "rejected"]
 GroundingStatus = Literal["grounded", "partially_grounded", "ungrounded"]
 SupportKind = Literal["direct_source", "derived_from_page", "derived_from_session", "inferred", "unknown"]
+ReleaseLevel = Literal["public", "internal", "confidential", "privileged", "private"]
+ScopeKind = Literal["entity", "group", "project", "community"]
+WorkKind = Literal["project", "technique", "experiment", "prototype", "incident", "lesson"]
+WorkOutcome = Literal["unknown", "successful", "failed", "inconclusive", "superseded", "abandoned"]
 
 
 class ProvenanceRecord(BaseModel):
@@ -58,6 +62,39 @@ class ArtifactRecord(BaseModel):
     created_at: str = ""
     metadata: dict = Field(default_factory=dict)
     current_status: LifecycleStatus = "draft"
+
+
+class ScopeRecord(BaseModel):
+    scope_id: str
+    scope_kind: ScopeKind
+    title: str
+    description: str = ""
+    parent_scope_id: str = ""
+    owner_scope_id: str = ""
+    owner_principal_ids: list[str] = Field(default_factory=list)
+    release_level: ReleaseLevel = "private"
+    retention_class: str = ""
+    current_status: LifecycleStatus = "draft"
+    metadata: dict = Field(default_factory=dict)
+
+
+class WorkRecord(BaseModel):
+    work_id: str
+    work_kind: WorkKind
+    title: str
+    summary: str = ""
+    scope_id: str = ""
+    work_status: str = "active"
+    outcome: WorkOutcome = "unknown"
+    started_at: str = ""
+    completed_at: str = ""
+    review_due_at: str = ""
+    related_work_ids: list[str] = Field(default_factory=list)
+    related_claim_ids: list[str] = Field(default_factory=list)
+    related_artifact_ids: list[str] = Field(default_factory=list)
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "draft"
+    metadata: dict = Field(default_factory=dict)
 
 
 class ObservationRecord(BaseModel):
@@ -167,6 +204,8 @@ class GroundRecallSnapshot(BaseModel):
     sources: list[SourceRecord] = Field(default_factory=list)
     fragments: list[FragmentRecord] = Field(default_factory=list)
     artifacts: list[ArtifactRecord] = Field(default_factory=list)
+    scopes: list[ScopeRecord] = Field(default_factory=list)
+    works: list[WorkRecord] = Field(default_factory=list)
     observations: list[ObservationRecord] = Field(default_factory=list)
     claims: list[ClaimRecord] = Field(default_factory=list)
     contradiction_cases: list[ContradictionCaseRecord] = Field(default_factory=list)

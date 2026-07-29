@@ -13,6 +13,7 @@ from .contradictions import (
     sync_contradiction_cases_for_store,
 )
 from .inspect import inspect_store, summarize_store
+from .institutional_records import build_parser as build_institutional_records_parser
 from .institutional_federation import (
     INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
     INSTITUTIONAL_POLICY_ACTIONS,
@@ -220,4 +221,5 @@ __all__ = [
     "query_main",
     "summarize_store",
     "inspect_store",
+    "build_institutional_records_parser",
 ]

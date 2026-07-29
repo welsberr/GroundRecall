@@ -51,9 +51,20 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
             "evidence": ["src/groundrecall/federation.py", "tests/test_federation.py"],
         },
         {
-            "capability_id": "institutional_records_and_stewardship",
+            "capability_id": "institutional_scope_and_work_records",
+            "status": "partial",
+            "evidence": [
+                "src/groundrecall/models.py",
+                "src/groundrecall/store.py",
+                "src/groundrecall/institutional_records.py",
+                "tests/test_institutional_federation.py",
+                "docs/institutional-federation-implementation-roadmap.md#IF-01",
+            ],
+        },
+        {
+            "capability_id": "stewardship_and_custody_records",
             "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-01"],
+            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-02"],
         },
         {
             "capability_id": "contribution_review_lifecycle",

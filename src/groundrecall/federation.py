@@ -1145,6 +1145,14 @@ def filter_snapshot_for_federation(
     artifacts = _filter_records(snapshot.artifacts, "artifact", "artifact_id", target_release_level, findings, allow_unclassified_public)
     allowed_artifact_ids = {item.artifact_id for item in artifacts}
 
+    scopes = _filter_records(snapshot.scopes, "scope", "scope_id", target_release_level, findings, allow_unclassified_public)
+    allowed_scope_ids = {item.scope_id for item in scopes}
+    works = [
+        item
+        for item in _filter_records(snapshot.works, "work", "work_id", target_release_level, findings, allow_unclassified_public)
+        if not item.scope_id or _dependency_allowed("work", item.work_id, item.scope_id, allowed_scope_ids, "scope", findings)
+    ]
+
     observations = [
         item
         for item in _filter_records(snapshot.observations, "observation", "observation_id", target_release_level, findings, allow_unclassified_public)
@@ -1247,6 +1255,8 @@ def filter_snapshot_for_federation(
             "sources": sources,
             "fragments": fragments,
             "artifacts": artifacts,
+            "scopes": scopes,
+            "works": works,
             "observations": observations,
             "claims": claims,
             "contradiction_cases": contradiction_cases,
@@ -1260,6 +1270,8 @@ def filter_snapshot_for_federation(
         "sources": len(sources),
         "fragments": len(fragments),
         "artifacts": len(artifacts),
+        "scopes": len(scopes),
+        "works": len(works),
         "observations": len(observations),
         "claims": len(claims),
         "contradiction_cases": len(contradiction_cases),
@@ -1983,6 +1995,9 @@ def _filter_records(
 
 
 def _record_release_level(record: Any, *, allow_unclassified_public: bool) -> ReleaseLevel | None:
+    explicit_level = getattr(record, "release_level", None)
+    if explicit_level in RELEASE_LEVELS:
+        return explicit_level
     metadata = getattr(record, "metadata", None)
     if isinstance(metadata, dict):
         level = release_level_from_metadata(metadata)

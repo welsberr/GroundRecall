@@ -28,6 +28,8 @@ def summarize_store(
         "store_dir": str(Path(store_dir)),
         "source_count": len(store.list_sources()),
         "artifact_count": len(store.list_artifacts()),
+        "scope_count": len(store.list_scopes()),
+        "work_count": len(store.list_works()),
         "observation_count": len(store.list_observations()),
         "claim_count": len(store.list_claims()),
         "concept_count": len(store.list_concepts()),

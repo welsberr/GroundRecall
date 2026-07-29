@@ -12,6 +12,10 @@ from groundrecall.institutional_federation import (
 from groundrecall import inspect as inspect_module
 from groundrecall.inspect import inspect_store
 from groundrecall.policy import PolicyDecisionPoint, PolicyDecisionValue, PolicyRequest
+from groundrecall.export_guardrails import filter_snapshot_for_public_export
+from groundrecall.federation import filter_snapshot_for_federation
+from groundrecall.models import GroundRecallSnapshot, ScopeRecord, WorkRecord
+from groundrecall.store import GroundRecallStore
 
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "institutional_policy_cases.json"
@@ -39,7 +43,7 @@ def test_institutional_capability_report_is_deterministic_and_versioned() -> Non
     assert report == build_institutional_federation_capability_report()
     assert report["schema_version"] == INSTITUTIONAL_FEDERATION_SCHEMA_VERSION
     assert report["policy_action_count"] == len(INSTITUTIONAL_POLICY_ACTIONS)
-    assert report["summary"] == {"implemented": 2, "partial": 0, "future": 9}
+    assert report["summary"] == {"implemented": 2, "partial": 1, "future": 9}
 
     compact = build_institutional_federation_capability_report(compact=True)
     assert compact["schema_version"] == INSTITUTIONAL_FEDERATION_SCHEMA_VERSION
@@ -49,7 +53,7 @@ def test_institutional_capability_report_is_deterministic_and_versioned() -> Non
 def test_inspect_can_include_institutional_capability_report(tmp_path: Path) -> None:
     payload = inspect_store(tmp_path / "store", include_institutional_federation=True)
     assert payload["institutional_federation"]["schema_version"] == INSTITUTIONAL_FEDERATION_SCHEMA_VERSION
-    assert payload["institutional_federation"]["summary"]["future"] == 9
+    assert payload["institutional_federation"]["summary"]["partial"] == 1
 
 
 def test_inspect_cli_can_emit_institutional_capability_report(tmp_path: Path, capsys) -> None:
@@ -68,3 +72,116 @@ def test_inspect_cli_can_emit_institutional_capability_report(tmp_path: Path, ca
     output = capsys.readouterr().out
     assert INSTITUTIONAL_FEDERATION_SCHEMA_VERSION in output
     assert '"future": 9' in output
+
+
+def test_scope_and_work_records_round_trip_and_snapshot_compatibility(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    scope = ScopeRecord(
+        scope_id="scope::alpha",
+        scope_kind="project",
+        title="Alpha project",
+        release_level="public",
+        current_status="reviewed",
+    )
+    work = WorkRecord(
+        work_id="work::negative-result",
+        work_kind="experiment",
+        title="Rejected approach",
+        summary="The approach was tested and found inconclusive.",
+        scope_id=scope.scope_id,
+        outcome="inconclusive",
+        release_level="public",
+        current_status="reviewed",
+    )
+    store.save_scope(scope)
+    store.save_work(work)
+    snapshot = store.build_snapshot("snapshot-institutional", "2026-07-29T00:00:00Z")
+    assert snapshot.scopes == [scope]
+    assert snapshot.works == [work]
+
+    legacy = GroundRecallSnapshot.model_validate(
+        {"snapshot_id": "legacy", "created_at": "2026-01-01T00:00:00Z"}
+    )
+    assert legacy.scopes == []
+    assert legacy.works == []
+
+
+def test_scope_and_work_release_filtering_preserves_public_dependencies(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    public_scope = ScopeRecord(scope_id="scope-public", scope_kind="group", title="Public", release_level="public", current_status="reviewed")
+    private_scope = ScopeRecord(scope_id="scope-private", scope_kind="group", title="Private", release_level="private", current_status="reviewed")
+    public_work = WorkRecord(work_id="work-public", work_kind="lesson", title="Public lesson", scope_id="scope-public", release_level="public", current_status="reviewed")
+    private_work = WorkRecord(work_id="work-private", work_kind="lesson", title="Private lesson", scope_id="scope-private", release_level="private", current_status="reviewed")
+    snapshot = GroundRecallSnapshot(
+        snapshot_id="snapshot-filter",
+        created_at="2026-07-29T00:00:00Z",
+        scopes=[public_scope, private_scope],
+        works=[public_work, private_work],
+    )
+
+    public_snapshot, public_report = filter_snapshot_for_public_export(snapshot)
+    assert [item.scope_id for item in public_snapshot.scopes] == ["scope-public"]
+    assert [item.work_id for item in public_snapshot.works] == ["work-public"]
+    assert public_report["excluded_counts"] == {"scope": 1, "work": 1}
+
+    federated, federation_report = filter_snapshot_for_federation(snapshot, target_release_level="public")
+    assert [item.scope_id for item in federated.scopes] == ["scope-public"]
+    assert [item.work_id for item in federated.works] == ["work-public"]
+    assert federation_report.included_counts["scopes"] == 1
+    assert federation_report.included_counts["works"] == 1
+
+
+def test_institutional_cli_creates_and_lists_negative_work(tmp_path: Path, capsys) -> None:
+    import sys
+    from groundrecall import cli
+
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall.cli",
+            "institutional",
+            "scope",
+            "create",
+            str(tmp_path / "store"),
+            "--scope-id",
+            "scope-alpha",
+            "--scope-kind",
+            "project",
+            "--title",
+            "Alpha",
+            "--release-level",
+            "public",
+            "--status",
+            "reviewed",
+        ]
+        cli.main()
+        capsys.readouterr()
+        sys.argv = [
+            "groundrecall.cli",
+            "institutional",
+            "work",
+            "create",
+            str(tmp_path / "store"),
+            "--work-id",
+            "work-negative",
+            "--work-kind",
+            "experiment",
+            "--title",
+            "Failed trial",
+            "--scope-id",
+            "scope-alpha",
+            "--outcome",
+            "inconclusive",
+            "--release-level",
+            "public",
+            "--status",
+            "reviewed",
+        ]
+        cli.main()
+        capsys.readouterr()
+        sys.argv = ["groundrecall.cli", "institutional", "work", "list", str(tmp_path / "store")]
+        cli.main()
+    finally:
+        sys.argv = original_argv
+    payload = json.loads(capsys.readouterr().out)
+    assert payload[0]["outcome"] == "inconclusive"
