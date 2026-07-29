@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <title>GroundRecall Preprint Threat Model</title>
+  <title>threat-model</title>
   <style>
     code{white-space: pre-wrap;}
     span.smallcaps{font-variant: small-caps;}
@@ -15,11 +15,8 @@
   </style>
 </head>
 <body>
-<header id="title-block-header">
-<h1 class="title">GroundRecall Preprint Threat Model</h1>
-</header>
 <h1 id="groundrecall-preprint-threat-model">GroundRecall Preprint Threat Model</h1>
-<p>Date: 2026-07-26</p>
+<p>Date: 2026-07-29</p>
 <p>This threat model is scoped to the current GroundRecall prototype. It supports the preprint claim that GroundRecall is a governed memory control plane, not a finished distributed platform or complete IAM/security product.</p>
 <table>
 <colgroup>
@@ -95,6 +92,21 @@
 <td>Promotion gates candidate/imported material before canonical persistence; contradiction adjudication records explicit reviewer decisions.</td>
 <td>GroundRecall does not by itself sandbox all host tools or prevent direct filesystem writes outside its store.</td>
 </tr>
+<tr class="odd">
+<td>Institutional views are mistaken for already publication-safe artifacts</td>
+<td>Orientation, impact, governance, stewardship, and prior-work views expose provenance and release-scoped records where implemented.</td>
+<td>Some views still need post-render policy filtering and publication-gatekeeper review before external use.</td>
+</tr>
+<tr class="even">
+<td>MCP access is mistaken for mandatory server-side policy enforcement</td>
+<td>MCP tools can receive and evaluate policy inputs for selected operations.</td>
+<td>MCP policy remains caller-supplied in the current prototype; mandatory server configuration and durable access audit are future work.</td>
+</tr>
+<tr class="odd">
+<td>Release packs or withdrawals are treated as complete publication governance</td>
+<td>Release-pack and withdrawal flows preserve release metadata and explicit action records.</td>
+<td>Direct publication-gatekeeper preflight, distributed withdrawal propagation, and complete revocation handling remain future work.</td>
+</tr>
 </tbody>
 </table>
 <h2 id="paper-framing">Paper Framing</h2>
@@ -107,6 +119,16 @@
 <li>contradiction/adjudication state is preserved rather than erased;</li>
 <li>local policy remains final authority.</li>
 </ul>
-<p>The paper should not claim complete security against host compromise, full regulatory compliance, complete erasure propagation, or production organization identity management.</p>
+<p>Current implementation boundaries:</p>
+<ul>
+<li>GroundRecall has no production IAM integration and does not replace organization identity, DLP, legal-hold, or HSM-backed controls.</li>
+<li>Federation is local-file/package based. There is no network transport, polling service, CRDT layer, or distributed consensus protocol.</li>
+<li>MCP policy checks are available on selected surfaces but remain caller-supplied rather than mandatory server policy.</li>
+<li>Institutional views still need post-render policy filtering before they should be treated as publication-safe.</li>
+<li>Release pack and withdrawal operations still need direct publication-gatekeeper preflight and distributed propagation.</li>
+<li>Contradiction handling supports explicit contradiction cases, diagnostics, and adjudication; robust automatic semantic contradiction detection remains future work.</li>
+<li>Ordinary forgetting is represented through expiry, supersession, retraction, and confidence reduction. Exceptional erasure execution remains intentionally future.</li>
+</ul>
+<p>The paper should not claim complete security against host compromise, full regulatory compliance, complete erasure propagation, production organization identity management, or distributed revocation.</p>
 </body>
 </html>

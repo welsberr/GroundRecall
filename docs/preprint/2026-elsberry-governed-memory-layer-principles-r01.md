@@ -218,7 +218,7 @@ The demonstration suite also includes an internal timing indication for two Grou
 
 ## 11. Limitations
 
-GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no hosted review UI, no production IAM integration, and no public/internal release-pack publishing workflow. It includes heuristic, review-gated contradiction and semantic cue generation, but it does not provide robust automatic semantic contradiction detection or resolution. It has no complete exceptional-erasure propagation mechanism. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. Its policy-plugin enforcement is real but partial: it covers selected MCP, export, federation, promotion, adjudication, and relation-review surfaces, not every possible memory mutation or enterprise policy system. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.
+GroundRecall is file-backed and local-first, not a finished distributed memory platform. It has no network transport or polling layer, no CRDT merge system, no distributed consensus protocol, no hosted review UI, and no production IAM integration. Release packs, withdrawals, subscriptions, institutional views, and MCP tools are implemented as prototype governance surfaces, not complete enterprise publication, revocation, or access-control systems. MCP policy remains caller-supplied. Institutional views still need post-render policy filtering before they should be treated as publication-safe. Release-pack and withdrawal flows still need direct publication-gatekeeper preflight and distributed propagation. It includes explicit contradiction cases, diagnostics, adjudication records, and heuristic review-gated semantic cue generation, but it does not provide robust automatic semantic contradiction detection or resolution. Ordinary forgetting is represented through expiry, supersession, retraction, and confidence reduction; complete exceptional-erasure execution and propagation remain intentionally future work. It has not been benchmarked against memory-layer systems on LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, long-dialogue recall, multi-hop retrieval, latency, cost, or personalization. Its policy-plugin enforcement is real but partial: it covers selected MCP, export, federation, promotion, adjudication, and relation-review surfaces, not every possible memory mutation or enterprise policy system. It does not provide a comprehensive security proof. The related-work section now includes initial memory-benchmark, GraphRAG, governance, provenance, access-control, zero-trust, software-supply-chain, information-flow, capability-security, transparency-log, permission-aware retrieval, and AI-memory security sources, but it is still not a full systematic review.
 
 These limitations bound the contribution. They do not defeat the core argument. Governed memory properties are necessary and implementable; the current prototypes are partial evidence, not complete systems.
 
@@ -302,6 +302,8 @@ This appendix substantiates the manuscript discipline that each substantive pape
 5. explicit future-work status.
 
 The matrix is also a restraint mechanism. Claims with only normative support are stated as design recommendations. Claims about implementation are limited to current code and tests. Claims about comparative performance, production deployment, robust semantic contradiction detection, and broad safety outcomes are marked as future work or excluded.
+
+Current revision evidence is also summarized by `examples/preprint/out/revision_evidence_snapshot.json`. As of PRR-04 preparation, GroundRecall reports `44` policy coverage routes: `27` covered, `14` partial, `2` intentionally ungated, and `1` future. Durable mutation routes are `14` covered, `0` partial, and `1` future. The preprint demonstration manifest currently lists `15` passing JSON demonstrations.
 
 ### Evidence Classes
 
@@ -519,6 +521,88 @@ The matrix is also a restraint mechanism. Claims with only normative support are
   - **Caveat / restraint:** Not comparable to external memory-layer products; not a benchmark of recall quality, latency under load, or production deployment.
 
 
+### Institutional Federation Implementation Claims
+
+- **GroundRecall can represent institutional scopes, work, decisions, contributions, stewardship, custody, review, and feedback as typed records.**
+  - **Evidence class:** Implemented code; test coverage
+  - **Supporting code:** `src/groundrecall/models.py`; `src/groundrecall/store.py`; `src/groundrecall/institutional_records.py`; `src/groundrecall/institutional_federation.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_federation.py`; `docs/institutional-federation-implementation-roadmap.md`
+  - **Current status:** Supported for the implemented record set.
+  - **Caveat / restraint:** Record existence is not itself production workflow completion or enterprise authorization.
+- **Prior-work discovery can surface related work, decisions, claims, and negative or inconclusive outcomes before new durable work begins.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/prior_work.py`; MCP route in `src/groundrecall/mcp.py`
+  - **Supporting tests / artifacts:** `tests/test_prior_work.py`; `tests/test_mcp.py`; `examples/preprint/out/prior_work_discovery.json`
+  - **Current status:** Supported for exact/lexical local discovery with release caps.
+  - **Caveat / restraint:** Semantic duplicate confirmation remains review-gated.
+- **Signed federation catalogs support least-disclosure discovery without transferring canonical records.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/catalog.py`; MCP route in `src/groundrecall/mcp.py`
+  - **Supporting tests / artifacts:** `tests/test_catalog.py`; `tests/test_mcp.py`; `examples/preprint/out/signed_catalog_discovery.json`
+  - **Current status:** Supported for signed local catalog build, receiver-capped quarantine import, and query.
+  - **Caveat / restraint:** Network transport and protected-topic inference evaluation remain future work.
+- **Incremental subscriptions and change bundles provide a file-based, cursor-bounded first transport.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/change_feed.py`; MCP route in `src/groundrecall/mcp.py`
+  - **Supporting tests / artifacts:** `tests/test_change_feed.py`; `tests/test_mcp.py`; `examples/preprint/out/incremental_subscription.json`
+  - **Current status:** Supported for signed bundle creation, verification, quarantine, replay detection, and acknowledgement.
+  - **Caveat / restraint:** Network polling and automatic canonical promotion remain future work.
+- **Multi-party review can evaluate quorum, reviewer independence, duplicate reviewers, dissent, and stale content hashes.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/institutional_review.py`; review receipt and feedback models in `src/groundrecall/models.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_review.py`; `examples/preprint/out/multi_party_review_feedback.json`
+  - **Current status:** Supported for evaluator and feedback bundle surfaces.
+  - **Caveat / restraint:** Quorum results are not yet automatically wired into every promotion path.
+- **Federation feedback preserves producer and receiver adjudications as separate assertions.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/institutional_review.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_review.py`; `examples/preprint/out/multi_party_review_feedback.json`
+  - **Current status:** Supported for signed feedback bundles and unresolved disagreement summaries.
+  - **Caveat / restraint:** Direct feedback-bundle import and durable federation audit remain follow-up work.
+- **Custody and tenancy planning can identify orphaned stewardship, private personal records, group-owned retained records, and retirement actions.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/institutional_custody.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_custody.py`; `examples/preprint/out/custody_planning.json`
+  - **Current status:** Supported as deterministic dry-run planning.
+  - **Caveat / restraint:** Destructive apply commands, automated shutdown, and full role/authority validation remain future work.
+- **Custody-event recording blocks release broadening and can be policy-gated before append-only writes.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/institutional_custody.py`; `src/groundrecall/policy_coverage.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_custody.py`; `examples/preprint/out/policy_gated_institutional_writes.json`
+  - **Current status:** Supported for Python API preflight and no-write-on-block behavior.
+  - **Caveat / restraint:** Explicit role/authority validation remains follow-up work beyond policy-provider preflight.
+- **Institutional views can expose orientation, impact, governance-health, and stewardship information with release caps and anti-ranking labels.**
+  - **Evidence class:** Implemented code; test coverage
+  - **Supporting code:** `src/groundrecall/institutional_views.py`; MCP routes in `src/groundrecall/mcp.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_views.py`; `tests/test_mcp.py`; `src/groundrecall/policy_coverage.py`
+  - **Current status:** Supported as read-only partial implementation.
+  - **Caveat / restraint:** Policy-plugin preflight and post-render filtering remain follow-up work.
+- **License-aware release packs and withdrawal notices preserve license, attribution, redaction, signature, supersession, and withdrawal state.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/institutional_release.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_release.py`; `examples/preprint/out/release_pack_withdrawal.json`
+  - **Current status:** Supported for deterministic signed local packs and signed withdrawal notices.
+  - **Caveat / restraint:** Direct ClaimWright publication-gate preflight and distributed withdrawal propagation remain future work.
+- **Institutional MCP tools expose prior-work review, catalog discovery, subscription status, impact reports, stewardship/orphan review, and no-write contribution proposal drafts.**
+  - **Evidence class:** Implemented code; test coverage
+  - **Supporting code:** `src/groundrecall/mcp.py`; `src/groundrecall/policy_coverage.py`
+  - **Supporting tests / artifacts:** `tests/test_mcp.py`; `fixtures/groundrecall/mcp_policy_responses.json` in ClaimWright
+  - **Current status:** Supported as assistant-facing tooling with explicit no-write contribution proposals.
+  - **Caveat / restraint:** MCP policy checks remain caller-supplied rather than mandatory server-side configuration.
+- **Policy-gated institutional write helpers block deny/hard-gate decisions before durable institutional record or contribution-transition writes.**
+  - **Evidence class:** Implemented code; test coverage; reproducible demonstration
+  - **Supporting code:** `src/groundrecall/institutional_write.py`; `src/groundrecall/policy_coverage.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_write.py`; `examples/preprint/out/policy_gated_institutional_writes.json`; `fixtures/groundrecall/institutional_write_policy_responses.json` in ClaimWright
+  - **Current status:** Supported for Python API helpers.
+  - **Caveat / restraint:** Direct low-level store methods remain trusted primitives, not public authority surfaces.
+- **The institutional conformance report maps group-valued memory scenarios to capabilities, policy routes, evidence, and caveats.**
+  - **Evidence class:** Implemented code; test coverage; reproducible artifact
+  - **Supporting code:** `src/groundrecall/institutional_conformance.py`; `examples/preprint/generate_revision_evidence.py`
+  - **Supporting tests / artifacts:** `tests/test_institutional_federation.py`; `tests/test_preprint_revision_evidence.py`; `examples/preprint/out/revision_evidence_snapshot.json`; `fixtures/groundrecall/institutional_conformance_scenarios.json` in ClaimWright
+  - **Current status:** Supported as engineering evidence mapping.
+  - **Caveat / restraint:** It is not production certification, legal compliance evidence, or broad empirical validation.
+
+
 ### Claims That Are Explicitly Not Made
 
 - **GroundRecall outperforms Mem0, HippoRAG, A-MEM, MemoryOS, or MemOS on memory benchmarks.**
@@ -548,6 +632,15 @@ The matrix is also a restraint mechanism. Claims with only normative support are
 - **GroundRecall confidence measures are fully Bayesian or empirically calibrated.**
   - **Status:** Not claimed.
   - **Reason:** Current implementation supports structured confidence profiles and Epistemap-compatible exports; validated Bayesian updating remains outside current evidence.
+- **GroundRecall MCP tools have mandatory server-side policy configuration.**
+  - **Status:** Future work.
+  - **Reason:** MCP institutional tools currently support caller-supplied policy configuration; mandatory server-side configuration remains an open policy-coverage caveat.
+- **GroundRecall institutional views perform complete post-render privacy filtering.**
+  - **Status:** Future work.
+  - **Reason:** Orientation, impact, governance, and stewardship views are release-capped, but policy-plugin preflight/post-render filtering remains partial.
+- **GroundRecall release packs are publication-gatekeeper approved by ClaimWright at runtime.**
+  - **Status:** Future work.
+  - **Reason:** Release pack generation checks license/attribution/redaction/signature constraints; direct ClaimWright publication-gate preflight remains follow-up.
 
 
 ### Demonstration Register
@@ -582,6 +675,38 @@ The current manuscript can cite implementation, tests, and a stable demonstratio
   - **Evidence class:** Reproducible demonstration
   - **Artifact:** `examples/preprint/out/search_mode_timing.json`
   - **Claim supported:** In a synthetic local fixture, indexed search is faster than indexed search plus graph expansion, while graph expansion returns additional graph context.
+- **Prior-work discovery walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/prior_work_discovery.json`
+  - **Claim supported:** Related negative or inconclusive work can be surfaced while inaccessible records are counted but not exposed.
+- **Signed catalog discovery walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/signed_catalog_discovery.json`
+  - **Claim supported:** Signed catalogs can be receiver-capped so internal scope IDs are excluded from public discovery results.
+- **Incremental subscription walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/incremental_subscription.json`
+  - **Claim supported:** Signed change bundles are filtered by subscription, quarantined, replay-detected, and acknowledged by cursor.
+- **Multi-party review and feedback walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/multi_party_review_feedback.json`
+  - **Claim supported:** Quorum evaluation surfaces duplicate, non-independent, dissenting, and stale review evidence; feedback bundles verify.
+- **Custody planning walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/custody_planning.json`
+  - **Claim supported:** Orphan stewardship, tenancy departure, private personal records, group-retained records, and retirement actions are reported without destructive apply.
+- **Release pack withdrawal walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/release_pack_withdrawal.json`
+  - **Claim supported:** Release packs preserve license/attribution/redaction evidence and withdrawal notices remain distinct from erasure.
+- **Policy-gated institutional writes walkthrough**
+  - **Evidence class:** Reproducible demonstration
+  - **Artifact:** `examples/preprint/out/policy_gated_institutional_writes.json`
+  - **Claim supported:** Policy gates block institutional write and custody-event mutations before durable records are written.
+- **Revision evidence snapshot**
+  - **Evidence class:** Reproducible artifact
+  - **Artifact:** `examples/preprint/out/revision_evidence_snapshot.json`
+  - **Claim supported:** Repository heads, policy coverage, institutional conformance, demo inventory, and paper claim boundaries are captured for revision.
 - **CiteGeist bibliography expansion**
   - **Evidence class:** Reproducible artifact
   - **Artifact:** `docs/preprint/citegeist-memory-layer.sqlite3`; `docs/preprint/memory-layer-citegeist-export.bib`

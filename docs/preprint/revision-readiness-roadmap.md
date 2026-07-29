@@ -108,6 +108,8 @@ Exit:
 
 ### PRR-05: Limitation And Threat-Model Alignment
 
+Status: completed on 2026-07-29.
+
 Align the manuscript and threat model with the current state:
 
 - no production IAM claim;
