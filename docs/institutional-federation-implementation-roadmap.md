@@ -30,6 +30,13 @@ aggregate / opaque detail levels, receiver release/instance caps, quarantine,
 policy preflight, and catalog query are implemented. Network transport and
 protected-topic inference evaluation remain future work.
 
+IF-12 status (2026-07-29): a deterministic conformance evidence report is
+implemented in `src/groundrecall/institutional_conformance.py` and exposed
+through `groundrecall inspect --institutional-conformance`. The report maps
+paper/roadmap scenarios to current capability IDs, policy actions, policy
+coverage routes, code/test/doc evidence, and explicit caveats. It is evidence
+mapping, not production certification.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

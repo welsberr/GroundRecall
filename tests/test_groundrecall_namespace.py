@@ -8,6 +8,7 @@ from groundrecall.ingest import run_groundrecall_import
 from groundrecall.inspect import inspect_store
 from groundrecall.models import ClaimRecord, ConceptRecord, ProvenanceRecord, RelationRecord
 from groundrecall.policy_coverage import build_policy_coverage_report
+from groundrecall.institutional_conformance import build_institutional_conformance_report
 from groundrecall.query import query_concept
 from groundrecall.store import GroundRecallStore
 from groundrecall.lint import lint_import_directory
@@ -56,6 +57,7 @@ def test_groundrecall_namespace_reexports_core_functions() -> None:
     assert promote_import_to_store.__module__ == "groundrecall.promotion"
     assert GroundRecallStore.__module__ == "groundrecall.store"
     assert ClaimRecord.__module__ == "groundrecall.models"
+    assert build_institutional_conformance_report.__module__ == "groundrecall.institutional_conformance"
 
 
 def test_groundrecall_inspect_summarizes_store(tmp_path: Path) -> None:

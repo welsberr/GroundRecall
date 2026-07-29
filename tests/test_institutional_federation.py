@@ -11,6 +11,10 @@ from groundrecall.institutional_federation import (
     INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION,
     build_institutional_federation_capability_report,
 )
+from groundrecall.institutional_conformance import (
+    INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION,
+    build_institutional_conformance_report,
+)
 from groundrecall import inspect as inspect_module
 from groundrecall.inspect import inspect_store
 from groundrecall.policy import PolicyDecisionPoint, PolicyDecisionValue, PolicyRequest
@@ -81,6 +85,50 @@ def test_inspect_cli_can_emit_institutional_capability_report(tmp_path: Path, ca
     output = capsys.readouterr().out
     assert INSTITUTIONAL_FEDERATION_SCHEMA_VERSION in output
     assert '"future": 2' in output
+
+
+def test_institutional_conformance_report_maps_scenarios_to_evidence() -> None:
+    report = build_institutional_conformance_report()
+    assert report == build_institutional_conformance_report()
+    assert report["schema_version"] == INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION
+    assert report["roadmap_package"] == "IF-12"
+    assert report["summary"] == {
+        "scenario_count": 6,
+        "partial_scenario_count": 6,
+        "covered_policy_action_count": 13,
+        "evidence_file_count": 21,
+    }
+    scenario_ids = {item["scenario_id"] for item in report["scenarios"]}
+    assert "duplicate_effort_avoidance" in scenario_ids
+    assert "policy_governed_assistant_surface" in scenario_ids
+    for scenario in report["scenarios"]:
+        assert scenario["evidence"]
+        assert scenario["caveat"]
+        assert all(status != "unknown" for status in scenario["capability_status"].values())
+
+
+def test_inspect_can_include_institutional_conformance_report(tmp_path: Path) -> None:
+    payload = inspect_store(tmp_path / "store", include_institutional_conformance=True)
+    assert payload["institutional_conformance"]["schema_version"] == INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION
+    assert payload["institutional_conformance"]["summary"]["scenario_count"] == 6
+
+
+def test_inspect_cli_can_emit_institutional_conformance_summary(tmp_path: Path, capsys) -> None:
+    import sys
+
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "groundrecall inspect",
+            str(tmp_path / "store"),
+            "--institutional-conformance-summary",
+        ]
+        inspect_module.main()
+    finally:
+        sys.argv = original_argv
+    output = capsys.readouterr().out
+    assert INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION in output
+    assert '"scenario_count": 6' in output
 
 
 def test_scope_and_work_records_round_trip_and_snapshot_compatibility(tmp_path: Path) -> None:

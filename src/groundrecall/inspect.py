@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .graph_diagnostics import build_graph_diagnostics, compact_graph_diagnostics
+from .institutional_conformance import build_institutional_conformance_report
 from .institutional_federation import build_institutional_federation_capability_report
 from .policy_coverage import build_policy_coverage_report
 from .store import GroundRecallStore
@@ -20,6 +21,8 @@ def summarize_store(
     compact_policy_coverage: bool = False,
     include_institutional_federation: bool = False,
     compact_institutional_federation: bool = False,
+    include_institutional_conformance: bool = False,
+    compact_institutional_conformance: bool = False,
 ) -> dict[str, Any]:
     store = GroundRecallStore(store_dir)
     snapshots = store.list_snapshots()
@@ -65,6 +68,10 @@ def summarize_store(
         payload["institutional_federation"] = build_institutional_federation_capability_report(
             compact=compact_institutional_federation
         )
+    if include_institutional_conformance or compact_institutional_conformance:
+        payload["institutional_conformance"] = build_institutional_conformance_report(
+            compact=compact_institutional_conformance
+        )
     return payload
 
 
@@ -78,6 +85,8 @@ def inspect_store(
     compact_policy_coverage: bool = False,
     include_institutional_federation: bool = False,
     compact_institutional_federation: bool = False,
+    include_institutional_conformance: bool = False,
+    compact_institutional_conformance: bool = False,
 ) -> dict[str, Any]:
     payload = summarize_store(
         store_dir,
@@ -87,6 +96,8 @@ def inspect_store(
         compact_policy_coverage=compact_policy_coverage,
         include_institutional_federation=include_institutional_federation,
         compact_institutional_federation=compact_institutional_federation,
+        include_institutional_conformance=include_institutional_conformance,
+        compact_institutional_conformance=compact_institutional_conformance,
     )
     if out_path is not None:
         Path(out_path).write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -103,6 +114,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--policy-coverage-summary", action="store_true", help="Include compact policy enforcement coverage diagnostics")
     parser.add_argument("--institutional-federation", action="store_true", help="Include institutional federation capability status")
     parser.add_argument("--institutional-federation-summary", action="store_true", help="Include compact institutional federation capability status")
+    parser.add_argument("--institutional-conformance", action="store_true", help="Include IF-12 institutional federation conformance evidence")
+    parser.add_argument("--institutional-conformance-summary", action="store_true", help="Include compact IF-12 institutional federation conformance evidence")
     return parser
 
 
@@ -117,5 +130,7 @@ def main() -> None:
         compact_policy_coverage=args.policy_coverage_summary,
         include_institutional_federation=args.institutional_federation,
         compact_institutional_federation=args.institutional_federation_summary,
+        include_institutional_conformance=args.institutional_conformance,
+        compact_institutional_conformance=args.institutional_conformance_summary,
     )
     print(json.dumps(payload, indent=2))

@@ -53,6 +53,10 @@ from .institutional_federation import (
     INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION,
     build_institutional_federation_capability_report,
 )
+from .institutional_conformance import (
+    INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION,
+    build_institutional_conformance_report,
+)
 from .institutional_custody import (
     CUSTODY_PLAN_SCHEMA_VERSION,
     InstanceRetirementPlan,
@@ -296,6 +300,8 @@ __all__ = [
     "INSTITUTIONAL_POLICY_ACTIONS",
     "INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION",
     "build_institutional_federation_capability_report",
+    "INSTITUTIONAL_CONFORMANCE_SCHEMA_VERSION",
+    "build_institutional_conformance_report",
     "CUSTODY_PLAN_SCHEMA_VERSION",
     "InstanceRetirementPlan",
     "OrphanStewardshipItem",
