@@ -16,222 +16,244 @@
 </head>
 <body>
 <h1 id="groundrecall-implemented-features-summary">GroundRecall Implemented Features Summary</h1>
-<p>Date: 2026-07-26</p>
-<p>This summary lists the implemented GroundRecall capabilities that are now in shape to support preprint drafting. It separates implemented prototype features from remaining roadmap work.</p>
+<p>Date: 2026-07-29</p>
+<p>This summary records the implemented GroundRecall capabilities that are in scope for preprint revision after IF-14 and PRR-02. It separates tested prototype behavior from limitations and future work.</p>
+<h2 id="current-evidence-snapshot">Current Evidence Snapshot</h2>
+<p>Current machine-readable reports show:</p>
+<ul>
+<li>institutional federation capability summary: <code>2 implemented</code>, <code>9 partial</code>, <code>2 future</code>;</li>
+<li>policy coverage summary: <code>44</code> routes total, <code>27 covered</code>, <code>14 partial</code>, <code>2 intentionally ungated</code>, <code>1 future</code>;</li>
+<li>durable mutation coverage: <code>15</code> routes total, <code>14 covered</code>, <code>0 partial</code>, <code>1 future</code>;</li>
+<li>institutional conformance scenarios: <code>6</code>, all intentionally marked <code>partial</code>;</li>
+<li>preprint demonstrations: <code>15</code> JSON demos plus manifest under <code>examples/preprint/out/</code>.</li>
+</ul>
+<p>The generated local revision snapshot is <code>examples/preprint/out/revision_evidence_snapshot.json</code>.</p>
 <h2 id="core-knowledge-substrate">Core Knowledge Substrate</h2>
 <p>GroundRecall provides a local, file-backed knowledge substrate for grounded assistant workflows.</p>
 <ul>
-<li>Structured records for sources, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, and snapshots.</li>
+<li>Structured records for sources, fragments, artifacts, observations, claims, concepts, relations, contradiction cases, promotions, adjudications, scopes, work, decisions, contributions, review receipts, feedback, stewardship, custody events, and snapshots.</li>
 <li>Local <code>GroundRecallStore</code> persistence with deterministic JSON records.</li>
-<li>Snapshot construction from a store for export, review, and federation workflows.</li>
-<li>Query/export surfaces for graph and provenance-oriented use.</li>
+<li>Snapshot construction for export, review, federation, inspection, and reproducible demonstrations.</li>
+<li>Query/export surfaces for provenance, graph context, confidence context, contradictions, and supersessions.</li>
 <li>Source adapter framework for importing material from multiple upstream formats.</li>
 </ul>
 <h2 id="provenance-preserving-memory-model">Provenance-Preserving Memory Model</h2>
-<p>The implemented model keeps provenance attached to claims and observations rather than flattening memory into ungrounded summaries.</p>
+<p>GroundRecall keeps provenance attached to claims and observations rather than flattening memory into ungrounded summaries.</p>
 <ul>
-<li>Observations carry provenance metadata such as support kind and grounding status.</li>
-<li>Claims can reference source observations, supporting fragments, concepts, contradictions, and superseded claims.</li>
-<li>Explicit contradiction links can be materialized as first-class contradiction cases.</li>
-<li>Contradiction cases preserve status, severity, rationale, timestamps, metadata, and adjudication linkage.</li>
-<li>Export and federation workflows preserve record identities and content hashes.</li>
-<li>Promotion workflows distinguish candidate/imported material from canonical store state.</li>
-</ul>
-<h2 id="contradiction-case-review-and-adjudication">Contradiction Case Review And Adjudication</h2>
-<p>GroundRecall now supports a first operational slice for robust contradiction tracking.</p>
-<ul>
-<li><code>contradicts_claim_ids</code> links can be synchronized into deterministic contradiction case records.</li>
-<li>Query bundles surface contradiction cases alongside raw contradiction links.</li>
-<li>Graph diagnostics distinguish contradiction links from contradiction cases.</li>
-<li>Diagnostics flag:
-<ul>
-<li>explicit contradiction links without cases</li>
-<li>contradiction cases referencing missing claims</li>
-<li>open cases involving promoted claims</li>
-</ul></li>
-<li>Adjudications can target contradiction cases directly.</li>
-<li><code>groundrecall contradictions sync STORE</code> materializes missing cases.</li>
-<li><code>groundrecall contradictions list STORE --sync</code> returns review batches with claim previews and adjudication schema.</li>
-<li><code>groundrecall contradictions adjudicate STORE CASE_ID ...</code> records review decisions while preserving the underlying conflicting claims.</li>
-<li>Semantic contradiction detection is not claimed; the current implementation operates on explicit contradiction links.</li>
+<li>Observations carry support kind, grounding status, source URL, artifact, path, retrieval, and machine/session metadata where available.</li>
+<li>Claims can reference observations, fragments, concepts, contradicted claims, superseded claims, license and attribution metadata, release metadata, and provenance visibility.</li>
+<li>Export, federation, release-pack, and promotion workflows preserve stable record identities and content hashes.</li>
+<li>Candidate/imported material remains distinct from canonical memory until review/promotion steps occur.</li>
 </ul>
 <h2 id="confidence-and-temporal-validity-infrastructure">Confidence And Temporal Validity Infrastructure</h2>
-<p>GroundRecall has implemented confidence-oriented metadata and migration support sufficient to discuss confidence as a structured assessment layer.</p>
+<p>GroundRecall supports confidence as structured, reviewable assessment rather than a single scalar.</p>
 <ul>
-<li>Confidence records can represent multiple dimensions rather than only a single score.</li>
-<li>Confidence logic accounts for basis visibility, ambiguity, applicability, expiry, supersession, and retraction metadata.</li>
-<li>Temporal validity is represented through explicit validity/expiry/supersession fields rather than hard deletion.</li>
-<li>This supports the governance framing that “forgetting” can be modeled as expiry, supersession, and confidence reduction while preserving audit history.</li>
+<li>Confidence profiles can represent basis visibility, ambiguity, applicability, expiry, supersession, retraction, and confidence effects.</li>
+<li>Epistemap-compatible exports exist for confidence and knowledge-graph surfaces.</li>
+<li>Temporal validity and ordinary “forgetting” are modeled through expiry, supersession, retraction, applicability, and confidence reduction rather than hard deletion.</li>
+<li>The implementation does not claim full Bayesian calibration or broad empirical confidence validation.</li>
 </ul>
-<h2 id="release-level-classification">Release-Level Classification</h2>
-<p>Federation and export workflows implement an access/release lattice.</p>
+<h2 id="contradiction-tracking-and-adjudication">Contradiction Tracking And Adjudication</h2>
+<p>GroundRecall supports explicit contradiction cases and review-gated contradiction candidate workflows.</p>
 <ul>
-<li>Supported release levels:
+<li><code>contradicts_claim_ids</code> links can be materialized into deterministic contradiction case records.</li>
+<li>Query bundles surface contradiction cases alongside raw contradiction links.</li>
+<li>Diagnostics flag missing contradiction cases, cases with missing claims, and open cases involving promoted claims.</li>
+<li>Heuristic contradiction candidates can be reviewed before becoming cases.</li>
+<li>Adjudications can resolve contradiction cases while preserving the underlying conflicting claims.</li>
+<li>Robust automatic semantic contradiction detection remains future work.</li>
+</ul>
+<p>Demonstrations:</p>
+<ul>
+<li><code>contradiction_adjudication.json</code></li>
+<li><code>contradiction_candidate_review.json</code></li>
+</ul>
+<h2 id="release-level-classification-and-export-guardrails">Release-Level Classification And Export Guardrails</h2>
+<p>GroundRecall implements a release lattice:</p>
 <ul>
 <li><code>public</code></li>
 <li><code>internal</code></li>
 <li><code>confidential</code></li>
 <li><code>privileged</code></li>
 <li><code>private</code></li>
-</ul></li>
+</ul>
+<p>Implemented behavior:</p>
+<ul>
 <li><code>private</code> records are local-only and are not federated.</li>
-<li>The release lattice prevents access broadening during export.</li>
-<li>Public export blocks confidential/privileged/private material unless redaction/declassification metadata supports the derivative.</li>
-<li>Hidden supporting evidence can be represented as partial basis visibility rather than silently discarded.</li>
+<li>Export and federation filtering prevent access broadening.</li>
+<li>Public export blocks confidential, privileged, and private records unless explicit redaction/declassification metadata supports a derivative.</li>
+<li>Hidden or partial provenance is represented as reduced basis visibility rather than pretending that all evidence is inspectable.</li>
 </ul>
-<h2 id="federation-bundle-export-and-verification">Federation Bundle Export And Verification</h2>
-<p>GroundRecall now supports signed federation bundles for controlled exchange between instances.</p>
+<p>Demonstration:</p>
 <ul>
-<li><code>groundrecall federation export</code> writes signed federation bundles.</li>
-<li>Bundle manifests include producer instance, owner instance, target release level, source snapshot ID, record count, content hash, and signature.</li>
-<li><code>groundrecall federation import</code> verifies bundles and places them into quarantine.</li>
-<li>Bundle verification checks:
-<ul>
-<li>signature</li>
-<li>expected key ID</li>
-<li>content hash</li>
-<li>accepted release level</li>
-<li>bundle policy violations</li>
-</ul></li>
-<li>HMAC signing remains available for local/shared-secret workflows.</li>
-<li>Ed25519 signing is implemented for public-key verification workflows.</li>
+<li><code>release_filtering.json</code></li>
 </ul>
-<h2 id="quarantine-and-promotion-workflow">Quarantine And Promotion Workflow</h2>
-<p>Federated material does not enter canonical memory directly.</p>
+<h2 id="federation-bundle-export-verification-quarantine-and-promotion">Federation Bundle Export, Verification, Quarantine, And Promotion</h2>
+<p>GroundRecall supports signed exchange bundles and quarantine-before-promotion import.</p>
 <ul>
-<li>Imported bundles are written to quarantine first.</li>
-<li>Quarantine summaries can be listed.</li>
-<li>Promotion can be planned as a dry run.</li>
-<li>Promotion can be applied only after signature verification, release-level acceptance, local policy checks, and conflict checks.</li>
-<li>Contradiction cases are included in federation bundles only when the case and all referenced claims are exportable at the target release level.</li>
-<li>Conflict handling remains review-gated rather than last-write-wins.</li>
-<li>Promotion avoids overwriting existing canonical records.</li>
+<li>Federation bundles include producer instance, owner instance, target release, source snapshot, record counts, content hash, signature, and policy report.</li>
+<li>HMAC signing is supported for local/shared-secret workflows.</li>
+<li>Ed25519 signing is supported for public-key verification workflows.</li>
+<li>Import verifies integrity and places accepted material into quarantine.</li>
+<li>Promotion from quarantine is separately planned and policy-gated.</li>
+<li>Valid signatures do not imply local authority.</li>
+<li>Promotion avoids last-write-wins behavior and preserves review/conflict state.</li>
 </ul>
-<h2 id="local-federation-policy-and-audit">Local Federation Policy And Audit</h2>
-<p>GroundRecall supports local authorization policy for federation actions.</p>
+<p>Demonstrations:</p>
 <ul>
-<li><code>FederationLocalPolicy</code> grants actions by:
-<ul>
-<li>subject ID</li>
-<li>action</li>
-<li>release level</li>
-<li>instance ID</li>
-<li>scope ID</li>
-<li>privileged allowance</li>
-</ul></li>
-<li>Supported federation actions:
-<ul>
-<li><code>export</code></li>
-<li><code>import</code></li>
-<li><code>promote</code></li>
-</ul></li>
-<li>Scoped grants require matching <code>--scope-id</code>.</li>
-<li>Unscoped grants remain global for their permitted action, release level, and instance.</li>
-<li>CLI federation commands support <code>--policy-file</code>, <code>--requester-id</code>, <code>--scope-id</code>, and <code>--audit-log</code>.</li>
-<li>Audit events capture requester, action, decision, release level, bundle ID, instance ID, scope ID, policy ID, reasons, and metadata.</li>
+<li><code>federation_quarantine.json</code></li>
+<li><code>local_authority.json</code></li>
 </ul>
-<h2 id="trust-registry">Trust Registry</h2>
-<p>GroundRecall implements local trust registries for federation verification and signing workflows.</p>
+<h2 id="local-federation-policy-trust-and-audit">Local Federation Policy, Trust, And Audit</h2>
+<p>GroundRecall includes local federation policy and trust management.</p>
 <ul>
-<li><code>FederationTrustRegistry</code> maps instance IDs and key IDs to locally trusted key material.</li>
-<li>HMAC entries store shared secrets and must be treated as secret local trust roots.</li>
-<li>Ed25519 entries store public verification keys.</li>
-<li>Trust entries include:
-<ul>
-<li>algorithm</li>
-<li>active status</li>
-<li>creation timestamp</li>
-<li>expiry timestamp</li>
-<li>revocation timestamp</li>
-<li>revocation reason</li>
-<li>superseding key ID</li>
-<li>allowed release levels</li>
-<li>trusted actions</li>
-</ul></li>
-<li>Expired, inactive, or revoked keys are retained for audit/history but blocked from export, import, and promotion.</li>
-<li>CLI support includes:
-<ul>
-<li><code>trust-add</code></li>
-<li><code>trust-list</code></li>
-<li><code>trust-revoke</code></li>
-</ul></li>
+<li><code>FederationLocalPolicy</code> grants actions by subject, action, release level, instance, scope, and privileged allowance.</li>
+<li>Supported federation actions include export, import, and promote.</li>
+<li>CLI federation commands can write audit events for policy decisions when an audit path is supplied.</li>
+<li>Trust registries record active, expired, revoked, and superseded key state.</li>
+<li>Non-secret trust metadata export omits key material.</li>
+<li>Signed Ed25519 public keysets can be published and imported with receiver-side caps.</li>
+<li>Signed role directories can be imported only through receiver-side caps and local policy compilation.</li>
 </ul>
-<h2 id="non-secret-trust-metadata-export">Non-Secret Trust Metadata Export</h2>
-<p>GroundRecall can export trust metadata without leaking local key material.</p>
+<h2 id="institutional-federation-records-and-workflows">Institutional Federation Records And Workflows</h2>
+<p>GroundRecall now has a broad institutional federation prototype slice.</p>
+<p>Implemented or partially implemented capabilities include:</p>
 <ul>
-<li><code>trust-export-metadata</code> writes <code>groundrecall.federation_trust_metadata.v1</code>.</li>
-<li>Metadata exports omit <code>key_material</code>.</li>
-<li>Metadata includes instance/key IDs, algorithm, lifecycle fields, release levels, and trusted actions.</li>
-<li>Optional <code>sha256:</code> fingerprints are available for operator comparison.</li>
-<li>Fingerprints are explicitly treated as suitable only for high-entropy keys, because fingerprints of weak shared secrets can aid guessing.</li>
+<li>scope and work records;</li>
+<li>decision, contribution, contribution-review receipt, stewardship, custody event, review receipt, and federation feedback records;</li>
+<li>prior-work discovery over work, decisions, and claims;</li>
+<li>signed federation catalogs;</li>
+<li>receiver-local subscriptions and signed incremental change bundles;</li>
+<li>multi-party review quorum evaluation and dissent preservation;</li>
+<li>feedback bundle signing/verification;</li>
+<li>custody/orphan reports, tenancy departure dry-runs, and instance retirement dry-runs;</li>
+<li>release-capped orientation, impact, governance, and stewardship views;</li>
+<li>license-aware release packs and signed withdrawal notices;</li>
+<li>institutional MCP tools;</li>
+<li>policy-gated institutional write helpers;</li>
+<li>custody-event policy preflight.</li>
 </ul>
-<h2 id="ed25519-federation-signatures">Ed25519 Federation Signatures</h2>
-<p>GroundRecall supports asymmetric bundle signatures.</p>
+<p>Demonstrations:</p>
 <ul>
-<li>Bundle export can sign with an Ed25519 private key.</li>
-<li>Bundle import/promotion can verify with an Ed25519 public key from a trust registry.</li>
-<li>Trust registry lookup enforces algorithm consistency.</li>
-<li>HMAC remains the default for backward compatibility.</li>
-<li>The implementation uses the <code>cryptography</code> package.</li>
+<li><code>prior_work_discovery.json</code></li>
+<li><code>signed_catalog_discovery.json</code></li>
+<li><code>incremental_subscription.json</code></li>
+<li><code>multi_party_review_feedback.json</code></li>
+<li><code>custody_planning.json</code></li>
+<li><code>release_pack_withdrawal.json</code></li>
+<li><code>policy_gated_institutional_writes.json</code></li>
 </ul>
-<h2 id="signed-public-keysets">Signed Public Keysets</h2>
-<p>GroundRecall supports signed Ed25519 public-key publication.</p>
+<h2 id="prior-work-discovery">Prior-Work Discovery</h2>
+<p>Prior-work search can surface related projects, techniques, experiments, decisions, claims, and negative/inconclusive outcomes before new durable work begins.</p>
 <ul>
-<li>Producers can publish Ed25519 public keys from a local trust registry as a signed public keyset.</li>
-<li>Receivers verify keysets with a pinned Ed25519 signer public key.</li>
-<li>Keyset verification checks:
-<ul>
-<li>Ed25519 signature</li>
-<li>signer key ID</li>
-<li>content hash</li>
-<li>key count</li>
-</ul></li>
-<li>Keyset import is locally capped before merging into a receiver trust registry.</li>
-<li>Receiver caps include:
-<ul>
-<li>instance IDs</li>
-<li>release levels</li>
-<li>trusted actions</li>
-</ul></li>
-<li>By default, keyset import only accepts keys for the keyset producer instance.</li>
+<li>Exact-identity and lexical candidates are distinguished.</li>
+<li>Negative and inconclusive work can be found.</li>
+<li>Release caps hide inaccessible records while reporting inaccessible counts by release level.</li>
+<li>Semantic duplicate confirmation remains review-gated.</li>
 </ul>
-<h2 id="role-directories-and-scoped-policy-compilation">Role Directories And Scoped Policy Compilation</h2>
-<p>GroundRecall implements role directories as reusable policy inputs.</p>
+<h2 id="signed-federation-catalogs">Signed Federation Catalogs</h2>
+<p>Federation catalogs support discovery without transferring canonical records.</p>
 <ul>
-<li><code>FederationRoleDirectory</code> contains role definitions and memberships.</li>
-<li>Role definitions specify actions, release levels, instance IDs, scopes, and privileged allowance.</li>
-<li>Memberships map subject IDs to role IDs.</li>
-<li><code>policy-from-roles</code> compiles role directories into ordinary local federation policy files.</li>
-<li>Compilation fails closed if a membership references an unknown role.</li>
-<li>Runtime enforcement still uses the audited <code>FederationLocalPolicy</code> grant model.</li>
+<li>Catalogs can be signed and verified.</li>
+<li>Detail levels include opaque, aggregate, and descriptive.</li>
+<li>Receiver-side caps can narrow accepted entries during quarantine.</li>
+<li>Querying a catalog surfaces discovery metadata, not local authority or canonical memory.</li>
+<li>Network transport and protected-topic inference evaluation remain future work.</li>
 </ul>
-<h2 id="signed-role-directory-publication">Signed Role-Directory Publication</h2>
-<p>GroundRecall supports signed role-directory distribution.</p>
+<h2 id="subscriptions-and-incremental-change-bundles">Subscriptions And Incremental Change Bundles</h2>
+<p>GroundRecall supports a file-based first slice for incremental federation.</p>
 <ul>
-<li>A project or entity hub can publish a signed role directory.</li>
-<li>Receivers verify the publication with a pinned Ed25519 signer public key.</li>
-<li>Verification checks:
-<ul>
-<li>Ed25519 signature</li>
-<li>signer key ID</li>
-<li>role count</li>
-<li>membership count</li>
-<li>content hash</li>
-</ul></li>
-<li>Import compiles a locally capped policy rather than trusting the published directory directly.</li>
-<li>Receiver caps include:
-<ul>
-<li>allowed subjects</li>
-<li>allowed roles</li>
-<li>allowed instances</li>
-<li>allowed release levels</li>
-<li>allowed actions</li>
-<li>allowed scopes</li>
-</ul></li>
-<li>Wildcard instance grants are narrowed to receiver-approved instance IDs during import.</li>
+<li>Subscriptions are receiver-local and include producer, scope filters, record kinds, change kinds, release ceiling, purpose, cursor, and active state.</li>
+<li>Signed change bundles are cursor-bounded and replay-safe.</li>
+<li>Imports are verified and quarantined idempotently.</li>
+<li>Acknowledgement advances only after cursor continuity and optional signature verification.</li>
+<li>Network polling and canonical promotion from change bundles remain future work.</li>
 </ul>
-<h2 id="cli-surface">CLI Surface</h2>
-<p>Implemented federation CLI commands include:</p>
+<h2 id="multi-party-review-and-feedback">Multi-Party Review And Feedback</h2>
+<p>GroundRecall supports generalized review receipts and federation feedback.</p>
+<ul>
+<li>Quorum evaluation checks minimum approvals, required roles, duplicate principals, independence, dissent, and invalidated content hashes.</li>
+<li>Federation feedback records preserve producer and receiver adjudications as separate assertions.</li>
+<li>Feedback bundles can be signed and verified.</li>
+<li>Automatic promotion blocking from quorum results and direct feedback-bundle import remain follow-up work.</li>
+</ul>
+<h2 id="custody-tenancy-departure-and-instance-retirement">Custody, Tenancy Departure, And Instance Retirement</h2>
+<p>GroundRecall supports continuity planning when people or hosts leave.</p>
+<ul>
+<li>Orphan stewardship reports identify stewardable records without active stewards.</li>
+<li>Tenancy departure planning separates private personal records from group-owned reviewed knowledge.</li>
+<li>Instance retirement planning reports trust keys, subscriptions, catalogs, pending contributions, stewardship, canonical counts, quarantine, and backup surfaces.</li>
+<li>Custody events cannot broaden release level relative to the subject record.</li>
+<li><code>record_custody_event</code> now accepts policy preflight and blocks deny/hard-gate decisions before writes.</li>
+<li>Destructive apply commands and full role/authority validation remain future work.</li>
+</ul>
+<h2 id="institutional-views-and-impact-routing">Institutional Views And Impact Routing</h2>
+<p>GroundRecall can generate read-only institutional views.</p>
+<ul>
+<li>Scope orientation packs include vocabulary, reviewed decisions, current work, negative results, unresolved contradictions, stale items, and steward roles.</li>
+<li>Change-impact reports expose reverse dependencies, contradiction state, confidence state, and incomplete-basis labels.</li>
+<li>Governance-health reports count unowned scopes/records, stale high-impact records, unresolved conflicts, incomplete provenance, and unacknowledged subscriptions.</li>
+<li>Stewardship views use explicit stewardship records and suppress activity ranking.</li>
+<li>Policy-plugin preflight and post-render filtering remain follow-up work.</li>
+</ul>
+<h2 id="license-aware-release-packs-and-withdrawal">License-Aware Release Packs And Withdrawal</h2>
+<p>GroundRecall supports deterministic release packs and withdrawal notices.</p>
+<ul>
+<li>Release packs require compatible licenses and attribution.</li>
+<li>Records are content-hashed and signed.</li>
+<li>Protected provenance can be redacted according to redaction policy.</li>
+<li>Superseding pack relationships are recorded.</li>
+<li>Signed withdrawal notices are distinct from erasure and preserve historical audit state.</li>
+<li>Direct ClaimWright publication-gate preflight and distributed withdrawal propagation remain follow-up work.</li>
+</ul>
+<h2 id="mcp-institutional-tooling">MCP Institutional Tooling</h2>
+<p>GroundRecall exposes assistant-facing MCP tools for selected institutional operations.</p>
+<p>Implemented MCP tools include:</p>
+<ul>
+<li><code>prior_work_review</code></li>
+<li><code>catalog_discovery</code></li>
+<li><code>subscription_status</code></li>
+<li><code>impact_report</code></li>
+<li><code>stewardship_orphans</code></li>
+<li><code>propose_contribution</code></li>
+</ul>
+<p>The proposal tool performs no canonical store writes. MCP policy checks remain caller-supplied rather than mandatory server-side policy configuration.</p>
+<h2 id="policy-plugin-and-claimwright-compatibility">Policy Plugin And ClaimWright Compatibility</h2>
+<p>GroundRecall owns the policy-plugin contract.</p>
+<ul>
+<li>Policy requests are bounded by decision point, action, release levels, scope, durable-memory-change status, and metadata.</li>
+<li>Static and ClaimWright-style directory providers can be composed conservatively.</li>
+<li>Deny/hard-gate decisions block selected MCP, import, export, federation, promotion, adjudication, relation-review, graph-maintenance, institutional write, and custody-event surfaces.</li>
+<li>ClaimWright remains example policy content, not a required GroundRecall dependency or authority source.</li>
+</ul>
+<p>Demonstration:</p>
+<ul>
+<li><code>policy_plugin_boundary.json</code></li>
+</ul>
+<h2 id="preprint-demonstration-register">Preprint Demonstration Register</h2>
+<p>The current demo runner is <code>examples/preprint/run_preprint_demos.py</code>.</p>
+<p>It emits:</p>
+<ul>
+<li><code>provenance_promotion.json</code></li>
+<li><code>contradiction_adjudication.json</code></li>
+<li><code>contradiction_candidate_review.json</code></li>
+<li><code>release_filtering.json</code></li>
+<li><code>federation_quarantine.json</code></li>
+<li><code>local_authority.json</code></li>
+<li><code>policy_plugin_boundary.json</code></li>
+<li><code>search_mode_timing.json</code></li>
+<li><code>prior_work_discovery.json</code></li>
+<li><code>signed_catalog_discovery.json</code></li>
+<li><code>incremental_subscription.json</code></li>
+<li><code>multi_party_review_feedback.json</code></li>
+<li><code>custody_planning.json</code></li>
+<li><code>release_pack_withdrawal.json</code></li>
+<li><code>policy_gated_institutional_writes.json</code></li>
+<li><code>manifest.json</code></li>
+</ul>
+<p><code>search_mode_timing.json</code> is an internal synthetic-store engineering indication only. It is not a benchmark against external memory-layer systems.</p>
+<h2 id="cli-and-api-surface">CLI And API Surface</h2>
+<p>Representative implemented CLI/API surfaces include:</p>
 <ul>
 <li><code>groundrecall federation export</code></li>
 <li><code>groundrecall federation import</code></li>
@@ -246,52 +268,58 @@
 <li><code>groundrecall federation trust-export-metadata</code></li>
 <li><code>groundrecall federation trust-publish-keyset</code></li>
 <li><code>groundrecall federation trust-import-keyset</code></li>
-</ul>
-<p>Implemented contradiction CLI commands include:</p>
-<ul>
 <li><code>groundrecall contradictions sync</code></li>
 <li><code>groundrecall contradictions list</code></li>
 <li><code>groundrecall contradictions adjudicate</code></li>
+<li><code>groundrecall prior-work</code></li>
+<li><code>groundrecall catalog</code></li>
+<li><code>groundrecall changes</code></li>
+<li><code>groundrecall custody</code></li>
+<li><code>groundrecall inspect --policy-coverage</code></li>
+<li><code>groundrecall inspect --institutional-federation</code></li>
+<li><code>groundrecall inspect --institutional-conformance</code></li>
+<li><code>groundrecall-mcp</code></li>
 </ul>
 <h2 id="test-and-validation-status">Test And Validation Status</h2>
-<p>As of the latest implementation pass:</p>
+<p>As of PRR-03 preparation:</p>
 <ul>
-<li>Contradiction workflow test suite: <code>7 passed</code></li>
-<li>Full test suite: <code>171 passed</code></li>
-<li>Python compile check passes.</li>
+<li>Full GroundRecall suite: <code>316 passed</code>.</li>
+<li>Preprint demo tests: <code>5 passed</code>.</li>
 <li><code>git diff --check</code> passes.</li>
-<li>Repository is clean and synced to <code>github/main</code>.</li>
+<li>The canonical repository is clean after committed changes.</li>
 </ul>
 <h2 id="preprint-ready-claims">Preprint-Ready Claims</h2>
-<p>The implementation now supports defensible preprint claims that GroundRecall demonstrates:</p>
+<p>The implementation supports scoped preprint claims that GroundRecall demonstrates:</p>
 <ul>
 <li>a provenance-preserving local memory layer;</li>
-<li>explicit confidence/temporal-validity handling;</li>
-<li>explicit contradiction case tracking and adjudication without destructive claim rewriting;</li>
+<li>structured confidence and temporal-validity handling;</li>
+<li>explicit contradiction tracking and adjudication;</li>
 <li>release-level-aware export and federation;</li>
-<li>signed exchange bundles;</li>
-<li>quarantine-before-promotion import;</li>
-<li>local policy-gated federation actions;</li>
-<li>auditable decisions;</li>
-<li>trust key lifecycle management;</li>
-<li>public-key federation verification with Ed25519;</li>
-<li>signed public-key distribution;</li>
-<li>signed role-directory distribution with receiver-side caps.</li>
+<li>signed exchange bundles and quarantine-first import;</li>
+<li>local authority controls separate from signature validity;</li>
+<li>trust key lifecycle and capped role/key distribution;</li>
+<li>policy-plugin integration on selected enforcement surfaces;</li>
+<li>institutional federation records and file-based exchange;</li>
+<li>prior-work discovery and negative-result preservation;</li>
+<li>multi-party review, dissent preservation, custody planning, and release withdrawal as partial institutional-memory workflows.</li>
 </ul>
 <h2 id="remaining-work-to-treat-as-limitations-or-future-work">Remaining Work To Treat As Limitations Or Future Work</h2>
-<p>The current implementation should not be described as a complete distributed platform.</p>
-<p>Remaining roadmap items include:</p>
+<p>The current implementation must not be described as a completed distributed memory platform.</p>
+<p>Remaining limitations include:</p>
 <ul>
 <li>network transport and polling;</li>
+<li>real-time synchronization and CRDT merge;</li>
 <li>hosted review services;</li>
-<li>automatic semantic contradiction detection;</li>
-<li>real-time synchronization;</li>
-<li>conflict-free replicated data types;</li>
-<li>public/internal release-pack publishing;</li>
-<li>stronger operator UX around review reports;</li>
-<li>broader integration with organization identity systems;</li>
-<li>production key management and recovery procedures.</li>
+<li>complete production IAM integration;</li>
+<li>mandatory server-side MCP policy configuration;</li>
+<li>policy-plugin preflight/post-render filtering for institutional views;</li>
+<li>direct ClaimWright publication-gate preflight for release packs;</li>
+<li>distributed withdrawal/revocation propagation;</li>
+<li>automatic semantic contradiction detection/resolution;</li>
+<li>destructive exceptional-erasure execution;</li>
+<li>broader benchmark comparisons against external memory-layer products;</li>
+<li>formal user-study evidence for productivity or safety outcomes.</li>
 </ul>
-<p>For the preprint, these should be presented as limitations and future work, not as implemented capabilities.</p>
+<p>These should be presented as limitations and future work, not as implemented capabilities.</p>
 </body>
 </html>
