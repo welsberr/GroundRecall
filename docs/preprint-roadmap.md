@@ -341,12 +341,33 @@ Additional evidence to generate:
 - reproducible demo outputs;
 - small table mapping each claimed property to tests/examples;
 - failure-mode table for tampering, unauthorized release level, missing scope, expired/revoked key, and unauthorized role publication.
+- evaluation-position note distinguishing existing conversational-memory benchmarks from
+  GroundRecall's governed-memory claims.
+
+Benchmark stance:
+
+- Treat LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, and related
+  conversational-memory QA suites as adjacent evaluation references, not primary
+  validation metrics for GroundRecall.
+- Use those benchmarks only for limited subfunction checks such as recall,
+  temporal reasoning, update handling, abstention, and selected conflict-handling
+  behavior after adapters exist.
+- Do not imply that success on conversational QA benchmarks would validate
+  GroundRecall's central governed-memory claims.
+- Create a GroundRecall-specific governed-memory evaluation harness for
+  provenance preservation, review-gated promotion, contradiction/adjudication
+  tracking, release-level enforcement, federation quarantine, local authority,
+  auditability, policy-plugin behavior, and public-artifact safety.
+- In the paper, describe existing memory benchmarks as evidence that long-term
+  memory evaluation is an active area and as partial recall/QA comparators only.
 
 Defer:
 
 - large user studies;
 - productivity metrics;
 - broad benchmark comparisons;
+- treating conversational-memory QA scores as sufficient evidence for governed
+  memory;
 - claims of superior safety without empirical data.
 
 ### 14. Limitations And Future Work
@@ -452,7 +473,9 @@ Contents:
 - annotation of how each source positions GroundRecall;
 - comparative analysis of GroundRecall against memory streams, virtual context, graph memory, production memory services, and memory-OS systems;
 - source URLs used for verification;
-- expansion targets for benchmarks, privacy/security, provenance, and governance literature.
+- expansion targets for benchmarks, privacy/security, provenance, and governance literature;
+- explicit caveat that conversational QA benchmarks are useful but insufficient
+  for governed-memory claims.
 
 ### P5: Manuscript Draft
 

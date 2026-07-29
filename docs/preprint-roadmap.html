@@ -340,12 +340,22 @@
 <li>reproducible demo outputs;</li>
 <li>small table mapping each claimed property to tests/examples;</li>
 <li>failure-mode table for tampering, unauthorized release level, missing scope, expired/revoked key, and unauthorized role publication.</li>
+<li>evaluation-position note distinguishing existing conversational-memory benchmarks from GroundRecall’s governed-memory claims.</li>
+</ul>
+<p>Benchmark stance:</p>
+<ul>
+<li>Treat LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, and related conversational-memory QA suites as adjacent evaluation references, not primary validation metrics for GroundRecall.</li>
+<li>Use those benchmarks only for limited subfunction checks such as recall, temporal reasoning, update handling, abstention, and selected conflict-handling behavior after adapters exist.</li>
+<li>Do not imply that success on conversational QA benchmarks would validate GroundRecall’s central governed-memory claims.</li>
+<li>Create a GroundRecall-specific governed-memory evaluation harness for provenance preservation, review-gated promotion, contradiction/adjudication tracking, release-level enforcement, federation quarantine, local authority, auditability, policy-plugin behavior, and public-artifact safety.</li>
+<li>In the paper, describe existing memory benchmarks as evidence that long-term memory evaluation is an active area and as partial recall/QA comparators only.</li>
 </ul>
 <p>Defer:</p>
 <ul>
 <li>large user studies;</li>
 <li>productivity metrics;</li>
 <li>broad benchmark comparisons;</li>
+<li>treating conversational-memory QA scores as sufficient evidence for governed memory;</li>
 <li>claims of superior safety without empirical data.</li>
 </ul>
 <h3 id="limitations-and-future-work">14. Limitations And Future Work</h3>
@@ -443,7 +453,8 @@
 <li>annotation of how each source positions GroundRecall;</li>
 <li>comparative analysis of GroundRecall against memory streams, virtual context, graph memory, production memory services, and memory-OS systems;</li>
 <li>source URLs used for verification;</li>
-<li>expansion targets for benchmarks, privacy/security, provenance, and governance literature.</li>
+<li>expansion targets for benchmarks, privacy/security, provenance, and governance literature;</li>
+<li>explicit caveat that conversational QA benchmarks are useful but insufficient for governed-memory claims.</li>
 </ul>
 <h3 id="p5-manuscript-draft">P5: Manuscript Draft</h3>
 <p>Deliverable:</p>

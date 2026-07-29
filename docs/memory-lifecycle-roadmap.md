@@ -585,6 +585,18 @@ The benchmark should include temporal updates, contradiction, abstention,
 selective current-context exclusion with preserved historical recall,
 adversarial writes, and a GroundRecall-specific operational continuation task.
 
+Existing long-memory and conversational QA benchmarks should be treated as
+adjacent subfunction checks, not as the primary validation target for this
+roadmap. LoCoMo, LongMemEval, MemoryAgentBench, LoCoMo-Plus, and similar suites
+can test recall, temporal reasoning, updates, abstention, and selected conflict
+handling after adapters exist. They do not by themselves measure the governed
+memory properties GroundRecall is trying to establish: provenance preservation,
+review-gated promotion, contradiction/adjudication state, release-level
+enforcement, federation quarantine, local authority, auditability,
+policy-plugin behavior, public-artifact safety, or institutional continuity.
+Those properties need GroundRecall-specific evaluation fixtures and failure-mode
+tests.
+
 ## Deferred Until Evidence Supports Them
 
 - a graph database as canonical storage;
