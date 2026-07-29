@@ -9,6 +9,10 @@ from pydantic import BaseModel
 
 from .models import (
     ArtifactRecord,
+    ContributionRecord,
+    ContributionReviewReceipt,
+    CustodyEventRecord,
+    DecisionRecord,
     ClaimRecord,
     ConceptRecord,
     ContradictionCaseRecord,
@@ -21,6 +25,7 @@ from .models import (
     ReviewCandidateRecord,
     ScopeRecord,
     SourceRecord,
+    StewardshipRecord,
     WorkRecord,
 )
 
@@ -36,6 +41,11 @@ class GroundRecallStore:
         self.artifacts_dir = self.base_dir / "artifacts"
         self.scopes_dir = self.base_dir / "scopes"
         self.works_dir = self.base_dir / "works"
+        self.decisions_dir = self.base_dir / "decisions"
+        self.contributions_dir = self.base_dir / "contributions"
+        self.contribution_review_receipts_dir = self.base_dir / "contribution_review_receipts"
+        self.stewardship_dir = self.base_dir / "stewardship"
+        self.custody_events_dir = self.base_dir / "custody_events"
         self.observations_dir = self.base_dir / "observations"
         self.claims_dir = self.base_dir / "claims"
         self.contradiction_cases_dir = self.base_dir / "contradiction_cases"
@@ -51,6 +61,11 @@ class GroundRecallStore:
             self.artifacts_dir,
             self.scopes_dir,
             self.works_dir,
+            self.decisions_dir,
+            self.contributions_dir,
+            self.contribution_review_receipts_dir,
+            self.stewardship_dir,
+            self.custody_events_dir,
             self.observations_dir,
             self.claims_dir,
             self.contradiction_cases_dir,
@@ -148,6 +163,56 @@ class GroundRecallStore:
 
     def list_works(self) -> list[WorkRecord]:
         return self._list(self.works_dir, WorkRecord)
+
+    def save_decision(self, record: DecisionRecord) -> DecisionRecord:
+        self._save(self.decisions_dir, record.decision_id, record)
+        return record
+
+    def get_decision(self, decision_id: str) -> DecisionRecord | None:
+        return self._load(self.decisions_dir, decision_id, DecisionRecord)
+
+    def list_decisions(self) -> list[DecisionRecord]:
+        return self._list(self.decisions_dir, DecisionRecord)
+
+    def save_contribution(self, record: ContributionRecord) -> ContributionRecord:
+        self._save(self.contributions_dir, record.contribution_id, record)
+        return record
+
+    def get_contribution(self, contribution_id: str) -> ContributionRecord | None:
+        return self._load(self.contributions_dir, contribution_id, ContributionRecord)
+
+    def list_contributions(self) -> list[ContributionRecord]:
+        return self._list(self.contributions_dir, ContributionRecord)
+
+    def save_contribution_review_receipt(self, record: ContributionReviewReceipt) -> ContributionReviewReceipt:
+        self._save(self.contribution_review_receipts_dir, record.receipt_id, record)
+        return record
+
+    def get_contribution_review_receipt(self, receipt_id: str) -> ContributionReviewReceipt | None:
+        return self._load(self.contribution_review_receipts_dir, receipt_id, ContributionReviewReceipt)
+
+    def list_contribution_review_receipts(self) -> list[ContributionReviewReceipt]:
+        return self._list(self.contribution_review_receipts_dir, ContributionReviewReceipt)
+
+    def save_stewardship(self, record: StewardshipRecord) -> StewardshipRecord:
+        self._save(self.stewardship_dir, record.stewardship_id, record)
+        return record
+
+    def get_stewardship(self, stewardship_id: str) -> StewardshipRecord | None:
+        return self._load(self.stewardship_dir, stewardship_id, StewardshipRecord)
+
+    def list_stewardship(self) -> list[StewardshipRecord]:
+        return self._list(self.stewardship_dir, StewardshipRecord)
+
+    def save_custody_event(self, record: CustodyEventRecord) -> CustodyEventRecord:
+        self._save(self.custody_events_dir, record.event_id, record)
+        return record
+
+    def get_custody_event(self, event_id: str) -> CustodyEventRecord | None:
+        return self._load(self.custody_events_dir, event_id, CustodyEventRecord)
+
+    def list_custody_events(self) -> list[CustodyEventRecord]:
+        return self._list(self.custody_events_dir, CustodyEventRecord)
 
     def save_observation(self, record: ObservationRecord) -> ObservationRecord:
         self._save(self.observations_dir, record.observation_id, record)
@@ -248,6 +313,11 @@ class GroundRecallStore:
             artifacts=self.list_artifacts(),
             scopes=self.list_scopes(),
             works=self.list_works(),
+            decisions=self.list_decisions(),
+            contributions=self.list_contributions(),
+            contribution_review_receipts=self.list_contribution_review_receipts(),
+            stewardship=self.list_stewardship(),
+            custody_events=self.list_custody_events(),
             observations=self.list_observations(),
             claims=self.list_claims(),
             contradiction_cases=self.list_contradiction_cases(),

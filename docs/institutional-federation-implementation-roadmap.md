@@ -15,6 +15,11 @@ IF-01 status (2026-07-29): scope/work records, additive snapshots, release
 filtering, inspection counts, and CLI CRUD are implemented locally. Contribution
 and stewardship records remain in IF-02.
 
+IF-02 status (2026-07-29): decision, contribution, review-receipt,
+stewardship, and custody-event records plus contribution transition validation
+are implemented. Reviewer authority and separation-of-duty enforcement remain
+in IF-03.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately

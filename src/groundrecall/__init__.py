@@ -14,6 +14,12 @@ from .contradictions import (
 )
 from .inspect import inspect_store, summarize_store
 from .institutional_records import build_parser as build_institutional_records_parser
+from .institutional_lifecycle import (
+    CONTRIBUTION_STATES,
+    VALID_CONTRIBUTION_TRANSITIONS,
+    ContributionTransitionError,
+    transition_contribution,
+)
 from .institutional_federation import (
     INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
     INSTITUTIONAL_POLICY_ACTIONS,
@@ -222,4 +228,8 @@ __all__ = [
     "summarize_store",
     "inspect_store",
     "build_institutional_records_parser",
+    "CONTRIBUTION_STATES",
+    "VALID_CONTRIBUTION_TRANSITIONS",
+    "ContributionTransitionError",
+    "transition_contribution",
 ]

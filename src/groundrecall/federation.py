@@ -1152,6 +1152,18 @@ def filter_snapshot_for_federation(
         for item in _filter_records(snapshot.works, "work", "work_id", target_release_level, findings, allow_unclassified_public)
         if not item.scope_id or _dependency_allowed("work", item.work_id, item.scope_id, allowed_scope_ids, "scope", findings)
     ]
+    decisions = _filter_records(snapshot.decisions, "decision", "decision_id", target_release_level, findings, allow_unclassified_public)
+    contributions = _filter_records(snapshot.contributions, "contribution", "contribution_id", target_release_level, findings, allow_unclassified_public)
+    contribution_review_receipts = _filter_records(
+        snapshot.contribution_review_receipts,
+        "contribution_review_receipt",
+        "receipt_id",
+        target_release_level,
+        findings,
+        allow_unclassified_public,
+    )
+    stewardship = _filter_records(snapshot.stewardship, "stewardship", "stewardship_id", target_release_level, findings, allow_unclassified_public)
+    custody_events = _filter_records(snapshot.custody_events, "custody_event", "event_id", target_release_level, findings, allow_unclassified_public)
 
     observations = [
         item
@@ -1257,6 +1269,11 @@ def filter_snapshot_for_federation(
             "artifacts": artifacts,
             "scopes": scopes,
             "works": works,
+            "decisions": decisions,
+            "contributions": contributions,
+            "contribution_review_receipts": contribution_review_receipts,
+            "stewardship": stewardship,
+            "custody_events": custody_events,
             "observations": observations,
             "claims": claims,
             "contradiction_cases": contradiction_cases,
@@ -1272,6 +1289,11 @@ def filter_snapshot_for_federation(
         "artifacts": len(artifacts),
         "scopes": len(scopes),
         "works": len(works),
+        "decisions": len(decisions),
+        "contributions": len(contributions),
+        "contribution_review_receipts": len(contribution_review_receipts),
+        "stewardship": len(stewardship),
+        "custody_events": len(custody_events),
         "observations": len(observations),
         "claims": len(claims),
         "contradiction_cases": len(contradiction_cases),

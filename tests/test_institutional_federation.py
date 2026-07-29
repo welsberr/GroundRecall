@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from groundrecall.institutional_federation import (
     INSTITUTIONAL_FEDERATION_SCHEMA_VERSION,
     INSTITUTIONAL_POLICY_ACTIONS,
@@ -15,6 +17,13 @@ from groundrecall.policy import PolicyDecisionPoint, PolicyDecisionValue, Policy
 from groundrecall.export_guardrails import filter_snapshot_for_public_export
 from groundrecall.federation import filter_snapshot_for_federation
 from groundrecall.models import GroundRecallSnapshot, ScopeRecord, WorkRecord
+from groundrecall.models import (
+    ContributionRecord,
+    CustodyEventRecord,
+    DecisionRecord,
+    StewardshipRecord,
+)
+from groundrecall.institutional_lifecycle import ContributionTransitionError, transition_contribution
 from groundrecall.store import GroundRecallStore
 
 
@@ -185,3 +194,96 @@ def test_institutional_cli_creates_and_lists_negative_work(tmp_path: Path, capsy
         sys.argv = original_argv
     payload = json.loads(capsys.readouterr().out)
     assert payload[0]["outcome"] == "inconclusive"
+
+
+def test_contribution_transition_preserves_hashes_and_appends_receipt() -> None:
+    contribution = ContributionRecord(
+        contribution_id="contrib-1",
+        contributor_id="alice",
+        destination_scope_id="scope-alpha",
+        contribution_intent="share negative result",
+        contributed_record_ids=["work-negative"],
+        contributed_content_hashes=["sha256:abc"],
+        state="proposed",
+    )
+    with pytest.raises(ContributionTransitionError):
+        transition_contribution(
+            contribution,
+            target_state="accepted",
+            reviewer_id="bob",
+            rationale="skip state",
+            receipt_id="receipt-invalid",
+        )
+    updated, receipt = transition_contribution(
+        contribution,
+        target_state="triaged",
+        reviewer_id="bob",
+        reviewer_role="group-reviewer",
+        rationale="scope and provenance are present",
+        receipt_id="receipt-1",
+        reviewed_at="2026-07-29T00:00:00Z",
+    )
+    assert updated.state == "triaged"
+    assert updated.review_receipt_ids == ["receipt-1"]
+    assert receipt.reviewed_content_hashes == ["sha256:abc"]
+    assert updated.contributed_content_hashes == contribution.contributed_content_hashes
+
+
+def test_institutional_lifecycle_records_round_trip_and_release_filter(tmp_path: Path) -> None:
+    store = GroundRecallStore(tmp_path / "store")
+    store.save_decision(
+        DecisionRecord(
+            decision_id="decision-1",
+            question="Which approach?",
+            outcome="Use reviewed approach",
+            rationale="The rejected alternative lacked evidence.",
+            rejected_alternatives=["unreviewed alternative"],
+            release_level="public",
+            current_status="reviewed",
+        )
+    )
+    store.save_contribution(
+        ContributionRecord(
+            contribution_id="contrib-public",
+            contributor_id="alice",
+            destination_scope_id="scope-alpha",
+            contribution_intent="share result",
+            proposed_release_level="public",
+            release_level="public",
+            state="accepted",
+            current_status="reviewed",
+        )
+    )
+    store.save_stewardship(
+        StewardshipRecord(
+            stewardship_id="steward-1",
+            subject_type="scope",
+            subject_id="scope-alpha",
+            steward_principal_id="bob",
+            status="active",
+            release_level="public",
+            current_status="reviewed",
+        )
+    )
+    store.save_custody_event(
+        CustodyEventRecord(
+            event_id="custody-1",
+            event_kind="assign",
+            subject_type="scope",
+            subject_id="scope-alpha",
+            new_custodian_id="bob",
+            rationale="initial assignment",
+            release_level="public",
+        )
+    )
+    snapshot = store.build_snapshot("snapshot-lifecycle", "2026-07-29T00:00:00Z")
+    assert len(snapshot.decisions) == 1
+    assert len(snapshot.contributions) == 1
+    assert len(snapshot.stewardship) == 1
+    assert len(snapshot.custody_events) == 1
+    public_snapshot, report = filter_snapshot_for_public_export(snapshot)
+    assert len(public_snapshot.decisions) == 1
+    assert len(public_snapshot.contributions) == 1
+    assert len(public_snapshot.stewardship) == 1
+    assert len(public_snapshot.custody_events) == 1
+    assert report["excluded_total"] == 0

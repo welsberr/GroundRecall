@@ -13,10 +13,14 @@ except ImportError:  # pragma: no cover - optional local integration fallback
 LifecycleStatus = Literal["draft", "triaged", "reviewed", "promoted", "superseded", "archived", "rejected"]
 GroundingStatus = Literal["grounded", "partially_grounded", "ungrounded"]
 SupportKind = Literal["direct_source", "derived_from_page", "derived_from_session", "inferred", "unknown"]
+ProvenanceVisibility = Literal["full", "partial", "redacted", "hidden"]
 ReleaseLevel = Literal["public", "internal", "confidential", "privileged", "private"]
 ScopeKind = Literal["entity", "group", "project", "community"]
 WorkKind = Literal["project", "technique", "experiment", "prototype", "incident", "lesson"]
 WorkOutcome = Literal["unknown", "successful", "failed", "inconclusive", "superseded", "abandoned"]
+ContributionState = Literal["proposed", "triaged", "under_review", "accepted", "partially_accepted", "rejected", "deferred", "withdrawn", "superseded"]
+StewardshipStatus = Literal["assigned", "active", "transferred", "declined", "expired", "orphaned"]
+CustodyEventKind = Literal["assign", "accept", "transfer", "decline", "orphan", "recover", "retire"]
 
 
 class ProvenanceRecord(BaseModel):
@@ -94,6 +98,99 @@ class WorkRecord(BaseModel):
     related_artifact_ids: list[str] = Field(default_factory=list)
     release_level: ReleaseLevel = "private"
     current_status: LifecycleStatus = "draft"
+    metadata: dict = Field(default_factory=dict)
+
+
+class DecisionRecord(BaseModel):
+    decision_id: str
+    scope_id: str = ""
+    question: str
+    outcome: str
+    status: str = "active"
+    alternatives_considered: list[str] = Field(default_factory=list)
+    rejected_alternatives: list[str] = Field(default_factory=list)
+    constraints: list[str] = Field(default_factory=list)
+    rationale: str = ""
+    supporting_record_ids: list[str] = Field(default_factory=list)
+    opposing_record_ids: list[str] = Field(default_factory=list)
+    decision_maker_ids: list[str] = Field(default_factory=list)
+    reviewer_role_ids: list[str] = Field(default_factory=list)
+    effective_at: str = ""
+    review_due_at: str = ""
+    superseded_at: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "draft"
+    metadata: dict = Field(default_factory=dict)
+
+
+class ContributionRecord(BaseModel):
+    contribution_id: str
+    origin_instance_id: str = ""
+    contributor_id: str
+    destination_scope_id: str
+    contribution_intent: str
+    contributed_record_ids: list[str] = Field(default_factory=list)
+    contributed_content_hashes: list[str] = Field(default_factory=list)
+    proposed_release_level: ReleaseLevel = "private"
+    provenance_visibility: ProvenanceVisibility = "full"
+    state: ContributionState = "proposed"
+    assigned_steward_role_ids: list[str] = Field(default_factory=list)
+    reviewer_role_ids: list[str] = Field(default_factory=list)
+    policy_decision_ids: list[str] = Field(default_factory=list)
+    review_receipt_ids: list[str] = Field(default_factory=list)
+    rationale: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "draft"
+    metadata: dict = Field(default_factory=dict)
+
+
+class ContributionReviewReceipt(BaseModel):
+    receipt_id: str
+    contribution_id: str
+    reviewer_id: str
+    reviewer_role: str = ""
+    decision: str
+    rationale: str
+    reviewed_content_hashes: list[str] = Field(default_factory=list)
+    policy_id: str = ""
+    reviewed_at: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "reviewed"
+    metadata: dict = Field(default_factory=dict)
+
+
+class StewardshipRecord(BaseModel):
+    stewardship_id: str
+    subject_type: Literal["scope", "record", "work", "decision", "contribution"]
+    subject_id: str
+    scope_id: str = ""
+    steward_principal_id: str = ""
+    steward_role_id: str = ""
+    responsibility_type: str = "maintain"
+    effective_at: str = ""
+    expires_at: str = ""
+    status: StewardshipStatus = "assigned"
+    succession_target_id: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "draft"
+    metadata: dict = Field(default_factory=dict)
+
+
+class CustodyEventRecord(BaseModel):
+    event_id: str
+    event_kind: CustodyEventKind
+    subject_type: str
+    subject_id: str
+    scope_id: str = ""
+    previous_custodian_id: str = ""
+    new_custodian_id: str = ""
+    authority_id: str = ""
+    rationale: str = ""
+    occurred_at: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "reviewed"
     metadata: dict = Field(default_factory=dict)
 
 
@@ -206,6 +303,11 @@ class GroundRecallSnapshot(BaseModel):
     artifacts: list[ArtifactRecord] = Field(default_factory=list)
     scopes: list[ScopeRecord] = Field(default_factory=list)
     works: list[WorkRecord] = Field(default_factory=list)
+    decisions: list[DecisionRecord] = Field(default_factory=list)
+    contributions: list[ContributionRecord] = Field(default_factory=list)
+    contribution_review_receipts: list[ContributionReviewReceipt] = Field(default_factory=list)
+    stewardship: list[StewardshipRecord] = Field(default_factory=list)
+    custody_events: list[CustodyEventRecord] = Field(default_factory=list)
     observations: list[ObservationRecord] = Field(default_factory=list)
     claims: list[ClaimRecord] = Field(default_factory=list)
     contradiction_cases: list[ContradictionCaseRecord] = Field(default_factory=list)

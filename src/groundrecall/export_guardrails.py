@@ -154,6 +154,16 @@ def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[G
         for item in _filter_records(snapshot.works, "work", lambda item: item.work_id, findings)
         if not item.scope_id or _keep_dependency("work", item.work_id, item.scope_id, allowed_scope_ids, "scope", findings)
     ]
+    decisions = _filter_records(snapshot.decisions, "decision", lambda item: item.decision_id, findings)
+    contributions = _filter_records(snapshot.contributions, "contribution", lambda item: item.contribution_id, findings)
+    contribution_review_receipts = _filter_records(
+        snapshot.contribution_review_receipts,
+        "contribution_review_receipt",
+        lambda item: item.receipt_id,
+        findings,
+    )
+    stewardship = _filter_records(snapshot.stewardship, "stewardship", lambda item: item.stewardship_id, findings)
+    custody_events = _filter_records(snapshot.custody_events, "custody_event", lambda item: item.event_id, findings)
 
     observations = [
         item
@@ -235,6 +245,11 @@ def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[G
             "artifacts": artifacts,
             "scopes": scopes,
             "works": works,
+            "decisions": decisions,
+            "contributions": contributions,
+            "contribution_review_receipts": contribution_review_receipts,
+            "stewardship": stewardship,
+            "custody_events": custody_events,
             "observations": observations,
             "claims": claims,
             "concepts": concepts,
