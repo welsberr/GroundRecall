@@ -96,8 +96,8 @@ def build_institutional_federation_capability_report(*, compact: bool = False) -
         },
         {
             "capability_id": "multi_party_review_feedback",
-            "status": "future",
-            "evidence": ["docs/institutional-federation-implementation-roadmap.md#IF-07"],
+            "status": "partial",
+            "evidence": ["src/groundrecall/institutional_review.py", "tests/test_institutional_review.py", "docs/institutional-federation-implementation-roadmap.md#IF-07"],
         },
         {
             "capability_id": "custody_transfer_and_instance_retirement",

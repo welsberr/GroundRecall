@@ -93,6 +93,9 @@ def _records(store: GroundRecallStore) -> list[tuple[str, Any]]:
         ("work", store.list_works()),
         ("decision", store.list_decisions()),
         ("contribution", store.list_contributions()),
+        ("contribution_review_receipt", store.list_contribution_review_receipts()),
+        ("review_receipt", store.list_review_receipts()),
+        ("federation_feedback", store.list_federation_feedback()),
         ("stewardship", store.list_stewardship()),
         ("custody_event", store.list_custody_events()),
     )
@@ -100,7 +103,7 @@ def _records(store: GroundRecallStore) -> list[tuple[str, Any]]:
 
 
 def _record_id(record_kind: str, record: Any) -> str:
-    for field in (f"{record_kind}_id", "event_id", "case_id", "relation_id"):
+    for field in (f"{record_kind}_id", "receipt_id", "feedback_id", "event_id", "case_id", "relation_id"):
         value = getattr(record, field, None)
         if value:
             return str(value)

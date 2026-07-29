@@ -162,6 +162,8 @@ def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[G
         lambda item: item.receipt_id,
         findings,
     )
+    review_receipts = _filter_records(snapshot.review_receipts, "review_receipt", lambda item: item.receipt_id, findings)
+    federation_feedback = _filter_records(snapshot.federation_feedback, "federation_feedback", lambda item: item.feedback_id, findings)
     stewardship = _filter_records(snapshot.stewardship, "stewardship", lambda item: item.stewardship_id, findings)
     custody_events = _filter_records(snapshot.custody_events, "custody_event", lambda item: item.event_id, findings)
 
@@ -248,6 +250,8 @@ def filter_snapshot_for_public_export(snapshot: GroundRecallSnapshot) -> tuple[G
             "decisions": decisions,
             "contributions": contributions,
             "contribution_review_receipts": contribution_review_receipts,
+            "review_receipts": review_receipts,
+            "federation_feedback": federation_feedback,
             "stewardship": stewardship,
             "custody_events": custody_events,
             "observations": observations,

@@ -1162,6 +1162,22 @@ def filter_snapshot_for_federation(
         findings,
         allow_unclassified_public,
     )
+    review_receipts = _filter_records(
+        snapshot.review_receipts,
+        "review_receipt",
+        "receipt_id",
+        target_release_level,
+        findings,
+        allow_unclassified_public,
+    )
+    federation_feedback = _filter_records(
+        snapshot.federation_feedback,
+        "federation_feedback",
+        "feedback_id",
+        target_release_level,
+        findings,
+        allow_unclassified_public,
+    )
     stewardship = _filter_records(snapshot.stewardship, "stewardship", "stewardship_id", target_release_level, findings, allow_unclassified_public)
     custody_events = _filter_records(snapshot.custody_events, "custody_event", "event_id", target_release_level, findings, allow_unclassified_public)
 
@@ -1272,6 +1288,8 @@ def filter_snapshot_for_federation(
             "decisions": decisions,
             "contributions": contributions,
             "contribution_review_receipts": contribution_review_receipts,
+            "review_receipts": review_receipts,
+            "federation_feedback": federation_feedback,
             "stewardship": stewardship,
             "custody_events": custody_events,
             "observations": observations,
@@ -1292,6 +1310,8 @@ def filter_snapshot_for_federation(
         "decisions": len(decisions),
         "contributions": len(contributions),
         "contribution_review_receipts": len(contribution_review_receipts),
+        "review_receipts": len(review_receipts),
+        "federation_feedback": len(federation_feedback),
         "stewardship": len(stewardship),
         "custody_events": len(custody_events),
         "observations": len(observations),
@@ -2276,6 +2296,20 @@ def _promotion_collections(bundle: FederationBundle, store: GroundRecallStore) -
             "id_field": "adjudication_id",
             "get_existing": store.get_adjudication,
             "save": store.save_adjudication,
+        },
+        {
+            "record_kind": "review_receipt",
+            "incoming": bundle.snapshot.review_receipts,
+            "id_field": "receipt_id",
+            "get_existing": store.get_review_receipt,
+            "save": store.save_review_receipt,
+        },
+        {
+            "record_kind": "federation_feedback",
+            "incoming": bundle.snapshot.federation_feedback,
+            "id_field": "feedback_id",
+            "get_existing": store.get_federation_feedback,
+            "save": store.save_federation_feedback,
         },
     ]
 

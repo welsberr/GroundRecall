@@ -53,6 +53,19 @@ from .institutional_federation import (
     INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION,
     build_institutional_federation_capability_report,
 )
+from .institutional_review import (
+    FEDERATION_FEEDBACK_BUNDLE_SCHEMA_VERSION,
+    FederationFeedbackBundle,
+    QuorumEvaluation,
+    QuorumRule,
+    build_feedback_bundle,
+    content_hash,
+    evaluate_review_quorum,
+    record_federation_feedback,
+    record_review_receipt,
+    unresolved_federation_disagreements,
+    verify_feedback_bundle,
+)
 from .graph_augment import GraphAugmentPolicyError, augment_store_relations_from_claims
 from .graph_maintenance import run_graph_maintenance_slice
 from .ingest import ImportPolicyError, ImportResult, build_parser as build_import_parser, main as import_main, run_groundrecall_import
@@ -250,6 +263,17 @@ __all__ = [
     "INSTITUTIONAL_POLICY_ACTIONS",
     "INSTITUTIONAL_POLICY_FIXTURE_SCHEMA_VERSION",
     "build_institutional_federation_capability_report",
+    "FEDERATION_FEEDBACK_BUNDLE_SCHEMA_VERSION",
+    "FederationFeedbackBundle",
+    "QuorumEvaluation",
+    "QuorumRule",
+    "build_feedback_bundle",
+    "content_hash",
+    "evaluate_review_quorum",
+    "record_federation_feedback",
+    "record_review_receipt",
+    "unresolved_federation_disagreements",
+    "verify_feedback_bundle",
     "build_query_parser",
     "query_main",
     "summarize_store",

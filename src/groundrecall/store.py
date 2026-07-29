@@ -13,6 +13,7 @@ from .models import (
     ContributionReviewReceipt,
     CustodyEventRecord,
     DecisionRecord,
+    FederationFeedbackRecord,
     ClaimRecord,
     ConceptRecord,
     ContradictionCaseRecord,
@@ -23,6 +24,7 @@ from .models import (
     AdjudicationRecord,
     RelationRecord,
     ReviewCandidateRecord,
+    ReviewReceiptRecord,
     ScopeRecord,
     SourceRecord,
     StewardshipRecord,
@@ -44,6 +46,8 @@ class GroundRecallStore:
         self.decisions_dir = self.base_dir / "decisions"
         self.contributions_dir = self.base_dir / "contributions"
         self.contribution_review_receipts_dir = self.base_dir / "contribution_review_receipts"
+        self.review_receipts_dir = self.base_dir / "review_receipts"
+        self.federation_feedback_dir = self.base_dir / "federation_feedback"
         self.stewardship_dir = self.base_dir / "stewardship"
         self.custody_events_dir = self.base_dir / "custody_events"
         self.observations_dir = self.base_dir / "observations"
@@ -64,6 +68,8 @@ class GroundRecallStore:
             self.decisions_dir,
             self.contributions_dir,
             self.contribution_review_receipts_dir,
+            self.review_receipts_dir,
+            self.federation_feedback_dir,
             self.stewardship_dir,
             self.custody_events_dir,
             self.observations_dir,
@@ -194,6 +200,26 @@ class GroundRecallStore:
     def list_contribution_review_receipts(self) -> list[ContributionReviewReceipt]:
         return self._list(self.contribution_review_receipts_dir, ContributionReviewReceipt)
 
+    def save_review_receipt(self, record: ReviewReceiptRecord) -> ReviewReceiptRecord:
+        self._save(self.review_receipts_dir, record.receipt_id, record)
+        return record
+
+    def get_review_receipt(self, receipt_id: str) -> ReviewReceiptRecord | None:
+        return self._load(self.review_receipts_dir, receipt_id, ReviewReceiptRecord)
+
+    def list_review_receipts(self) -> list[ReviewReceiptRecord]:
+        return self._list(self.review_receipts_dir, ReviewReceiptRecord)
+
+    def save_federation_feedback(self, record: FederationFeedbackRecord) -> FederationFeedbackRecord:
+        self._save(self.federation_feedback_dir, record.feedback_id, record)
+        return record
+
+    def get_federation_feedback(self, feedback_id: str) -> FederationFeedbackRecord | None:
+        return self._load(self.federation_feedback_dir, feedback_id, FederationFeedbackRecord)
+
+    def list_federation_feedback(self) -> list[FederationFeedbackRecord]:
+        return self._list(self.federation_feedback_dir, FederationFeedbackRecord)
+
     def save_stewardship(self, record: StewardshipRecord) -> StewardshipRecord:
         self._save(self.stewardship_dir, record.stewardship_id, record)
         return record
@@ -316,6 +342,8 @@ class GroundRecallStore:
             decisions=self.list_decisions(),
             contributions=self.list_contributions(),
             contribution_review_receipts=self.list_contribution_review_receipts(),
+            review_receipts=self.list_review_receipts(),
+            federation_feedback=self.list_federation_feedback(),
             stewardship=self.list_stewardship(),
             custody_events=self.list_custody_events(),
             observations=self.list_observations(),

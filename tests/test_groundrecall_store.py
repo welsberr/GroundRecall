@@ -7,11 +7,13 @@ from groundrecall.models import (
     ClaimRecord,
     ConceptRecord,
     ContradictionCaseRecord,
+    FederationFeedbackRecord,
     GroundRecallSnapshot,
     PromotionRecord,
     ProvenanceRecord,
     RelationRecord,
     ReviewCandidateRecord,
+    ReviewReceiptRecord,
     SourceRecord,
 )
 from groundrecall.store import GroundRecallStore
@@ -90,6 +92,27 @@ def test_groundrecall_store_round_trips_canonical_objects(tmp_path: Path) -> Non
             current_status="triaged",
         )
     )
+    review_receipt = store.save_review_receipt(
+        ReviewReceiptRecord(
+            receipt_id="rr_001",
+            subject_type="claim",
+            subject_id="clm_001",
+            reviewer_principal_id="reviewer-a",
+            reviewer_role_id="group-reviewer",
+            decision="approve",
+            reviewed_content_hash="hash1",
+        )
+    )
+    feedback = store.save_federation_feedback(
+        FederationFeedbackRecord(
+            feedback_id="fb_001",
+            origin_instance_id="host-a",
+            subject_type="claim",
+            subject_id="clm_001",
+            decision="dissent",
+            rationale="Receiver disagrees with producer adjudication.",
+        )
+    )
 
     assert store.get_source(source.source_id) is not None
     assert store.get_claim(claim.claim_id) is not None
@@ -98,6 +121,8 @@ def test_groundrecall_store_round_trips_canonical_objects(tmp_path: Path) -> Non
     assert store.get_relation(relation.relation_id) is not None
     assert store.get_review_candidate(review_candidate.review_candidate_id) is not None
     assert store.get_promotion(promotion.promotion_id) is not None
+    assert store.get_review_receipt(review_receipt.receipt_id) is not None
+    assert store.get_federation_feedback(feedback.feedback_id) is not None
 
 
 def test_groundrecall_store_builds_and_persists_snapshot(tmp_path: Path) -> None:

@@ -21,6 +21,8 @@ WorkOutcome = Literal["unknown", "successful", "failed", "inconclusive", "supers
 ContributionState = Literal["proposed", "triaged", "under_review", "accepted", "partially_accepted", "rejected", "deferred", "withdrawn", "superseded"]
 StewardshipStatus = Literal["assigned", "active", "transferred", "declined", "expired", "orphaned"]
 CustodyEventKind = Literal["assign", "accept", "transfer", "decline", "orphan", "recover", "retire"]
+ReviewDecision = Literal["approve", "reject", "needs_changes", "abstain", "dissent", "appeal"]
+FeedbackDecision = Literal["accept", "reject", "dissent", "appeal", "supersede", "needs_review"]
 
 
 class ProvenanceRecord(BaseModel):
@@ -156,6 +158,61 @@ class ContributionReviewReceipt(BaseModel):
     reviewed_content_hashes: list[str] = Field(default_factory=list)
     policy_id: str = ""
     reviewed_at: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "reviewed"
+    metadata: dict = Field(default_factory=dict)
+
+
+class ReviewReceiptRecord(BaseModel):
+    receipt_id: str
+    subject_type: Literal[
+        "source",
+        "fragment",
+        "artifact",
+        "scope",
+        "work",
+        "decision",
+        "contribution",
+        "stewardship",
+        "custody_event",
+        "observation",
+        "claim",
+        "contradiction_case",
+        "concept",
+        "relation",
+        "promotion",
+        "adjudication",
+        "change_bundle",
+        "catalog",
+        "federation_feedback",
+    ]
+    subject_id: str
+    reviewer_principal_id: str
+    reviewer_role_id: str = ""
+    decision: ReviewDecision
+    rationale: str = ""
+    reviewed_content_hash: str = ""
+    policy_id: str = ""
+    reviewed_at: str = ""
+    origin_instance_id: str = ""
+    release_level: ReleaseLevel = "private"
+    current_status: LifecycleStatus = "reviewed"
+    metadata: dict = Field(default_factory=dict)
+
+
+class FederationFeedbackRecord(BaseModel):
+    feedback_id: str
+    origin_instance_id: str
+    target_instance_id: str = ""
+    subject_type: Literal["contribution", "decision", "claim", "contradiction_case", "relation", "change_bundle", "catalog"]
+    subject_id: str
+    decision: FeedbackDecision
+    rationale: str = ""
+    related_receipt_ids: list[str] = Field(default_factory=list)
+    related_adjudication_ids: list[str] = Field(default_factory=list)
+    content_hash: str = ""
+    policy_id: str = ""
+    created_at: str = ""
     release_level: ReleaseLevel = "private"
     current_status: LifecycleStatus = "reviewed"
     metadata: dict = Field(default_factory=dict)
@@ -306,6 +363,8 @@ class GroundRecallSnapshot(BaseModel):
     decisions: list[DecisionRecord] = Field(default_factory=list)
     contributions: list[ContributionRecord] = Field(default_factory=list)
     contribution_review_receipts: list[ContributionReviewReceipt] = Field(default_factory=list)
+    review_receipts: list[ReviewReceiptRecord] = Field(default_factory=list)
+    federation_feedback: list[FederationFeedbackRecord] = Field(default_factory=list)
     stewardship: list[StewardshipRecord] = Field(default_factory=list)
     custody_events: list[CustodyEventRecord] = Field(default_factory=list)
     observations: list[ObservationRecord] = Field(default_factory=list)

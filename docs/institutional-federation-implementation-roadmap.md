@@ -480,6 +480,15 @@ Exit:
 
 ### IF-07: Multi-Party Review And Federation Feedback
 
+Status (2026-07-29): a first functional slice is implemented in
+`src/groundrecall/institutional_review.py`. GroundRecall now stores generalized
+review receipts and federation feedback records, evaluates reviewer quorum,
+separation, duplicate reviewer identity, dissent, and content-hash invalidation,
+exports signed feedback bundles, includes these records in snapshots and
+federation filters, and exposes unresolved disagreement summaries. Automatic
+promotion blocking from quorum results, direct feedback-bundle import, and
+deeper query/impact integration remain follow-up work.
+
 GroundRecall:
 
 - add review receipts with reviewer principal/role, decision, rationale,

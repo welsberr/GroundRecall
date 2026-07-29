@@ -206,6 +206,26 @@ then write quarantine records instead of promoting imported content directly.
 Acknowledgement advances the receiver-local cursor only after the bundle is
 accepted, so scheduled exchange can be retried without duplicating state.
 
+Evaluate multi-party review status and export dissent-preserving feedback:
+
+```bash
+groundrecall review quorum .groundrecall/store \
+  --subject-type claim \
+  --subject-id claim-123 \
+  --minimum-approvals 2 \
+  --required-role-id scope-steward \
+  --independent-from original-author
+groundrecall review disagreements .groundrecall/store
+groundrecall review feedback-bundle .groundrecall/store exports/feedback.json \
+  --origin-instance-id receiver-a \
+  --target-instance-id producer-a \
+  --key-id receiver-a-2026 \
+  --signing-key-file federation-signing.key
+```
+
+Review receipts are content-hash scoped. If the reviewed content changes, the
+old receipt is reported as invalidated rather than silently reused.
+
 Run a prior-work review before starting a substantial initiative:
 
 ```bash

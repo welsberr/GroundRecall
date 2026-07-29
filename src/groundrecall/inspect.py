@@ -33,6 +33,8 @@ def summarize_store(
         "decision_count": len(store.list_decisions()),
         "contribution_count": len(store.list_contributions()),
         "contribution_review_receipt_count": len(store.list_contribution_review_receipts()),
+        "review_receipt_count": len(store.list_review_receipts()),
+        "federation_feedback_count": len(store.list_federation_feedback()),
         "stewardship_count": len(store.list_stewardship()),
         "custody_event_count": len(store.list_custody_events()),
         "observation_count": len(store.list_observations()),
