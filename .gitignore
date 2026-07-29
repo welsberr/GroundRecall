@@ -153,6 +153,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Preprint revision evidence snapshots are generated from the current checkout.
+examples/preprint/out/revision_evidence_snapshot.json
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
@@ -226,4 +229,3 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
-
