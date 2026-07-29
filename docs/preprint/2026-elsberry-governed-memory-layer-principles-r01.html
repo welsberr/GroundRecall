@@ -100,6 +100,7 @@
 <p>Recent memory-layer systems establish the importance of durable memory for agents. A recent ACM TOIS survey organizes memory mechanisms for LLM-based agents around memory sources, forms, operations, and evaluation [10]. Generative Agents demonstrated memory streams, reflection, planning, and retrieval over remembered experience [1]. MemGPT framed long-context interaction as virtual context management across memory tiers [2]. HippoRAG combined LLMs, knowledge graphs, and Personalized PageRank for long-term multi-hop retrieval [3]. A-MEM proposed dynamically organized agentic memory with historical memory linking and evolution [4]. Mem0 presented a production-oriented long-term memory layer with extraction, consolidation, retrieval, and a graph-memory variant [5]. MemoryOS and MemOS developed memory operating-system abstractions with memory tiers, lifecycle control, scheduling, and unified memory units [6, 7]. AriGraph used a semantic and episodic knowledge-graph world model for agent planning [8]. Work on knowledge-graph alignment for retrieval-augmented generation also shows that graph representation and linearization choices affect downstream LLM use of graph knowledge [9].</p>
 <p>The governance side of the argument draws on adjacent standards and security literature. The NIST AI RMF frames AI risk management around govern, map, measure, and manage functions and trustworthy-system characteristics [11]. NIST SP 800-53 provides a security and privacy control catalog covering access control, audit and accountability, identification and authentication, privacy, and supply-chain risk management [12]. NIST SP 800-207 frames zero trust as a move away from implicit trust toward resource- and identity-centered policy decisions [13]. W3C PROV defines interoperable provenance concepts for entities, activities, agents, derivation, and bundles [14, 15]. SLSA, Sigstore, and The Update Framework provide software-supply-chain analogues for verifiable provenance, transparency logs, signed metadata, roles, and key-compromise resilience [16, 17, 18]. Recent distributed access-control survey work reinforces that access control remains a core defense for distributed systems and organizational security [19].</p>
 <p>The second bibliography expansion broadens the evaluation and security context. LongMemEval, LoCoMo, MemoryAgentBench, and LoCoMo-Plus provide concrete benchmark targets for long-term interactive memory, very long-term conversational memory, incremental memory-agent competence, selective forgetting or conflict handling, and cognitive-memory stress cases [20, 21, 22, 23]. GraphRAG work adds another relevant axis: entity graphs, community summaries, graph-retrieval surveys, GraphRAG-Bench pipeline evaluation, and agentic GraphRAG all support the claim that graph operations are becoming central to memory and retrieval systems [24, 25, 26, 27]. Privacy and authorization work is also emerging directly around persistent AI memory and RAG: Agent-Memory Protocol proposes purpose-bound memory handling, CAMS addresses memory injection and extraction attacks, and Permission-Aware RAG frames retrieval as an IAM-mediated access decision [28, 29, 30]. Older security foundations remain relevant for the federation design: decentralized information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security surveys provide vocabulary and mechanisms for local authority, no access broadening, auditability, and provenance-aware governance [31, 32, 33, 34, 35, 36].</p>
+<p>The focused PRR-07 bibliography pass adds more direct support for the paper’s operational-security cautions. Honest Computing links demonstrable data lineage and provenance to process-sensitive policy enforcement [37]. AgentPoison shows that poisoned memory or RAG knowledge bases can backdoor LLM-agent retrieval behavior [38]. MEXTRA studies black-box extraction of private LLM-agent memory [39]. Cross-MCP memory stealing shows that malicious MCP tools can exfiltrate agent session context through deceptive parameters [40]. FragFuse shows that memory writes can create a temporal channel for later access-control bypass through query fragmentation and fusion [41]. These sources strengthen the paper’s claim that governed memory must control writes, retrieval, provenance, tool boundaries, and downstream action context; they do not establish that GroundRecall has solved production memory security.</p>
 <p>Within this reviewed set, the most visible contributions concern recall, personalization, graph retrieval, memory scheduling, and production performance. Governance is less central. Release classification, provenance-preserving review, contradiction adjudication, quarantine-before-promotion federation, local authority, and auditable cross-host exchange appear as complementary controls rather than the main contribution of most reviewed memory-layer systems.</p>
 <p>GroundRecall-style governed memory is therefore complementary to performance-oriented memory layers:</p>
 <blockquote>
@@ -242,6 +243,11 @@ query/export/federation</code></pre>
 <li>Ben Laurie, Emilia Kasper Messeri, and Rob Stradling. <em>Certificate Transparency Version 2.0.</em> RFC 9162, 2021. DOI: <a href="https://doi.org/10.17487/RFC9162">10.17487/RFC9162</a>. Source: <a href="https://www.rfc-editor.org/info/rfc9162" class="uri">https://www.rfc-editor.org/info/rfc9162</a>.</li>
 <li>Alin Tomescu, Vivek Bhupatiraju, Dimitrios Papadopoulos, Charalampos Papamanthou, Nikos Triandopoulos, and Srinivas Devadas. “Transparency Logs via Append-Only Authenticated Dictionaries.” <em>Proceedings of the 2019 ACM SIGSAC Conference on Computer and Communications Security</em>, 2019, pp. 1299–1316. DOI: <a href="https://doi.org/10.1145/3319535.3345652">10.1145/3319535.3345652</a>. Source: <a href="https://doi.org/10.1145/3319535.3345652" class="uri">https://doi.org/10.1145/3319535.3345652</a>.</li>
 <li>Bofeng Pan, Natalia Stakhanova, and Suprio Ray. “Data Provenance in Security and Privacy.” <em>ACM Computing Surveys</em>, 55(14s), article 323, 2023, pp. 1–35. DOI: <a href="https://doi.org/10.1145/3593294">10.1145/3593294</a>. Source: <a href="https://doi.org/10.1145/3593294" class="uri">https://doi.org/10.1145/3593294</a>.</li>
+<li>Florian Guitton, Axel Oehmichen, Étienne Bossé, and Yike Guo. “Honest Computing: Achieving Demonstrable Data Lineage and Provenance for Driving Data and Process-Sensitive Policies.” <em>Data &amp; Policy</em>, 6, 2024. DOI: <a href="https://doi.org/10.1017/dap.2024.68">10.1017/dap.2024.68</a>. Source: <a href="https://doi.org/10.1017/dap.2024.68" class="uri">https://doi.org/10.1017/dap.2024.68</a>.</li>
+<li>Zhaorun Chen, Zhen Xiang, Chaowei Xiao, Dawn Song, and Bo Li. “AgentPoison: Red-teaming LLM Agents via Poisoning Memory or Knowledge Bases.” <em>Advances in Neural Information Processing Systems</em>, 2024. DOI: <a href="https://doi.org/10.48550/arXiv.2407.12784">10.48550/arXiv.2407.12784</a>. Source: <a href="https://arxiv.org/abs/2407.12784" class="uri">https://arxiv.org/abs/2407.12784</a>.</li>
+<li>Bo Wang, Weiyi He, Shenglai Zeng, Zhen Xiang, Yue Xing, Jiliang Tang, and Pengfei He. “Unveiling Privacy Risks in LLM Agent Memory.” <em>Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)</em>, 2025, pp. 25241–25260. DOI: <a href="https://doi.org/10.18653/v1/2025.acl-long.1227">10.18653/v1/2025.acl-long.1227</a>. Source: <a href="https://aclanthology.org/2025.acl-long.1227/" class="uri">https://aclanthology.org/2025.acl-long.1227/</a>.</li>
+<li>Yiheng Sun, Linkang Du, Zhou Su, Yuntao Wang, Han Liu, Quan Zhao, and Xiaolin Niu. “MSA: A Cross-MCP Privacy Attack via Memory Exfiltration of Large Language Models.” <em>Proceedings of the 24th Workshop on Privacy in the Electronic Society</em>, 2025, pp. 177–182. DOI: <a href="https://doi.org/10.1145/3733802.3764057">10.1145/3733802.3764057</a>. Source: <a href="https://doi.org/10.1145/3733802.3764057" class="uri">https://doi.org/10.1145/3733802.3764057</a>.</li>
+<li>Zixin Rao, Wentian Zhu, Chan Aristella Lu, Zhaorun Chen, Wei Niu, Le Guan, Bo Li, and Zhen Xiang. “FragFuse: Bypassing Access Control of Large Language Model Agents via Memory-Based Query Fragmentation and Fusion.” <em>35th USENIX Security Symposium</em>, 2026. Source: <a href="https://www.usenix.org/conference/usenixsecurity26/presentation/rao" class="uri">https://www.usenix.org/conference/usenixsecurity26/presentation/rao</a>.</li>
 </ol>
 <h1 id="appendix-a-claim-to-evidence-matrix">Appendix A: Claim-To-Evidence Matrix</h1>
 <p>This appendix substantiates the manuscript discipline that each substantive paper claim maps to one of five evidence classes:</p>
@@ -421,12 +427,12 @@ query/export/federation</code></pre>
 <li><strong>Current status:</strong> Supported as evaluation-context framing and future evaluation target selection.</li>
 <li><strong>Caveat / restraint:</strong> GroundRecall has not yet been run against those benchmarks.</li>
 </ul></li>
-<li><strong>Persistent AI memory and RAG systems raise privacy, memory-injection, memory-extraction, and retrieval-authorization concerns.</strong>
+<li><strong>Persistent AI memory and RAG systems raise privacy, memory-injection, memory-extraction, memory-poisoning, MCP exfiltration, access-control-bypass, and retrieval-authorization concerns.</strong>
 <ul>
 <li><strong>Evidence class:</strong> Bibliography/source analysis</li>
-<li><strong>Supporting artifacts:</strong> Agent-Memory Protocol, CAMS, and Permission-Aware RAG entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><strong>Supporting artifacts:</strong> Agent-Memory Protocol, CAMS, Permission-Aware RAG, AgentPoison, MEXTRA, MSA, and FragFuse entries in <code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
 <li><strong>Current status:</strong> Supported for problem-framing and comparison.</li>
-<li><strong>Caveat / restraint:</strong> The coverage is initial, not a complete privacy-leakage or authorization survey.</li>
+<li><strong>Caveat / restraint:</strong> The coverage is focused and updated through PRR-07, not a complete privacy-leakage or authorization survey.</li>
 </ul></li>
 <li><strong>GroundRecall is complementary to performance-oriented memory layers.</strong>
 <ul>
@@ -1143,8 +1149,9 @@ query/export/federation</code></pre>
 </ul>
 <h1 id="appendix-c-memory-layer-bibliography-notes">Appendix C: Memory-Layer Bibliography Notes</h1>
 <h2 id="memory-layer-technology-seed-bibliography">Memory-Layer Technology Seed Bibliography</h2>
-<p>Date: 2026-07-27</p>
+<p>Date: 2026-07-29</p>
 <p>This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The first 2026-07-27 expansion added adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources. The second 2026-07-27 expansion added long-memory benchmarks, GraphRAG surveys and benchmarks, AI-memory privacy/security work, permission-aware retrieval, information-flow control, capability security, transparency logs, and provenance-security literature.</p>
+<p>The 2026-07-29 focused expansion added memory-poisoning, memory-extraction, cross-MCP memory-exfiltration, access-control bypass, and data-lineage policy sources. This improves coverage for the paper’s governance/security claims without converting the bibliography into a systematic review.</p>
 <p>The bibliography was started as a BibTeX seed file at <code>docs/preprint/memory-layer-seed.bib</code> and ingested into a dedicated CiteGeist database at <code>docs/preprint/citegeist-memory-layer.sqlite3</code>.</p>
 <h3 id="how-to-use-this-bibliography-in-the-preprint">How To Use This Bibliography In The Preprint</h3>
 <p>GroundRecall should position itself relative to this literature as a governance-oriented memory control plane:</p>
@@ -1336,6 +1343,31 @@ query/export/federation</code></pre>
 <li><strong>Source:</strong> Pan, Stakhanova, and Ray, 2023, provenance in security/privacy</li>
 <li><strong>Why it matters for GroundRecall:</strong> Provides survey support for provenance as a security and privacy mechanism.</li>
 </ul></li>
+<li><strong><code>guitton2024honestcomputing</code></strong>
+<ul>
+<li><strong>Source:</strong> Guitton et al., 2024, <em>Honest Computing</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Connects demonstrable lineage, provenance, custody, confidentiality, and process-sensitive policy enforcement. Useful for substantiating the data-governance side of governed memory.</li>
+</ul></li>
+<li><strong><code>chen2024agentpoison</code></strong>
+<ul>
+<li><strong>Source:</strong> Chen et al., 2024, <em>AgentPoison</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Shows that poisoning an agent’s memory or RAG knowledge base can backdoor retrieval behavior. Supports the need for review-gated promotion and provenance-aware memory writes.</li>
+</ul></li>
+<li><strong><code>wang2025mextra</code></strong>
+<ul>
+<li><strong>Source:</strong> Wang et al., 2025, <em>Unveiling Privacy Risks in LLM Agent Memory</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Introduces MEXTRA, a black-box memory extraction attack against private LLM-agent memory. Supports the need for retrieval authorization and privacy-aware memory packaging.</li>
+</ul></li>
+<li><strong><code>sun2025msa</code></strong>
+<ul>
+<li><strong>Source:</strong> Sun et al., 2025, <em>MSA</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Shows cross-MCP memory exfiltration through malicious tool parameters. Directly supports the paper’s caution that MCP access must not be mistaken for complete policy enforcement.</li>
+</ul></li>
+<li><strong><code>rao2026fragfuse</code></strong>
+<ul>
+<li><strong>Source:</strong> Rao et al., 2026, <em>FragFuse</em></li>
+<li><strong>Why it matters for GroundRecall:</strong> Shows memory-based query fragmentation/fusion can bypass agent access control. Supports the need for policy checks across memory writes, retrieval, and downstream action context.</li>
+</ul></li>
 </ul>
 <h3 id="source-links-used-for-verification">Source Links Used For Verification</h3>
 <ul>
@@ -1382,11 +1414,18 @@ query/export/federation</code></pre>
 <li>RFC 9162 Certificate Transparency 2.0: https://www.rfc-editor.org/info/rfc9162</li>
 <li>Transparency logs via append-only authenticated dictionaries DOI: https://doi.org/10.1145/3319535.3345652</li>
 <li>Data provenance in security and privacy DOI: https://doi.org/10.1145/3593294</li>
+<li>Honest Computing DOI: https://doi.org/10.1017/dap.2024.68</li>
+<li>AgentPoison arXiv record: https://arxiv.org/abs/2407.12784</li>
+<li>AgentPoison NeurIPS code/citation page: https://github.com/AI-secure/AgentPoison</li>
+<li>MEXTRA / Unveiling Privacy Risks in LLM Agent Memory: https://aclanthology.org/2025.acl-long.1227/</li>
+<li>MEXTRA arXiv record: https://arxiv.org/abs/2502.13172</li>
+<li>Cross-MCP memory exfiltration DOI: https://doi.org/10.1145/3733802.3764057</li>
+<li>FragFuse USENIX page: https://www.usenix.org/conference/usenixsecurity26/presentation/rao</li>
 </ul>
 <h3 id="next-bibliography-expansion-targets">Next Bibliography Expansion Targets</h3>
 <ul>
 <li>Add a systematic-review protocol if the preprint moves from manifesto/position-paper framing toward survey claims.</li>
-<li>Deepen privacy-leakage coverage beyond initial AI-memory security and permission-aware RAG sources.</li>
+<li>Continue monitoring for peer-reviewed versions and replication of persistent-memory privacy and access-control attack papers.</li>
 <li>Add distributed revocation/key-transparency sources specific to cross-host memory federation.</li>
 <li>Replace or supplement SSRN/preprint-only sources with peer-reviewed versions as they appear.</li>
 <li>Design benchmark evaluations against LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, and project-specific governance/federation demonstrations.</li>

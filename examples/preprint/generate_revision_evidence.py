@@ -61,10 +61,10 @@ def build_revision_evidence(
             "update claim-to-evidence matrix through IF-14",
             "align limitation language with policy coverage open items",
             "add compact IF-00 through IF-14 status table",
+            "perform focused bibliography update without claiming systematic-review completeness",
         ],
         "demo_outputs": demos,
         "paper_ready_next_steps": [
-            "perform focused bibliography update without claiming systematic-review completeness",
             "run a fresh ClaimWright review against the updated draft and appendices",
             "apply actionable ClaimWright review findings before rendering the next revision",
         ],

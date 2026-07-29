@@ -1,8 +1,10 @@
 # Memory-Layer Technology Seed Bibliography
 
-Date: 2026-07-27
+Date: 2026-07-29
 
 This is the CiteGeist-seeded bibliography for the GroundRecall preprint. It began with memory-layer technology for LLM agents: memory streams, virtual-context management, graph-structured long-term memory, production memory services, and memory-operating-system proposals. The first 2026-07-27 expansion added adjacent governance, provenance, access-control, zero-trust, and software-supply-chain sources. The second 2026-07-27 expansion added long-memory benchmarks, GraphRAG surveys and benchmarks, AI-memory privacy/security work, permission-aware retrieval, information-flow control, capability security, transparency logs, and provenance-security literature.
+
+The 2026-07-29 focused expansion added memory-poisoning, memory-extraction, cross-MCP memory-exfiltration, access-control bypass, and data-lineage policy sources. This improves coverage for the paper's governance/security claims without converting the bibliography into a systematic review.
 
 The bibliography was started as a BibTeX seed file at `docs/preprint/memory-layer-seed.bib` and ingested into a dedicated CiteGeist database at `docs/preprint/citegeist-memory-layer.sqlite3`.
 
@@ -55,6 +57,11 @@ GroundRecall should position itself relative to this literature as a governance-
 | `laurie2021rfc9162` | RFC 9162, Certificate Transparency 2.0 | Provides standards support for append-only Merkle-tree transparency logs and signed timestamps. |
 | `tomescu2019transparencylogs` | Tomescu et al., 2019, append-only authenticated dictionaries | Provides formal systems/security support for efficient append-only transparency-log auditing. |
 | `pan2023provenancesecurity` | Pan, Stakhanova, and Ray, 2023, provenance in security/privacy | Provides survey support for provenance as a security and privacy mechanism. |
+| `guitton2024honestcomputing` | Guitton et al., 2024, *Honest Computing* | Connects demonstrable lineage, provenance, custody, confidentiality, and process-sensitive policy enforcement. Useful for substantiating the data-governance side of governed memory. |
+| `chen2024agentpoison` | Chen et al., 2024, *AgentPoison* | Shows that poisoning an agent's memory or RAG knowledge base can backdoor retrieval behavior. Supports the need for review-gated promotion and provenance-aware memory writes. |
+| `wang2025mextra` | Wang et al., 2025, *Unveiling Privacy Risks in LLM Agent Memory* | Introduces MEXTRA, a black-box memory extraction attack against private LLM-agent memory. Supports the need for retrieval authorization and privacy-aware memory packaging. |
+| `sun2025msa` | Sun et al., 2025, *MSA* | Shows cross-MCP memory exfiltration through malicious tool parameters. Directly supports the paper's caution that MCP access must not be mistaken for complete policy enforcement. |
+| `rao2026fragfuse` | Rao et al., 2026, *FragFuse* | Shows memory-based query fragmentation/fusion can bypass agent access control. Supports the need for policy checks across memory writes, retrieval, and downstream action context. |
 
 ## Source Links Used For Verification
 
@@ -101,11 +108,18 @@ GroundRecall should position itself relative to this literature as a governance-
 - RFC 9162 Certificate Transparency 2.0: https://www.rfc-editor.org/info/rfc9162
 - Transparency logs via append-only authenticated dictionaries DOI: https://doi.org/10.1145/3319535.3345652
 - Data provenance in security and privacy DOI: https://doi.org/10.1145/3593294
+- Honest Computing DOI: https://doi.org/10.1017/dap.2024.68
+- AgentPoison arXiv record: https://arxiv.org/abs/2407.12784
+- AgentPoison NeurIPS code/citation page: https://github.com/AI-secure/AgentPoison
+- MEXTRA / Unveiling Privacy Risks in LLM Agent Memory: https://aclanthology.org/2025.acl-long.1227/
+- MEXTRA arXiv record: https://arxiv.org/abs/2502.13172
+- Cross-MCP memory exfiltration DOI: https://doi.org/10.1145/3733802.3764057
+- FragFuse USENIX page: https://www.usenix.org/conference/usenixsecurity26/presentation/rao
 
 ## Next Bibliography Expansion Targets
 
 - Add a systematic-review protocol if the preprint moves from manifesto/position-paper framing toward survey claims.
-- Deepen privacy-leakage coverage beyond initial AI-memory security and permission-aware RAG sources.
+- Continue monitoring for peer-reviewed versions and replication of persistent-memory privacy and access-control attack papers.
 - Add distributed revocation/key-transparency sources specific to cross-host memory federation.
 - Replace or supplement SSRN/preprint-only sources with peer-reviewed versions as they appear.
 - Design benchmark evaluations against LongMemEval, LoCoMo, MemoryAgentBench, GraphRAG-Bench, and project-specific governance/federation demonstrations.
