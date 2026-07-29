@@ -7,6 +7,10 @@ Primary repositories:
 - `/home/netuser/bin/GroundRecall`
 - `/home/netuser/bin/ClaimWright`
 
+IF-00 status (2026-07-29): implemented in `ff32ae7` with a deterministic
+capability report, CLI inspection flags, and a versioned 18-action policy
+fixture. ClaimWright's matching fixture/checker slice is `94b26f3`.
+
 ## Objective
 
 Build a more capable GroundRecall federation layer that turns appropriately
