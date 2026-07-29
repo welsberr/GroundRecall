@@ -13,7 +13,7 @@ authors = [
   { name = "GroundRecall contributors" }
 ]
 dependencies = [
-  "epistemap @ git+https://github.com/welsberr/Epistemap.git@v0.1.0a2",
+  "epistemap @ git+https://github.com/welsberr/Epistemap.git@v0.1.0a3",
   "cryptography>=40,<46",
   "pydantic>=2,<3",
   "PyYAML>=6,<7",
