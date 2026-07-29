@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
-  <meta name="dcterms.date" content="2026-07-28" />
+  <meta name="dcterms.date" content="2026-07-29" />
   <title>ClaimWright Review Record for the Governed Memory Preprint Draft</title>
   <style>
     code{white-space: pre-wrap;}
@@ -18,17 +18,25 @@
 <body>
 <header id="title-block-header">
 <h1 class="title">ClaimWright Review Record for the Governed Memory Preprint Draft</h1>
-<p class="date">2026-07-28</p>
+<p class="date">2026-07-29</p>
 </header>
 <h2 id="review-scope">Review Scope</h2>
+<p>Review path: <code>docs/preprint/claimwright-review.md</code></p>
 <p>Reviewed artifacts:</p>
 <ul>
 <li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md</code></li>
 <li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.html</code></li>
+<li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01.md</code></li>
+<li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01.html</code></li>
+<li><code>docs/preprint/2026-elsberry-governed-memory-layer-principles-r01.pdf</code></li>
 <li><code>docs/preprint/claim-evidence-matrix.md</code></li>
-<li><code>docs/preprint/claim-evidence-matrix.html</code></li>
+<li><code>docs/preprint/memory-layer-bibliography.md</code></li>
+<li><code>docs/preprint/memory-layer-citegeist-export.bib</code></li>
+<li><code>docs/preprint/citegeist-memory-layer.sqlite3</code></li>
+<li><code>docs/preprint/threat-model.md</code></li>
+<li><code>examples/preprint/out/revision_evidence_snapshot.json</code></li>
 </ul>
-<p>Applied ClaimWright materials:</p>
+<p>Applied ClaimWright materials from <code>/home/netuser/bin/ClaimWright</code> at commit <code>6d85ff7</code>:</p>
 <ul>
 <li><code>MOU.md</code></li>
 <li><code>policies/principles.yaml</code></li>
@@ -41,6 +49,7 @@
 <li><code>roles/adversarial-reviewer.md</code></li>
 <li><code>roles/publication-gatekeeper.md</code></li>
 </ul>
+<p>This review evaluates the updated draft after PRR-07 bibliography expansion. It does not treat ClaimWright policy findings as external validation of ClaimWright itself.</p>
 <h2 id="pre-action-check">Pre-Action Check</h2>
 <table>
 <colgroup>
@@ -56,11 +65,11 @@
 <tbody>
 <tr class="odd">
 <td>Action classification</td>
-<td>Non-trivial review of public-facing draft artifacts.</td>
+<td>Non-trivial review of public-facing draft, appendices, evidence matrix, bibliography, and threat model.</td>
 </tr>
 <tr class="even">
 <td>Public/private status</td>
-<td>Public-facing manuscript and appendix materials; local paths and private material require hard-gate screening.</td>
+<td>Public-facing manuscript artifacts; local absolute paths may be mentioned only as review provenance, not as public evidence URLs.</td>
 </tr>
 <tr class="odd">
 <td>Reversibility</td>
@@ -68,31 +77,27 @@
 </tr>
 <tr class="even">
 <td>Evidence standard</td>
-<td>Implementation claims require code/test anchors; related-work claims require verified source or bibliography support; future-work claims require explicit limitation language.</td>
+<td>Implementation claims require code/test/demo anchors; related-work claims require source or bibliography support; limitations require explicit future-work status.</td>
 </tr>
 <tr class="odd">
 <td>Reputational risk</td>
-<td>Moderate. Overclaiming implementation, comparative performance, or citation support would weaken the paper.</td>
+<td>Moderate. The draft argues a normative manifesto thesis and connects it to local prototypes.</td>
 </tr>
 <tr class="even">
 <td>Adversarial review need</td>
-<td>Required because the draft makes a design manifesto claim and uses local prototypes as evidence.</td>
+<td>Required because the draft makes governance/security claims and discusses memory-layer risks.</td>
 </tr>
 <tr class="odd">
 <td>Model/tool suitability</td>
-<td>Local repository inspection, grep, Pandoc rendering, and pytest are appropriate.</td>
+<td>Local repository inspection, ClaimWright role/check files, CiteGeist artifacts, rendered draft review, Pandoc, and pytest are appropriate.</td>
 </tr>
 <tr class="even">
-<td>Capacity risk</td>
-<td>Low. Full local test suite ran quickly.</td>
-</tr>
-<tr class="odd">
 <td>Durable memory touch</td>
 <td>Documentation and review artifacts only; no GroundRecall memory store changed.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Scientific virtues</td>
-<td>Review emphasized veracity, skepticism, humility to evidence, provenance fairness, and public defensibility.</td>
+<td>Review emphasized veracity, skepticism, humility to evidence, public defensibility, provenance fairness, and explicit uncertainty.</td>
 </tr>
 </tbody>
 </table>
@@ -107,65 +112,65 @@
 <thead>
 <tr class="header">
 <th>Claim area</th>
-<th>State recommendation</th>
+<th>Recommendation</th>
 <th>Evidence</th>
 <th>Required restraint</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Governed memory as a necessary property set</td>
+<td>Governed memory as required property set</td>
 <td><code>supported_but_contested</code></td>
-<td>Design argument, related-work comparison, and implemented governance features</td>
-<td>Present as a normative/design thesis, not an empirical proof.</td>
+<td>Design argument; related-work comparison; claim-evidence matrix</td>
+<td>Keep as manifesto/design thesis, not empirical proof.</td>
 </tr>
 <tr class="even">
-<td>GroundRecall typed provenance-preserving record model</td>
+<td>GroundRecall prototype controls</td>
 <td><code>supported_by_primary_evidence</code></td>
-<td><code>src/groundrecall/models.py</code>, <code>src/groundrecall/store.py</code>, <code>tests/test_groundrecall_store.py</code></td>
-<td>Scope to current file-backed prototype.</td>
+<td>Current code, tests, demos, IF status table, revision evidence snapshot</td>
+<td>Scope to local file-backed prototype; avoid production platform language.</td>
 </tr>
 <tr class="odd">
-<td>Review-gated promotion</td>
+<td>Institutional federation IF-00 through IF-14 table</td>
 <td><code>supported_by_primary_evidence</code></td>
-<td><code>src/groundrecall/promotion.py</code>, <code>tests/test_groundrecall_promotion.py</code></td>
-<td>Do not imply complete hosted review workflow.</td>
+<td><code>docs/institutional-federation-implementation-roadmap.md</code>; <code>docs/implemented-features-summary.md</code>; <code>docs/preprint/claim-evidence-matrix.md</code></td>
+<td>“Partial” rows must remain partial; do not imply completed network transport, IAM, or publication gating.</td>
 </tr>
 <tr class="even">
-<td>Structured confidence and temporal applicability</td>
-<td><code>supported_by_primary_evidence</code></td>
-<td><code>src/groundrecall/confidence.py</code>, <code>tests/test_confidence_profiles.py</code>, <code>tests/test_confidence_migration.py</code></td>
-<td>Do not claim full Bayesian calibration or empirical confidence validation.</td>
+<td>Policy-plugin and ClaimWright adapter claim</td>
+<td><code>supported_by_primary_evidence</code> for selected surfaces</td>
+<td><code>src/groundrecall/policy.py</code>; <code>tests/test_policy_plugins.py</code>; ClaimWright fixtures</td>
+<td>ClaimWright is example policy content under GroundRecall’s contract, not mandatory dependency or complete policy authority.</td>
 </tr>
 <tr class="odd">
-<td>Contradiction cases and adjudication</td>
-<td><code>supported_by_primary_evidence</code></td>
-<td><code>src/groundrecall/contradictions.py</code>, <code>tests/test_contradictions.py</code>, <code>src/groundrecall/graph_augment.py</code>, <code>tests/test_graph_augment.py</code></td>
-<td>State that heuristic cue generation is review-gated and that robust semantic auto-detection/resolution remains future work.</td>
+<td>MCP governance claim</td>
+<td><code>supported_with_caveat</code></td>
+<td><code>src/groundrecall/mcp.py</code>; <code>tests/test_mcp.py</code>; policy coverage open items</td>
+<td>MCP policy remains caller-supplied; no mandatory server-side policy claim.</td>
 </tr>
 <tr class="even">
-<td>Release controls and federation quarantine</td>
+<td>Contradiction/adjudication claim</td>
 <td><code>supported_by_primary_evidence</code></td>
-<td><code>src/groundrecall/federation.py</code>, <code>src/groundrecall/export_guardrails.py</code>, <code>tests/test_federation.py</code>, <code>tests/test_export_guardrails.py</code></td>
-<td>Do not present as enterprise IAM or complete DLP.</td>
+<td><code>src/groundrecall/contradictions.py</code>; <code>tests/test_contradictions.py</code>; graph cue tests</td>
+<td>Robust automatic semantic contradiction detection remains future work.</td>
 </tr>
 <tr class="odd">
-<td>ClaimWright as policy framework</td>
-<td><code>supported_by_primary_evidence</code> for existence and selected adapter enforcement</td>
-<td>ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter</td>
-<td>State that ClaimWright is an example policy framework under GroundRecall’s bounded plugin contract, not a mandatory dependency or complete policy engine.</td>
+<td>Bibliography/source-review claim</td>
+<td><code>supported_with_completeness_caveat</code></td>
+<td>CiteGeist SQLite database; seed/export BibTeX; bibliography notes</td>
+<td>Focused bibliography only; not a systematic review.</td>
 </tr>
 <tr class="even">
-<td>CiteGeist bibliography support</td>
-<td><code>supported_by_primary_evidence</code> for seed artifacts</td>
-<td><code>docs/preprint/citegeist-memory-layer.sqlite3</code>, BibTeX export, bibliography notes</td>
-<td>State that bibliography is seeded, not systematic or complete.</td>
+<td>Security/privacy risk framing</td>
+<td><code>supported_for_problem_framing</code></td>
+<td>Agent-Memory Protocol, CAMS, Permission-Aware RAG, AgentPoison, MEXTRA, MSA, FragFuse</td>
+<td>Sources support risk framing and design motivation, not GroundRecall production security effectiveness.</td>
 </tr>
 <tr class="odd">
-<td>Epistemap confidence/graph layer</td>
-<td><code>supported_by_primary_evidence</code> for adapter surfaces</td>
-<td><code>src/groundrecall/epistemap_adapter.py</code>, <code>tests/test_epistemap_adapter.py</code></td>
-<td>Do not imply broad posterior validation.</td>
+<td>Evaluation and demo claims</td>
+<td><code>requires_revision</code></td>
+<td>Manuscript Section 9 and Section 10; demo manifest with 15 outputs</td>
+<td>The prose is stale: it still says demos/bibliography are future needs and lists only early demo outputs.</td>
 </tr>
 </tbody>
 </table>
@@ -187,66 +192,53 @@
 </thead>
 <tbody>
 <tr class="odd">
-<td>Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph</td>
-<td>A</td>
+<td>Memory-layer systems and surveys</td>
+<td>A/B</td>
 <td>Accepted</td>
-<td>Directly supports the claim that recent systems foreground durable memory, retrieval, graph memory, production memory, and memory-OS abstractions.</td>
+<td>Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and ACM TOIS memory survey support related-work framing.</td>
 </tr>
 <tr class="even">
-<td>KG/RAG alignment paper</td>
-<td>B</td>
+<td>Governance, provenance, access-control, zero-trust, and supply-chain sources</td>
+<td>A/B</td>
 <td>Accepted</td>
-<td>Supports the narrower point that graph representation and linearization affect downstream LLM use of graph knowledge.</td>
+<td>NIST, W3C PROV, SLSA, Sigstore, TUF, IFC, decentralized labels, capability/confused-deputy, transparency logs, and provenance-security sources support adjacent-pattern framing.</td>
 </tr>
 <tr class="odd">
-<td>ACM TOIS memory-mechanism survey</td>
-<td>A</td>
-<td>Accepted</td>
-<td>Supports general framing that LLM-agent memory is an identifiable technical subsystem with sources, forms, operations, and evaluation concerns.</td>
+<td>Long-memory and GraphRAG benchmark sources</td>
+<td>B</td>
+<td>Accepted for evaluation-target framing</td>
+<td>LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG do not support any GroundRecall benchmark-result claim.</td>
 </tr>
 <tr class="even">
-<td>ClaimWright local policy substrate</td>
-<td>A for example-policy claim</td>
-<td>Accepted with access caveat</td>
-<td>Supports the existence and contents of the example policy framework, not external validation of ClaimWright.</td>
+<td>Persistent-memory privacy/security additions from PRR-07</td>
+<td>B</td>
+<td>Accepted for risk framing</td>
+<td>AgentPoison, MEXTRA, MSA, FragFuse, CAMS, Agent-Memory Protocol, and Permission-Aware RAG materially improve coverage of poisoning, extraction, MCP exfiltration, access-control bypass, purpose-bound memory, and retrieval authorization.</td>
 </tr>
 <tr class="odd">
-<td>CiteGeist local bibliography artifacts</td>
-<td>A for seed-bibliography claim</td>
-<td>Accepted with completeness caveat</td>
-<td>Supports that bibliography seeding exists; does not support systematic-review completeness.</td>
+<td>Data-lineage policy addition from PRR-07</td>
+<td>B</td>
+<td>Accepted for governance framing</td>
+<td>Honest Computing supports the connection between demonstrable lineage/provenance and process-sensitive policy.</td>
 </tr>
 <tr class="even">
-<td>Privacy, provenance governance, distributed systems, IAM, and security literature</td>
-<td>B</td>
-<td>Expanded source pass accepted with caveats</td>
-<td>Added NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access control, Permission-Aware RAG, information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security sources. This supports adjacent-literature framing but remains short of a systematic review or security proof.</td>
-</tr>
-<tr class="odd">
-<td>Long-memory and GraphRAG benchmark literature</td>
-<td>B</td>
-<td>Expansion accepted for evaluation framing</td>
-<td>Added LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG sources. These support benchmark-target and related-work framing, not claims that GroundRecall has been benchmarked on them.</td>
-</tr>
-<tr class="even">
-<td>Persistent AI-memory privacy/security literature</td>
-<td>B</td>
-<td>Initial expansion accepted</td>
-<td>Added Agent-Memory Protocol, CAMS, and Permission-Aware RAG. These support privacy, memory-injection, memory-extraction, purpose-bound memory, and retrieval-authorization framing, while leaving deeper privacy-leakage review as future bibliography work.</td>
+<td>SSRN/preprint-only source</td>
+<td>C/B with venue caveat</td>
+<td>Accepted only with caveat</td>
+<td>Agentic GraphRAG survey remains useful but should be replaced or supplemented if a formal venue version appears.</td>
 </tr>
 </tbody>
 </table>
+<p>Citation result: no fabricated citation was detected in the reviewed set. The bibliography is materially broader after PRR-07, but it remains focused rather than systematic.</p>
 <h2 id="adversarial-review-memo">Adversarial Review Memo</h2>
-<p>The strongest objections are predictable and should remain visible:</p>
+<p>The strongest objections after PRR-07 are:</p>
 <ol type="1">
-<li>The paper could sound as if it proves safety benefits. The current evidence does not do that. The draft now confines itself to engineering evidence and design argument.</li>
-<li>The related-work section could be criticized as selective. The bibliography is explicitly seeded and should be expanded before submission.</li>
-<li>The phrase “memory layers should be governed” is normative. That is acceptable in manifesto mode, but the claim should not be disguised as a benchmark result.</li>
-<li>GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.</li>
-<li>ClaimWright-style policy content is now enforceable through GroundRecall’s bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.</li>
-<li>Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.</li>
-<li>Contradiction handling depends primarily on explicit contradiction links. Heuristic contradiction cueing can propose review candidates, but robust automatic semantic contradiction detection and resolution remain future work.</li>
-<li>Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.</li>
+<li>The title and thesis are intentionally normative. That is acceptable in manifesto mode, but the paper must not imply the properties are proven by user studies, benchmarks, or formal security analysis.</li>
+<li>The PRR-07 security citations make the risk case stronger. They also raise the bar for implementation wording: GroundRecall should be described as implementing governance controls, not as preventing those attack classes in production.</li>
+<li>The evaluation section still contains stale review-status language. It says the paper needs bibliography expansion and stable reproducible demonstrations, even though PRR-02/PRR-07 now provide initial versions. That should be revised to say the remaining gap is final review, systematic-scope choice, and broader evaluation.</li>
+<li>The demonstration section lists only the early demonstration outputs, while the manifest now records fifteen outputs. That mismatch weakens the claim-to-evidence discipline and should be fixed before the next rendered revision.</li>
+<li>The paper cites internal engineering timing. The caveats are currently adequate, but the timing should remain explicitly non-comparative and non-reproducible by outside readers unless a fixture is published.</li>
+<li>The IF status table is useful but could be criticized as too much internal implementation detail for the main paper. Keeping it in the appendix is the defensible placement.</li>
 </ol>
 <h2 id="publication-gate-result">Publication Gate Result</h2>
 <table>
@@ -266,98 +258,55 @@
 <tr class="odd">
 <td>Unresolved high-risk public claims</td>
 <td>Pass with caveats</td>
-<td>High-risk claims are either scoped, caveated, or listed as not made/future work.</td>
+<td>High-risk implementation/security claims are scoped to prototype evidence and limitations.</td>
 </tr>
 <tr class="even">
 <td>Fabricated or unverified citations</td>
-<td>Pass for current cited set</td>
-<td>Current references have DOI/source links. Broader bibliography remains an expansion task.</td>
+<td>Pass</td>
+<td>Reviewed citations have source links, DOI/arXiv/source pages, or explicit venue caveats.</td>
 </tr>
 <tr class="odd">
 <td>Private material in public output</td>
-<td>Pass after correction</td>
-<td>Absolute local paths were removed from the appendix.</td>
+<td>Pass with path caveat</td>
+<td>Public evidence references use repository-relative paths; review provenance itself includes local absolute paths only to identify reviewed repositories.</td>
 </tr>
 <tr class="even">
 <td>Destructive irreversible action</td>
 <td>Pass</td>
-<td>Documentation-only changes; git revertable.</td>
+<td>Documentation-only review; git-revertable.</td>
 </tr>
 <tr class="odd">
 <td>Contradicted or stale claims</td>
-<td>Pass with caveats</td>
-<td>No known contradicted/stale claims relied on for public argument; future literature expansion may create revision duties.</td>
+<td>Soft gate</td>
+<td>Two stale manuscript statements need PRR-09 cleanup: prior-review/future-demo language and the incomplete demo-output list.</td>
+</tr>
+<tr class="even">
+<td>Final human publication approval</td>
+<td>Required</td>
+<td>ClaimWright does not substitute for author approval.</td>
 </tr>
 </tbody>
 </table>
-<p>Release status: conditionally suitable for internal/public draft review, pending human publication approval. The draft is closer to final-public-safe after initial bibliography expansion and reproducible demonstrations, but it is not final-public-safe because the bibliography is still not systematic and final human publication approval remains open.</p>
-<h2 id="review-results-applied">Review Results Applied</h2>
-<table>
-<colgroup>
-<col style="width: 50%" />
-<col style="width: 50%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th>Review result</th>
-<th>Applied change</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Avoid implying proof of safety benefits.</td>
-<td>Abstract and prototype sections now say the systems demonstrate implementable local controls, not validated safety outcomes.</td>
-</tr>
-<tr class="even">
-<td>Avoid overbroad claims about the literature.</td>
-<td>Related-work language now refers to “the sources reviewed for this draft” and “within this reviewed set” rather than all memory-layer literature.</td>
-</tr>
-<tr class="odd">
-<td>Keep GroundRecall claims local/prototype-scoped.</td>
-<td>Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features.</td>
-</tr>
-<tr class="even">
-<td>Keep ClaimWright integration scoped.</td>
-<td>Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent.</td>
-</tr>
-<tr class="odd">
-<td>Avoid Bayesian confidence overclaim.</td>
-<td>Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added.</td>
-</tr>
-<tr class="even">
-<td>Keep robust semantic contradiction detection as future work.</td>
-<td>Contradiction caveats now distinguish implemented heuristic review-gated cueing from unclaimed robust semantic detection/resolution.</td>
-</tr>
-<tr class="odd">
-<td>Expose final-public-safety status.</td>
-<td>The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved.</td>
-</tr>
-<tr class="even">
-<td>Resolve public/private path issue.</td>
-<td>Repository-level references remain in the appendix; no absolute local paths are used for public evidence references.</td>
-</tr>
-<tr class="odd">
-<td>Broaden bibliography.</td>
-<td>Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references.</td>
-</tr>
-<tr class="even">
-<td>Complete second bibliography expansion targets.</td>
-<td>Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix.</td>
-</tr>
-<tr class="odd">
-<td>Add empirical demonstrations.</td>
-<td>Added <code>examples/preprint/run_preprint_demos.py</code>, <code>examples/preprint/README.md</code>, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, local authority, and the policy-plugin boundary.</td>
-</tr>
-<tr class="even">
-<td>Add search-mode timing indication.</td>
-<td>Added <code>search_mode_timing.json</code> as an internal synthetic-store timing indication for indexed search versus indexed search plus graph expansion. The draft states that this is not a comparison with external memory-layer products or a recall-quality benchmark.</td>
-</tr>
-<tr class="odd">
-<td>Update graph-maintenance evidence after knowledge-graph backfill work.</td>
-<td>Added bounded graph backfill and maintenance language to the draft and claim-evidence matrix, including review-gated relation candidates, private/no-export screening, diagnostics, maintenance profiles, state files, locks, stale-lock recovery, and extractor-mode caveats.</td>
-</tr>
-</tbody>
-</table>
+<p>Release status: conditionally suitable for internal/public draft review after PRR-09 applies the must-fix wording updates. Not final-public-safe for submission until human publication approval and final bibliography/evidence scope decisions are complete.</p>
+<h2 id="findings-grouped-for-action">Findings Grouped For Action</h2>
+<h3 id="must-fix-before-revision">Must Fix Before Revision</h3>
+<ol type="1">
+<li>Update Section 9 review-status language. The draft currently says the paper needs a broader governance/security bibliography pass and stable reproducible demonstrations. Initial bibliography expansion and demos now exist; remaining needs should be reframed as final human approval, systematic-review-scope choice, and future empirical/security evaluation.</li>
+<li>Update Section 10 demonstration-output list from the early seven-output list to the current fifteen-output manifest, or point directly to the manifest to avoid another stale list.</li>
+</ol>
+<h3 id="should-fix-before-submission">Should Fix Before Submission</h3>
+<ol type="1">
+<li>Decide whether the final paper claims only focused related-work coverage or adopts a systematic-review protocol. Do not drift between the two.</li>
+<li>Replace or supplement preprint-only / non-archival sources if peer-reviewed versions appear before submission.</li>
+<li>Add a small reproducible public fixture if timing numbers remain in the paper; otherwise keep them explicitly internal and illustrative.</li>
+<li>Consider a compact “security claims not made” paragraph near the PRR-07 security-source discussion.</li>
+</ol>
+<h3 id="future-work">Future Work</h3>
+<ol type="1">
+<li>Benchmark GroundRecall against LongMemEval, LoCoMo, MemoryAgentBench, and GraphRAG-Bench only after benchmark adapters exist.</li>
+<li>Add direct tests or demonstrations for persistent-memory attack resistance only if the implementation actually claims mitigation of those attacks.</li>
+<li>Implement mandatory MCP server policy configuration, post-render institutional-view filtering, publication-gate preflight, distributed withdrawal propagation, and exceptional-erasure execution before claiming those capabilities.</li>
+</ol>
 <h2 id="post-action-check">Post-Action Check</h2>
 <table>
 <colgroup>
@@ -372,44 +321,32 @@
 </thead>
 <tbody>
 <tr class="odd">
-<td>Files changed</td>
-<td>Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs.</td>
+<td>Files changed by review step</td>
+<td>This review record and generated rendered artifacts only.</td>
 </tr>
 <tr class="even">
-<td>Claims introduced/modified</td>
-<td>Test-suite claim changed to a dated concrete result: 234 tests passed on 2026-07-28. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication. Graph-maintenance claims are backed by current code/tests and are scoped to bounded, heuristic, review-gated backfill.</td>
+<td>Claims introduced</td>
+<td>No new implementation claim; the review adds findings and gates.</td>
 </tr>
 <tr class="odd">
-<td>Citations recorded</td>
-<td>Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey.</td>
+<td>Citations reviewed</td>
+<td>41-entry focused bibliography, with PRR-07 additions included.</td>
 </tr>
 <tr class="even">
 <td>Assumptions visible</td>
-<td>The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright.</td>
+<td>The local ClaimWright repository supplies the policy/check stance; this is not external validation of ClaimWright.</td>
 </tr>
 <tr class="odd">
 <td>Unresolved risks</td>
-<td>Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; robust semantic contradiction detection/resolution remains future work; graph backfill uses heuristic candidates rather than validated semantic extraction; human publication approval remains open.</td>
-</tr>
-<tr class="even">
-<td>Tasks opened</td>
-<td>Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories.</td>
-</tr>
-<tr class="odd">
-<td>Capacity used</td>
-<td>Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use.</td>
+<td>Stale demo/review wording remains for PRR-09; final publication approval remains required; systematic-review scope remains undecided.</td>
 </tr>
 <tr class="even">
 <td>Branch outcome</td>
-<td>Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims.</td>
+<td>Conservative/balanced branch: keep manifesto framing, accept focused bibliography, require wording cleanup before next rendered revision.</td>
 </tr>
 <tr class="odd">
 <td>Broader review trigger</td>
-<td>Yes. Before submission, run a broader literature/security/governance review and add reproducible demonstrations.</td>
-</tr>
-<tr class="even">
-<td>Scientific virtues</td>
-<td>The pass preserved veracity, skepticism, humility to evidence, public defensibility, and provenance fairness by weakening unsupported implications and making gaps explicit.</td>
+<td>Yes. PRR-09 must apply must-fix items before the next substantive preprint revision.</td>
 </tr>
 </tbody>
 </table>

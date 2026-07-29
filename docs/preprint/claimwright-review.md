@@ -1,18 +1,29 @@
 ---
 title: "ClaimWright Review Record for the Governed Memory Preprint Draft"
-date: 2026-07-28
+date: 2026-07-29
+review_id: "PRR-08"
 ---
 
 ## Review Scope
+
+Review path: `docs/preprint/claimwright-review.md`
 
 Reviewed artifacts:
 
 - `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.md`
 - `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01-source.html`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01.md`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01.html`
+- `docs/preprint/2026-elsberry-governed-memory-layer-principles-r01.pdf`
 - `docs/preprint/claim-evidence-matrix.md`
-- `docs/preprint/claim-evidence-matrix.html`
+- `docs/preprint/memory-layer-bibliography.md`
+- `docs/preprint/memory-layer-citegeist-export.bib`
+- `docs/preprint/citegeist-memory-layer.sqlite3`
+- `docs/preprint/threat-model.md`
+- `examples/preprint/out/revision_evidence_snapshot.json`
 
-Applied ClaimWright materials:
+Applied ClaimWright materials from `/home/netuser/bin/ClaimWright` at commit
+`6d85ff7`:
 
 - `MOU.md`
 - `policies/principles.yaml`
@@ -25,102 +36,139 @@ Applied ClaimWright materials:
 - `roles/adversarial-reviewer.md`
 - `roles/publication-gatekeeper.md`
 
+This review evaluates the updated draft after PRR-07 bibliography expansion.
+It does not treat ClaimWright policy findings as external validation of
+ClaimWright itself.
+
 ## Pre-Action Check
 
 | Check | Result |
 | --- | --- |
-| Action classification | Non-trivial review of public-facing draft artifacts. |
-| Public/private status | Public-facing manuscript and appendix materials; local paths and private material require hard-gate screening. |
+| Action classification | Non-trivial review of public-facing draft, appendices, evidence matrix, bibliography, and threat model. |
+| Public/private status | Public-facing manuscript artifacts; local absolute paths may be mentioned only as review provenance, not as public evidence URLs. |
 | Reversibility | Reversible through git. |
-| Evidence standard | Implementation claims require code/test anchors; related-work claims require verified source or bibliography support; future-work claims require explicit limitation language. |
-| Reputational risk | Moderate. Overclaiming implementation, comparative performance, or citation support would weaken the paper. |
-| Adversarial review need | Required because the draft makes a design manifesto claim and uses local prototypes as evidence. |
-| Model/tool suitability | Local repository inspection, grep, Pandoc rendering, and pytest are appropriate. |
-| Capacity risk | Low. Full local test suite ran quickly. |
+| Evidence standard | Implementation claims require code/test/demo anchors; related-work claims require source or bibliography support; limitations require explicit future-work status. |
+| Reputational risk | Moderate. The draft argues a normative manifesto thesis and connects it to local prototypes. |
+| Adversarial review need | Required because the draft makes governance/security claims and discusses memory-layer risks. |
+| Model/tool suitability | Local repository inspection, ClaimWright role/check files, CiteGeist artifacts, rendered draft review, Pandoc, and pytest are appropriate. |
 | Durable memory touch | Documentation and review artifacts only; no GroundRecall memory store changed. |
-| Scientific virtues | Review emphasized veracity, skepticism, humility to evidence, provenance fairness, and public defensibility. |
+| Scientific virtues | Review emphasized veracity, skepticism, humility to evidence, public defensibility, provenance fairness, and explicit uncertainty. |
 
 ## Claim Auditor Findings
 
-| Claim area | State recommendation | Evidence | Required restraint |
+| Claim area | Recommendation | Evidence | Required restraint |
 | --- | --- | --- | --- |
-| Governed memory as a necessary property set | `supported_but_contested` | Design argument, related-work comparison, and implemented governance features | Present as a normative/design thesis, not an empirical proof. |
-| GroundRecall typed provenance-preserving record model | `supported_by_primary_evidence` | `src/groundrecall/models.py`, `src/groundrecall/store.py`, `tests/test_groundrecall_store.py` | Scope to current file-backed prototype. |
-| Review-gated promotion | `supported_by_primary_evidence` | `src/groundrecall/promotion.py`, `tests/test_groundrecall_promotion.py` | Do not imply complete hosted review workflow. |
-| Structured confidence and temporal applicability | `supported_by_primary_evidence` | `src/groundrecall/confidence.py`, `tests/test_confidence_profiles.py`, `tests/test_confidence_migration.py` | Do not claim full Bayesian calibration or empirical confidence validation. |
-| Contradiction cases and adjudication | `supported_by_primary_evidence` | `src/groundrecall/contradictions.py`, `tests/test_contradictions.py`, `src/groundrecall/graph_augment.py`, `tests/test_graph_augment.py` | State that heuristic cue generation is review-gated and that robust semantic auto-detection/resolution remains future work. |
-| Release controls and federation quarantine | `supported_by_primary_evidence` | `src/groundrecall/federation.py`, `src/groundrecall/export_guardrails.py`, `tests/test_federation.py`, `tests/test_export_guardrails.py` | Do not present as enterprise IAM or complete DLP. |
-| ClaimWright as policy framework | `supported_by_primary_evidence` for existence and selected adapter enforcement | ClaimWright policy files and role/check documents; GroundRecall policy-plugin contract and ClaimWright-style directory adapter | State that ClaimWright is an example policy framework under GroundRecall's bounded plugin contract, not a mandatory dependency or complete policy engine. |
-| CiteGeist bibliography support | `supported_by_primary_evidence` for seed artifacts | `docs/preprint/citegeist-memory-layer.sqlite3`, BibTeX export, bibliography notes | State that bibliography is seeded, not systematic or complete. |
-| Epistemap confidence/graph layer | `supported_by_primary_evidence` for adapter surfaces | `src/groundrecall/epistemap_adapter.py`, `tests/test_epistemap_adapter.py` | Do not imply broad posterior validation. |
+| Governed memory as required property set | `supported_but_contested` | Design argument; related-work comparison; claim-evidence matrix | Keep as manifesto/design thesis, not empirical proof. |
+| GroundRecall prototype controls | `supported_by_primary_evidence` | Current code, tests, demos, IF status table, revision evidence snapshot | Scope to local file-backed prototype; avoid production platform language. |
+| Institutional federation IF-00 through IF-14 table | `supported_by_primary_evidence` | `docs/institutional-federation-implementation-roadmap.md`; `docs/implemented-features-summary.md`; `docs/preprint/claim-evidence-matrix.md` | "Partial" rows must remain partial; do not imply completed network transport, IAM, or publication gating. |
+| Policy-plugin and ClaimWright adapter claim | `supported_by_primary_evidence` for selected surfaces | `src/groundrecall/policy.py`; `tests/test_policy_plugins.py`; ClaimWright fixtures | ClaimWright is example policy content under GroundRecall's contract, not mandatory dependency or complete policy authority. |
+| MCP governance claim | `supported_with_caveat` | `src/groundrecall/mcp.py`; `tests/test_mcp.py`; policy coverage open items | MCP policy remains caller-supplied; no mandatory server-side policy claim. |
+| Contradiction/adjudication claim | `supported_by_primary_evidence` | `src/groundrecall/contradictions.py`; `tests/test_contradictions.py`; graph cue tests | Robust automatic semantic contradiction detection remains future work. |
+| Bibliography/source-review claim | `supported_with_completeness_caveat` | CiteGeist SQLite database; seed/export BibTeX; bibliography notes | Focused bibliography only; not a systematic review. |
+| Security/privacy risk framing | `supported_for_problem_framing` | Agent-Memory Protocol, CAMS, Permission-Aware RAG, AgentPoison, MEXTRA, MSA, FragFuse | Sources support risk framing and design motivation, not GroundRecall production security effectiveness. |
+| Evaluation and demo claims | `requires_revision` | Manuscript Section 9 and Section 10; demo manifest with 15 outputs | The prose is stale: it still says demos/bibliography are future needs and lists only early demo outputs. |
 
 ## Citation Reviewer Findings
 
 | Citation set | Tier | Status | Notes |
 | --- | --- | --- | --- |
-| Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph | A | Accepted | Directly supports the claim that recent systems foreground durable memory, retrieval, graph memory, production memory, and memory-OS abstractions. |
-| KG/RAG alignment paper | B | Accepted | Supports the narrower point that graph representation and linearization affect downstream LLM use of graph knowledge. |
-| ACM TOIS memory-mechanism survey | A | Accepted | Supports general framing that LLM-agent memory is an identifiable technical subsystem with sources, forms, operations, and evaluation concerns. |
-| ClaimWright local policy substrate | A for example-policy claim | Accepted with access caveat | Supports the existence and contents of the example policy framework, not external validation of ClaimWright. |
-| CiteGeist local bibliography artifacts | A for seed-bibliography claim | Accepted with completeness caveat | Supports that bibliography seeding exists; does not support systematic-review completeness. |
-| Privacy, provenance governance, distributed systems, IAM, and security literature | B | Expanded source pass accepted with caveats | Added NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV, SLSA, Sigstore, The Update Framework, distributed access control, Permission-Aware RAG, information-flow control, decentralized labels, capability security, append-only transparency logs, and provenance-security sources. This supports adjacent-literature framing but remains short of a systematic review or security proof. |
-| Long-memory and GraphRAG benchmark literature | B | Expansion accepted for evaluation framing | Added LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG sources. These support benchmark-target and related-work framing, not claims that GroundRecall has been benchmarked on them. |
-| Persistent AI-memory privacy/security literature | B | Initial expansion accepted | Added Agent-Memory Protocol, CAMS, and Permission-Aware RAG. These support privacy, memory-injection, memory-extraction, purpose-bound memory, and retrieval-authorization framing, while leaving deeper privacy-leakage review as future bibliography work. |
+| Memory-layer systems and surveys | A/B | Accepted | Generative Agents, MemGPT, HippoRAG, A-MEM, Mem0, MemoryOS, MemOS, AriGraph, KG/RAG alignment, and ACM TOIS memory survey support related-work framing. |
+| Governance, provenance, access-control, zero-trust, and supply-chain sources | A/B | Accepted | NIST, W3C PROV, SLSA, Sigstore, TUF, IFC, decentralized labels, capability/confused-deputy, transparency logs, and provenance-security sources support adjacent-pattern framing. |
+| Long-memory and GraphRAG benchmark sources | B | Accepted for evaluation-target framing | LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, and Agentic GraphRAG do not support any GroundRecall benchmark-result claim. |
+| Persistent-memory privacy/security additions from PRR-07 | B | Accepted for risk framing | AgentPoison, MEXTRA, MSA, FragFuse, CAMS, Agent-Memory Protocol, and Permission-Aware RAG materially improve coverage of poisoning, extraction, MCP exfiltration, access-control bypass, purpose-bound memory, and retrieval authorization. |
+| Data-lineage policy addition from PRR-07 | B | Accepted for governance framing | Honest Computing supports the connection between demonstrable lineage/provenance and process-sensitive policy. |
+| SSRN/preprint-only source | C/B with venue caveat | Accepted only with caveat | Agentic GraphRAG survey remains useful but should be replaced or supplemented if a formal venue version appears. |
+
+Citation result: no fabricated citation was detected in the reviewed set. The
+bibliography is materially broader after PRR-07, but it remains focused rather
+than systematic.
 
 ## Adversarial Review Memo
 
-The strongest objections are predictable and should remain visible:
+The strongest objections after PRR-07 are:
 
-1. The paper could sound as if it proves safety benefits. The current evidence does not do that. The draft now confines itself to engineering evidence and design argument.
-2. The related-work section could be criticized as selective. The bibliography is explicitly seeded and should be expanded before submission.
-3. The phrase "memory layers should be governed" is normative. That is acceptable in manifesto mode, but the claim should not be disguised as a benchmark result.
-4. GroundRecall’s implementation is local-first and file-backed. Claims about federation, policy, and trust should remain scoped to prototype mechanisms.
-5. ClaimWright-style policy content is now enforceable through GroundRecall's bounded policy-plugin adapter on selected surfaces. The draft should keep that claim scoped and avoid implying complete policy-engine or production-IAM coverage.
-6. Confidence support is structured and exportable, but not yet a validated Bayesian confidence system. The appendix explicitly blocks that overclaim.
-7. Contradiction handling depends primarily on explicit contradiction links. Heuristic contradiction cueing can propose review candidates, but robust automatic semantic contradiction detection and resolution remain future work.
-8. Public-facing artifacts must avoid absolute local paths. The appendix previously contained local paths; those were replaced with repository-level references.
+1. The title and thesis are intentionally normative. That is acceptable in
+   manifesto mode, but the paper must not imply the properties are proven by
+   user studies, benchmarks, or formal security analysis.
+2. The PRR-07 security citations make the risk case stronger. They also raise
+   the bar for implementation wording: GroundRecall should be described as
+   implementing governance controls, not as preventing those attack classes in
+   production.
+3. The evaluation section still contains stale review-status language. It says
+   the paper needs bibliography expansion and stable reproducible
+   demonstrations, even though PRR-02/PRR-07 now provide initial versions. That
+   should be revised to say the remaining gap is final review, systematic-scope
+   choice, and broader evaluation.
+4. The demonstration section lists only the early demonstration outputs, while
+   the manifest now records fifteen outputs. That mismatch weakens the
+   claim-to-evidence discipline and should be fixed before the next rendered
+   revision.
+5. The paper cites internal engineering timing. The caveats are currently
+   adequate, but the timing should remain explicitly non-comparative and
+   non-reproducible by outside readers unless a fixture is published.
+6. The IF status table is useful but could be criticized as too much internal
+   implementation detail for the main paper. Keeping it in the appendix is the
+   defensible placement.
 
 ## Publication Gate Result
 
 | Gate | Result | Notes |
 | --- | --- | --- |
-| Unresolved high-risk public claims | Pass with caveats | High-risk claims are either scoped, caveated, or listed as not made/future work. |
-| Fabricated or unverified citations | Pass for current cited set | Current references have DOI/source links. Broader bibliography remains an expansion task. |
-| Private material in public output | Pass after correction | Absolute local paths were removed from the appendix. |
-| Destructive irreversible action | Pass | Documentation-only changes; git revertable. |
-| Contradicted or stale claims | Pass with caveats | No known contradicted/stale claims relied on for public argument; future literature expansion may create revision duties. |
+| Unresolved high-risk public claims | Pass with caveats | High-risk implementation/security claims are scoped to prototype evidence and limitations. |
+| Fabricated or unverified citations | Pass | Reviewed citations have source links, DOI/arXiv/source pages, or explicit venue caveats. |
+| Private material in public output | Pass with path caveat | Public evidence references use repository-relative paths; review provenance itself includes local absolute paths only to identify reviewed repositories. |
+| Destructive irreversible action | Pass | Documentation-only review; git-revertable. |
+| Contradicted or stale claims | Soft gate | Two stale manuscript statements need PRR-09 cleanup: prior-review/future-demo language and the incomplete demo-output list. |
+| Final human publication approval | Required | ClaimWright does not substitute for author approval. |
 
-Release status: conditionally suitable for internal/public draft review, pending human publication approval. The draft is closer to final-public-safe after initial bibliography expansion and reproducible demonstrations, but it is not final-public-safe because the bibliography is still not systematic and final human publication approval remains open.
+Release status: conditionally suitable for internal/public draft review after
+PRR-09 applies the must-fix wording updates. Not final-public-safe for
+submission until human publication approval and final bibliography/evidence
+scope decisions are complete.
 
-## Review Results Applied
+## Findings Grouped For Action
 
-| Review result | Applied change |
-| --- | --- |
-| Avoid implying proof of safety benefits. | Abstract and prototype sections now say the systems demonstrate implementable local controls, not validated safety outcomes. |
-| Avoid overbroad claims about the literature. | Related-work language now refers to "the sources reviewed for this draft" and "within this reviewed set" rather than all memory-layer literature. |
-| Keep GroundRecall claims local/prototype-scoped. | Abstract, prototype, evaluation, and limitations language now emphasizes local prototype evidence and incomplete production features. |
-| Keep ClaimWright integration scoped. | Updated wording states that GroundRecall owns the policy-plugin contract and supports a ClaimWright-style directory adapter on selected enforcement surfaces. Limitations now keep policy coverage scoped rather than calling it absent. |
-| Avoid Bayesian confidence overclaim. | Existing Epistemap/confidence caveats were retained; no Bayesian calibration claim was added. |
-| Keep robust semantic contradiction detection as future work. | Contradiction caveats now distinguish implemented heuristic review-gated cueing from unclaimed robust semantic detection/resolution. |
-| Expose final-public-safety status. | The evaluation section now states that the draft is suitable for internal/public draft review but not final-public-safe until bibliography scope and human publication approval are resolved. |
-| Resolve public/private path issue. | Repository-level references remain in the appendix; no absolute local paths are used for public evidence references. |
-| Broaden bibliography. | Added governance, provenance, access-control, zero-trust, and supply-chain-security entries to the seed BibTeX, CiteGeist database, exported BibTeX, bibliography notes, draft related-work text, and references. |
-| Complete second bibliography expansion targets. | Added long-memory benchmarks, GraphRAG surveys/benchmarks, persistent AI-memory privacy/security sources, permission-aware retrieval, information-flow control, capability security, append-only transparency logs, and provenance-security entries to the seed bibliography, bibliography notes, draft related-work text, references, and claim-evidence matrix. |
-| Add empirical demonstrations. | Added `examples/preprint/run_preprint_demos.py`, `examples/preprint/README.md`, and generated JSON outputs for provenance/promotion, contradiction adjudication, release filtering, federation quarantine, local authority, and the policy-plugin boundary. |
-| Add search-mode timing indication. | Added `search_mode_timing.json` as an internal synthetic-store timing indication for indexed search versus indexed search plus graph expansion. The draft states that this is not a comparison with external memory-layer products or a recall-quality benchmark. |
-| Update graph-maintenance evidence after knowledge-graph backfill work. | Added bounded graph backfill and maintenance language to the draft and claim-evidence matrix, including review-gated relation candidates, private/no-export screening, diagnostics, maintenance profiles, state files, locks, stale-lock recovery, and extractor-mode caveats. |
+### Must Fix Before Revision
+
+1. Update Section 9 review-status language. The draft currently says the paper
+   needs a broader governance/security bibliography pass and stable
+   reproducible demonstrations. Initial bibliography expansion and demos now
+   exist; remaining needs should be reframed as final human approval,
+   systematic-review-scope choice, and future empirical/security evaluation.
+2. Update Section 10 demonstration-output list from the early seven-output
+   list to the current fifteen-output manifest, or point directly to the
+   manifest to avoid another stale list.
+
+### Should Fix Before Submission
+
+1. Decide whether the final paper claims only focused related-work coverage or
+   adopts a systematic-review protocol. Do not drift between the two.
+2. Replace or supplement preprint-only / non-archival sources if peer-reviewed
+   versions appear before submission.
+3. Add a small reproducible public fixture if timing numbers remain in the
+   paper; otherwise keep them explicitly internal and illustrative.
+4. Consider a compact "security claims not made" paragraph near the PRR-07
+   security-source discussion.
+
+### Future Work
+
+1. Benchmark GroundRecall against LongMemEval, LoCoMo, MemoryAgentBench, and
+   GraphRAG-Bench only after benchmark adapters exist.
+2. Add direct tests or demonstrations for persistent-memory attack resistance
+   only if the implementation actually claims mitigation of those attacks.
+3. Implement mandatory MCP server policy configuration, post-render
+   institutional-view filtering, publication-gate preflight, distributed
+   withdrawal propagation, and exceptional-erasure execution before claiming
+   those capabilities.
 
 ## Post-Action Check
 
 | Check | Result |
 | --- | --- |
-| Files changed | Added this review record; updated the draft, bibliography, BibTeX exports, claim-evidence matrix, demonstration runner, generated demonstration outputs, and regenerated HTML outputs. |
-| Claims introduced/modified | Test-suite claim changed to a dated concrete result: 234 tests passed on 2026-07-28. Appendix support references remain repository-level descriptions. Demonstration claims are backed by generated JSON outputs, including the policy-plugin boundary walkthrough and search-mode timing indication. Graph-maintenance claims are backed by current code/tests and are scoped to bounded, heuristic, review-gated backfill. |
-| Citations recorded | Added governance/security/provenance citations: NIST AI RMF, NIST SP 800-53, NIST SP 800-207, W3C PROV Overview, W3C PROV-DM, SLSA provenance, Sigstore, The Update Framework, Golightly et al. distributed access-control survey, LongMemEval, LoCoMo, MemoryAgentBench, LoCoMo-Plus, GraphRAG, GraphRAG survey, GraphRAG-Bench, Agentic GraphRAG, Agent-Memory Protocol, CAMS, Permission-Aware RAG, decentralized IFC, decentralized label model, capabilities/confused deputy, RFC 9162, append-only authenticated dictionaries, and provenance-security survey. |
-| Assumptions visible | The review assumes the local ClaimWright repository represents the applicable review policy; it does not assert external validation of ClaimWright. |
-| Unresolved risks | Bibliography is broader but not systematic; privacy-leakage and distributed-revocation coverage should deepen before submission; policy-plugin enforcement covers selected surfaces but is not complete production IAM or all mutation paths; robust semantic contradiction detection/resolution remains future work; graph backfill uses heuristic candidates rather than validated semantic extraction; human publication approval remains open. |
-| Tasks opened | Remaining gaps are now systematic-review scope, deeper privacy-leakage and distributed-revocation bibliography, benchmark evaluation design, final publication approval, and future feature work, not absence of initial demonstrations or absence of the review-requested expansion categories. |
-| Capacity used | Local inspection, web source verification, CiteGeist ingest/export, Pandoc rendering, demo execution, and pytest; no GPU use. |
-| Branch outcome | Conservative/balanced branch chosen: keep manifesto framing but tighten evidence scope and gate overclaims. |
-| Broader review trigger | Yes. Before submission, run a broader literature/security/governance review and add reproducible demonstrations. |
-| Scientific virtues | The pass preserved veracity, skepticism, humility to evidence, public defensibility, and provenance fairness by weakening unsupported implications and making gaps explicit. |
+| Files changed by review step | This review record and generated rendered artifacts only. |
+| Claims introduced | No new implementation claim; the review adds findings and gates. |
+| Citations reviewed | 41-entry focused bibliography, with PRR-07 additions included. |
+| Assumptions visible | The local ClaimWright repository supplies the policy/check stance; this is not external validation of ClaimWright. |
+| Unresolved risks | Stale demo/review wording remains for PRR-09; final publication approval remains required; systematic-review scope remains undecided. |
+| Branch outcome | Conservative/balanced branch: keep manifesto framing, accept focused bibliography, require wording cleanup before next rendered revision. |
+| Broader review trigger | Yes. PRR-09 must apply must-fix items before the next substantive preprint revision. |

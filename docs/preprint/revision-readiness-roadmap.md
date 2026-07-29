@@ -169,6 +169,9 @@ Exit:
 
 ### PRR-08: Fresh ClaimWright Review
 
+Status: completed on 2026-07-29. Review path:
+`docs/preprint/claimwright-review.md`.
+
 Run a new ClaimWright review only after PRR-07 updates the bibliography and
 related-work material.
 
