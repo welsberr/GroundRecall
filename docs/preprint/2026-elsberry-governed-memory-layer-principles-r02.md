@@ -392,9 +392,9 @@ This table compactly summarizes the IF-00 through IF-14 institutional-federation
   - **Remaining caveat:** Direct ClaimWright publication-gate preflight and distributed withdrawal propagation remain future work.
 - **IF-11 MCP and adapter coverage**
   - **Implemented status:** Partial
-  - **Main code evidence:** `src/groundrecall/mcp.py`; `src/groundrecall/policy_coverage.py`; policy-gated `epistemap_assessment` bridge
+  - **Main code evidence:** `src/groundrecall/mcp.py`; `src/groundrecall/policy_coverage.py`; policy-gated Epistemap assessment bridge
   - **Main test / artifact evidence:** `tests/test_mcp.py`; ClaimWright MCP fixtures
-  - **Remaining caveat:** Host authentication, network deployment, and mandatory server-side policy configuration remain future work.
+  - **Remaining caveat:** Read-only Epistemap diagnostics, epistemic, Bayesian, and readiness operations are bridged and hard-gate tested; host authentication, mandatory server-side policy configuration, and network deployment remain future work.
 - **IF-12 Evaluation, operations, and paper evidence**
   - **Implemented status:** Partial
   - **Main code evidence:** `src/groundrecall/institutional_conformance.py`; `examples/preprint/generate_revision_evidence.py`
