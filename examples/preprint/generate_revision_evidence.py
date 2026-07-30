@@ -64,6 +64,7 @@ def build_revision_evidence(
             "perform focused bibliography update without claiming systematic-review completeness",
             "run a fresh ClaimWright review against the updated draft and appendices",
             "apply actionable ClaimWright review findings before rendering the next revision",
+            "record the policy-gated Epistemap MCP assessment bridge and its regression evidence",
         ],
         "demo_outputs": demos,
         "paper_ready_next_steps": [],
