@@ -35,6 +35,35 @@ def test_mcp_lists_tools() -> None:
     search_schema = next(tool["inputSchema"] for tool in tools if tool["name"] == "search_store")
     assert "policy_config" in search_schema["properties"]
     assert "policy_request" in search_schema["properties"]
+    assert {"review_backlog", "review_backlog_item", "acknowledge_review_reminder", "defer_review_reminder", "assign_review_item"} <= names
+
+
+def test_mcp_review_backlog_and_ack_are_metadata_only(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"; directory = workspace / "imports" / "i1"; directory.mkdir(parents=True)
+    (directory / "manifest.json").write_text(json.dumps({"import_id": "i1"}), encoding="utf-8")
+    (directory / "review_queue.json").write_text(json.dumps({"items": [{"queue_id": "c", "candidate_type": "claim", "candidate_id": "c", "status": "needs_review", "release_level": "public"}]}), encoding="utf-8")
+    (directory / "artifacts.jsonl").write_text("", encoding="utf-8")
+    args = {"workspace": str(workspace), "subject_id": "alice", "maximum_release_level": "public"}
+    response = handle_request({"jsonrpc": "2.0", "id": 90, "method": "tools/call", "params": {"name": "review_backlog", "arguments": args}})
+    payload = json.loads(response["result"]["content"][0]["text"]); backlog_id = payload["items"][0]["backlog_id"]
+    assert str(workspace) not in response["result"]["content"][0]["text"]
+    ack = handle_request({"jsonrpc": "2.0", "id": 91, "method": "tools/call", "params": {"name": "acknowledge_review_reminder", "arguments": {**args, "backlog_id": backlog_id, "actor": "alice"}}})
+    ack_payload = json.loads(ack["result"]["content"][0]["text"]); assert ack_payload["canonical_write"] is False
+
+
+def test_mcp_review_ack_policy_denial_does_not_write(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"; directory = workspace / "imports" / "i1"; directory.mkdir(parents=True)
+    (directory / "manifest.json").write_text(json.dumps({"import_id": "i1"}), encoding="utf-8")
+    (directory / "review_queue.json").write_text(json.dumps({"items": [{"queue_id": "c", "candidate_type": "claim", "candidate_id": "c", "status": "needs_review"}]}), encoding="utf-8")
+    (directory / "artifacts.jsonl").write_text("", encoding="utf-8")
+    policy = tmp_path / "deny.yaml"; policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders:\n  - type: static\n    default_decision: deny\n", encoding="utf-8")
+    result = handle_request({"jsonrpc": "2.0", "id": 92, "method": "tools/call", "params": {"name": "acknowledge_review_reminder", "arguments": {"workspace": str(workspace), "backlog_id": "missing", "actor": "alice", "policy_config": str(policy)}}})
+    payload = json.loads(result["result"]["content"][0]["text"]); assert payload["blocked_by_policy"] is True
+    audit_path = workspace / ".review" / "backlog-events.jsonl"
+    assert audit_path.exists()
+    audit = json.loads(audit_path.read_text(encoding="utf-8").splitlines()[0])
+    assert audit["event_type"] == "policy_denied" and audit["policy_decision_ids"]
+    assert audit["backlog_id"] == "missing"
 
 
 def test_mcp_epistemap_assessment_is_policy_gated_and_read_only() -> None:

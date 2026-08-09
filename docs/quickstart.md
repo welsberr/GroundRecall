@@ -90,6 +90,39 @@ Inspect the overall store:
 groundrecall inspect store/
 ```
 
+Review backlog status is a read-only view over source notes, import review
+queues, and canonical review candidates. It does not promote or modify records:
+
+```bash
+groundrecall review-status .groundrecall
+groundrecall review-status .groundrecall --format json --limit 20
+```
+
+The JSON contract uses stable hashed workspace/store identifiers and source-path
+hashes; local absolute paths are not included. Use `--store`, `--imports-root`,
+and `--source-notes-root` when a workspace uses non-default locations.
+
+Reviewer acknowledgement, deferral, and assignment are recorded separately in
+`.review/backlog-events.jsonl` as hash-chained operational events. They do not
+change canonical review status or promote records:
+
+```bash
+groundrecall review-ack .groundrecall BACKLOG_ID --actor reviewer-id
+groundrecall review-defer .groundrecall BACKLOG_ID --until 2030-01-01T00:00:00Z --actor reviewer-id
+groundrecall review-assign .groundrecall BACKLOG_ID --to teammate-id --actor reviewer-id
+```
+
+Framework-neutral dashboard consumers can use the read-only
+`groundrecall.review_dashboard.dashboard_digest` and
+`dashboard_item_detail` functions. They provide bounded cursor pagination and
+policy-filtered totals before pagination; responses contain local-origin
+metadata only and do not include absolute paths or content previews.
+
+RB6b supplies a framework-neutral `FixtureFederationReviewSource` for testing
+broker tabs. It preserves broker/producer identity, content and version hashes,
+release caps, trust/signature status, quarantine/revocation/supersession, and
+freshness metadata. It is read-only and never imports or promotes remote data.
+
 ## Export
 
 Export assistant-neutral artifacts:
@@ -166,6 +199,80 @@ groundrecall protocol-init /opt/www \
 This writes a host profile, GroundRecall workspace README, assistant bootstrap
 files, and local/remote inbox directories. See
 [assistant-protocol.md](assistant-protocol.md).
+
+RB6c consumers can compose local `dashboard_digest` output with a
+`FederationReviewSource` through `combined_dashboard_digest`. The combined
+contract keeps local and broker origins, counts, cursors, and action paths
+separate; broker outages leave the local page usable. Remote items are filtered
+by release and policy before counts or pagination.
+
+Reminder evaluation is deterministic and separate from canonical review state:
+
+```bash
+groundrecall review-remind .groundrecall --config reminder-policy.yaml --dry-run
+groundrecall review-remind .groundrecall --config reminder-policy.yaml --deliver --adapter file
+```
+
+Dry runs do not write the ledger. Delivery writes a metadata-only digest and
+appends `reminder_emitted` only after successful delivery; failures append a
+`reminder_failed` event. Quiet hours, urgent bypass, unchanged-digest
+suppression, and daily rate limits are policy-controlled.
+
+MCP clients may call `review_backlog` and `review_backlog_item` for bounded,
+policy-filtered metadata views, or `acknowledge_review_reminder`,
+`defer_review_reminder`, and `assign_review_item` for interaction-ledger state.
+These tools never accept evidence, promote records, adjudicate contradictions,
+export, or federate content; writes are limited to operational ledger events.
+
+Federated broker actions are a separate fixture/API contract. Acknowledge,
+assign, and request-import operations carry correlation and idempotency keys,
+verify trust/signature/freshness/release state, and return explicit broker-origin
+results. Request-import creates only a quarantine proposal; it never promotes
+into the canonical store.
+
+RB6e provides `save_snapshot_cache`, `load_snapshot_cache`, and
+`CachedFederationReviewSource` for bounded offline operation. Cache files are
+atomically replaced, content-hashed, size-bounded, and explicitly marked
+`fresh`, `stale`, `invalid`, or `missing`; stale cache data is never reported as
+fresh and cache paths are excluded from dashboard payloads.
+
+Backlog views also support policy-safe filters before counts and pagination:
+
+```bash
+groundrecall review-status .groundrecall --scope-id project-a --owner alice \
+  --overdue --status triaged --triage-lane relation_review
+```
+
+Use `--due-before TIMESTAMP` for an explicit UTC/ISO deadline; malformed
+timestamps are reported as diagnostics rather than silently broadening access.
+
+Reminder interactions maintain a rebuildable `.review/backlog-reminder-state.json`
+cache. It is content-hashed and atomically replaced; corruption falls back to
+ledger replay, and resolved or missing backlog IDs are reconciled out. The
+append-only interaction ledger remains the source of truth.
+
+`stewardship_dashboard.stewardship_digest` provides a read-only team view of
+pending contributions, feedback, orphaned scopes, and stewardship obligations.
+It separates local/remote origin, applies release and policy filtering before
+counts and cursors, and reports only aggregate health metadata.
+
+Use the synthetic benchmark for local regression checks:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m groundrecall review-benchmark --items 1000 --page-size 50 --repetitions 5
+```
+
+Its JSON report is metadata-only and explicitly warns that timings depend on
+host/cache conditions; values are not publication claims or cross-system
+comparisons.
+
+For cron, use the repository's explicit virtual environment and an absolute
+working directory rather than relying on interactive shell activation:
+
+```cron
+17 * * * * cd /path/to/GroundRecall && PYTHONPATH=src /path/to/GroundRecall/.venv/bin/python -m groundrecall graph-maintenance /path/to/workspace/store --profile support --limit 10 --apply
+27 8 * * 1-5 cd /path/to/GroundRecall && PYTHONPATH=src /path/to/GroundRecall/.venv/bin/python -m groundrecall review-remind /path/to/workspace --config /path/to/reminder-policy.yaml --deliver --adapter file
+```
 
 ## Next Reading
 

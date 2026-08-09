@@ -108,6 +108,7 @@ def run_graph_maintenance_slice(
             "strategies": active_strategies,
             "run_record": {},
             "augmentation": {},
+            "health": {"state_advanced": False, "last_run_at": "", "candidate_relation_delta": 0, "skipped": True},
         }
 
     try:
@@ -137,6 +138,7 @@ def run_graph_maintenance_slice(
             "min_evidence": augmentation.get("min_evidence", min_evidence),
             "max_pair_checks": max(0, int(max_pair_checks)),
             "candidate_relation_count": augmentation.get("candidate_relation_count", 0),
+            "candidate_relation_delta": augmentation.get("candidate_relation_count", 0) - int(state.get("last_run", {}).get("candidate_relation_count", 0)),
             "relation_type_counts": augmentation.get("relation_type_counts", {}),
             "filter_summary": augmentation.get("filter_summary", {}),
             "write_summary": augmentation.get("write_summary", {}),
@@ -175,6 +177,7 @@ def run_graph_maintenance_slice(
             "strategies": active_strategies,
             "run_record": run_record,
             "augmentation": augmentation,
+            "health": {"state_advanced": advanced, "last_run_at": run_record.get("ran_at", ""), "candidate_relation_delta": run_record.get("candidate_relation_delta", 0)},
         }
     finally:
         _release_lock(resolved_lock_path, token=lock_token)

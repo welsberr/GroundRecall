@@ -69,6 +69,24 @@ them automatically.
 The detailed path is maintained in
 [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md).
 
+## Immediate Priority: Review Backlog Visibility
+
+Review-gated ingestion, graph enrichment, contradiction handling, lifecycle
+maintenance, and federation require a first-class way to show users what is
+waiting for judgment. Import-local `review_queue.json` files, canonical review
+candidates, contradiction cases, inferred relations, and pending federation
+contributions must be aggregated without hiding source notes that have not yet
+entered the canonical store.
+
+GroundRecall should provide a policy-filtered review-status view, audited
+acknowledgement/deferral/assignment state, deterministic reminder evaluation,
+notification-fatigue controls, and local/MCP delivery surfaces. Reminder
+acknowledgement must remain distinct from acceptance, promotion, adjudication,
+publication, or federation.
+
+The implementation-ready plan is
+[review-backlog-roadmap.md](review-backlog-roadmap.md).
+
 ## Top Roadmap Priority: Policy Plugin Boundary
 
 GroundRecall should not hardwire ClaimWright or any other single policy

@@ -17,6 +17,8 @@ from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .prior_work import prior_work_search
 from .query import query_concept
 from .search_index import search_index
+from .review_backlog import BacklogPolicyError, aggregate_backlog, record_interaction
+from .review_dashboard import dashboard_item_detail
 
 
 SERVER_INFO = {"name": "groundrecall-mcp", "version": "0.1.0a1"}
@@ -56,6 +58,39 @@ def _attach_policy(payload: Any, decision: PolicyDecision | None) -> Any:
         result["policy_decision"] = decision.model_dump(mode="json")
         return result
     return {"ok": True, "payload": payload, "policy_decision": decision.model_dump(mode="json")}
+
+
+def _review_backlog(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "read", "action": "review_backlog.list", "subject_id": str(arguments.get("subject_id", ""))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None: return blocked
+    payload = aggregate_backlog(arguments["workspace"], subject_id=str(arguments.get("subject_id", "")), policy_config=arguments.get("policy_config"), maximum_release_level=str(arguments.get("maximum_release_level", "private")), limit=int(arguments.get("limit", 20)))
+    return _json_text(_attach_policy(payload.model_dump(mode="json"), decision))
+
+
+def _review_backlog_item(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "read", "action": "review_backlog.read_item", "subject_id": str(arguments.get("subject_id", "")), "record_kind": "review_backlog", "record_id": str(arguments.get("backlog_id", ""))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None: return blocked
+    payload = dashboard_item_detail(arguments["workspace"], arguments["backlog_id"], subject_id=str(arguments.get("subject_id", "")), policy_config=arguments.get("policy_config"), maximum_release_level=str(arguments.get("maximum_release_level", "private")))
+    return _json_text(_attach_policy(payload.model_dump(mode="json"), decision))
+
+
+def _review_interaction(arguments: dict[str, Any], event_type: str) -> dict[str, Any]:
+    action = f"review_backlog.{event_type}"
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "review", "action": action, "subject_id": str(arguments.get("actor", arguments.get("subject_id", ""))), "record_kind": "review_backlog", "record_id": str(arguments.get("backlog_id", ""))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        # Denials are operational audit events only; they never alter canonical
+        # review state or interaction acknowledgement/assignment state.
+        from .review_backlog import _append_interaction_event
+        audit = _append_interaction_event(arguments["workspace"], event_type="policy_denied", backlog_id=str(arguments.get("backlog_id", "")), actor_subject_id=str(arguments.get("actor", arguments.get("subject_id", ""))), reason=(decision.reasons or [decision.policy_id])[0], policy_decision_ids=[decision.policy_id + ":" + decision.decision])
+        return _json_text({"ok": False, "blocked_by_policy": True, "policy_decision": decision.model_dump(mode="json"), "audit_event_id": audit.event_id})
+    try:
+        event = record_interaction(arguments["workspace"], arguments["backlog_id"], event_type=event_type, actor_subject_id=str(arguments.get("actor", arguments.get("subject_id", ""))), until=str(arguments.get("until", "")), assignment=str(arguments.get("to", "")), reason=str(arguments.get("reason", "")), policy_config=arguments.get("policy_config"))
+    except BacklogPolicyError as exc:
+        return _json_text({"ok": False, "blocked_by_policy": True, "error": str(exc), "policy_decision": decision.model_dump(mode="json") if decision else {}})
+    return _json_text(_attach_policy({"ok": True, "event": event.model_dump(mode="json"), "canonical_write": False}, decision))
 
 
 def _inspect_store(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -329,6 +364,31 @@ def _propose_contribution(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 TOOLS: dict[str, dict[str, Any]] = {
+    "review_backlog": {
+        "description": "Read a policy-filtered, bounded local review backlog digest; never promotes or adjudicates records.",
+        "inputSchema": {"type": "object", "properties": {"workspace": {"type": "string"}, "limit": {"type": "integer", "default": 20}, "maximum_release_level": {"type": "string", "default": "private"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["workspace"]},
+        "handler": _review_backlog,
+    },
+    "review_backlog_item": {
+        "description": "Read one authorized metadata-only review backlog item and provenance availability.",
+        "inputSchema": {"type": "object", "properties": {"workspace": {"type": "string"}, "backlog_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["workspace", "backlog_id"]},
+        "handler": _review_backlog_item,
+    },
+    "acknowledge_review_reminder": {
+        "description": "Acknowledge a reminder in the operational interaction ledger only; does not accept evidence.",
+        "inputSchema": {"type": "object", "properties": {"workspace": {"type": "string"}, "backlog_id": {"type": "string"}, "actor": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["workspace", "backlog_id", "actor"]},
+        "handler": lambda arguments: _review_interaction(arguments, "acknowledged"),
+    },
+    "defer_review_reminder": {
+        "description": "Defer a reminder in the operational interaction ledger only.",
+        "inputSchema": {"type": "object", "properties": {"workspace": {"type": "string"}, "backlog_id": {"type": "string"}, "actor": {"type": "string"}, "until": {"type": "string"}, "reason": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["workspace", "backlog_id", "actor", "until"]},
+        "handler": lambda arguments: _review_interaction(arguments, "deferred"),
+    },
+    "assign_review_item": {
+        "description": "Assign a review item in the operational interaction ledger only.",
+        "inputSchema": {"type": "object", "properties": {"workspace": {"type": "string"}, "backlog_id": {"type": "string"}, "actor": {"type": "string"}, "to": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["workspace", "backlog_id", "actor", "to"]},
+        "handler": lambda arguments: _review_interaction(arguments, "assigned"),
+    },
     "inspect_store": {
         "description": "Summarize a canonical GroundRecall store.",
         "inputSchema": {

@@ -28,6 +28,9 @@ from . import (
     protocol,
     query,
     relation_review,
+    review_backlog,
+    review_backlog_reminders,
+    review_backlog_benchmark,
     review_server,
     search_index,
 )
@@ -63,6 +66,12 @@ COMMANDS = {
     "confidence-restore": confidence.confidence_restore_main,
     "inspect": inspect.main,
     "review-server": review_server.main,
+    "review-status": review_backlog.main,
+    "review-ack": review_backlog.acknowledge_main,
+    "review-defer": review_backlog.defer_main,
+    "review-assign": review_backlog.assign_main,
+    "review-remind": review_backlog_reminders.main,
+    "review-benchmark": review_backlog_benchmark.main,
 }
 
 

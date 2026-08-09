@@ -121,6 +121,10 @@ Inspect or query the store:
 groundrecall inspect .groundrecall/store
 groundrecall inspect .groundrecall/store --graph
 groundrecall inspect .groundrecall/store --graph-summary
+groundrecall review-status .groundrecall --format json
+groundrecall review-ack .groundrecall BACKLOG_ID --actor reviewer-id
+groundrecall review-defer .groundrecall BACKLOG_ID --until 2030-01-01T00:00:00Z --actor reviewer-id --reason "need source check"
+groundrecall review-assign .groundrecall BACKLOG_ID --to teammate-id --actor reviewer-id
 groundrecall query .groundrecall/store channel-capacity
 groundrecall query .groundrecall/store channel-capacity --kind graph
 groundrecall query .groundrecall/store "reliable communication" --kind graph-search --graph-limit 3
@@ -473,5 +477,6 @@ assistants, at different times, or on different hosts:
 - [docs/architecture.md](docs/architecture.md)
 - [docs/didactopus-bridge.md](docs/didactopus-bridge.md)
 - [docs/knowledge-graph-roadmap.md](docs/knowledge-graph-roadmap.md)
+- [docs/review-backlog-roadmap.md](docs/review-backlog-roadmap.md)
 - [docs/llmwiki-import.md](docs/llmwiki-import.md)
 - [docs/sync-roadmap.md](docs/sync-roadmap.md)
