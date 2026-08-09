@@ -21,6 +21,7 @@ from .federation import (
     record_restriction_markers,
 )
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
+from .federation_realm import FederationRealm, event_matches_realm
 from .store import GroundRecallStore
 
 
@@ -40,6 +41,11 @@ class FederationSubscription(BaseModel):
     cursor: str = ""
     active: bool = True
     purpose: str = ""
+    realm_id: str = ""
+    audience: str = ""
+    principal_id: str = ""
+    trusted_instance_ids: list[str] = Field(default_factory=list)
+    auto_accept: bool = False
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -53,6 +59,10 @@ class FederationChangeEvent(BaseModel):
     release_level: str = "private"
     restriction_markers: list[str] = Field(default_factory=list)
     compartments: list[str] = Field(default_factory=list)
+    realm_id: str = ""
+    audience: str = ""
+    origin_instance_id: str = ""
+    origin_principal_id: str = ""
     occurred_at: str = ""
     payload: dict[str, Any] = Field(default_factory=dict)
 
@@ -132,6 +142,8 @@ def _event_for_record(record_kind: str, record: Any) -> FederationChangeEvent:
     event_id = "change:" + hashlib.sha256(basis.encode("utf-8")).hexdigest()
     state = str(getattr(record, "state", "") or getattr(record, "current_status", ""))
     event_kind = "state" if state in {"accepted", "partially_accepted", "rejected", "deferred", "withdrawn", "superseded", "orphaned", "retired"} else "upsert"
+    metadata = getattr(record, "metadata", {})
+    metadata = metadata if isinstance(metadata, dict) else {}
     return FederationChangeEvent(
         event_id=event_id,
         event_kind=event_kind,
@@ -142,6 +154,10 @@ def _event_for_record(record_kind: str, record: Any) -> FederationChangeEvent:
         release_level=_record_release(record),
         restriction_markers=record_restriction_markers(record),
         compartments=record_compartments(record),
+        realm_id=str(metadata.get("realm_id", "")),
+        audience=str(metadata.get("replication_audience", "")),
+        origin_instance_id=str(metadata.get("origin_instance_id", "")),
+        origin_principal_id=str(metadata.get("origin_principal_id", "")),
         occurred_at=_record_time(record),
         payload=payload,
     )
@@ -234,6 +250,25 @@ def build_incremental_change_bundle(
     allowed_restrictions = set(subscription.allowed_restriction_markers)
     allowed_compartments = set(subscription.allowed_compartments)
     for event in events[start_index:]:
+        if subscription.realm_id:
+            realm = FederationRealm(
+                realm_id=subscription.realm_id,
+                audience=subscription.audience or "device_local",
+                principal_id=subscription.principal_id,
+                scope_ids=subscription.scope_ids,
+                trusted_instance_ids=subscription.trusted_instance_ids,
+                maximum_release_level=subscription.maximum_release_level,
+                allowed_restriction_markers=subscription.allowed_restriction_markers,
+                auto_accept=subscription.auto_accept,
+            )
+            if not event_matches_realm(
+                realm=realm,
+                audience=event.audience,
+                event_realm_id=event.realm_id,
+                event_scope_id=event.scope_id,
+                event_origin_instance_id=event.origin_instance_id,
+            ):
+                continue
         if subscription.scope_ids and event.scope_id not in subscription.scope_ids:
             continue
         if subscription.record_kinds and event.record_kind not in subscription.record_kinds:
@@ -325,6 +360,25 @@ def import_incremental_change_bundle_to_quarantine(
     allowed_restrictions = set(subscription.allowed_restriction_markers)
     allowed_compartments = set(subscription.allowed_compartments)
     for event in bundle.events:
+        if subscription.realm_id:
+            realm = FederationRealm(
+                realm_id=subscription.realm_id,
+                audience=subscription.audience or "device_local",
+                principal_id=subscription.principal_id,
+                scope_ids=subscription.scope_ids,
+                trusted_instance_ids=subscription.trusted_instance_ids,
+                maximum_release_level=subscription.maximum_release_level,
+                allowed_restriction_markers=subscription.allowed_restriction_markers,
+                auto_accept=subscription.auto_accept,
+            )
+            if not event_matches_realm(
+                realm=realm,
+                audience=event.audience,
+                event_realm_id=event.realm_id,
+                event_scope_id=event.scope_id,
+                event_origin_instance_id=event.origin_instance_id,
+            ):
+                reasons.append(f"event_not_addressed_to_realm:{event.event_id}")
         if _RELEASE_RANK.get(event.release_level, 4) > _RELEASE_RANK.get(subscription.maximum_release_level, 4):
             reasons.append(f"event_exceeds_receiver_release_cap:{event.event_id}:{event.release_level}")
         if event.restriction_markers and not set(event.restriction_markers) <= allowed_restrictions:
@@ -386,6 +440,11 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--change-kind", action="append", default=[])
     create.add_argument("--maximum-release-level", choices=tuple(_RELEASE_RANK), default="private")
     create.add_argument("--purpose", required=True)
+    create.add_argument("--realm-id", default="")
+    create.add_argument("--audience", choices=("device_local", "principal", "project", "team", "public"), default="")
+    create.add_argument("--principal-id", default="")
+    create.add_argument("--trusted-instance-id", action="append", default=[])
+    create.add_argument("--auto-accept", action="store_true")
     create.add_argument("--allowed-restriction-marker", action="append", default=[], help="Restriction marker accepted by this subscription. May be repeated.")
     create.add_argument("--allowed-compartment", action="append", default=[], help="Compartment accepted by this subscription. May be repeated.")
     export = subparsers.add_parser("export")
@@ -410,6 +469,13 @@ def build_parser() -> argparse.ArgumentParser:
     ack.add_argument("bundle_path")
     ack.add_argument("--key-file", default=None)
     ack.add_argument("--key-id", default=None)
+    personal = subparsers.add_parser("personal-sync", help="Verify, quarantine, and apply an opted-in principal-realm bundle.")
+    personal.add_argument("bundle_path")
+    personal.add_argument("store_dir")
+    personal.add_argument("quarantine_dir")
+    personal.add_argument("subscription_path")
+    personal.add_argument("--key-file", required=True)
+    personal.add_argument("--key-id", default=None)
     return parser
 
 
@@ -424,6 +490,11 @@ def main() -> None:
             change_kinds=args.change_kind or ["upsert", "state"],
             maximum_release_level=args.maximum_release_level,
             purpose=args.purpose,
+            realm_id=args.realm_id,
+            audience=args.audience,
+            principal_id=args.principal_id,
+            trusted_instance_ids=args.trusted_instance_id,
+            auto_accept=args.auto_accept,
             allowed_restriction_markers=args.allowed_restriction_marker,
             allowed_compartments=args.allowed_compartment,
         )
@@ -453,6 +524,19 @@ def main() -> None:
         )
         print(result.model_dump_json(indent=2))
     else:
+        if args.command == "personal-sync":
+            from .personal_sync import sync_personal_change_bundle
+            result = sync_personal_change_bundle(
+                args.bundle_path,
+                args.store_dir,
+                args.quarantine_dir,
+                verification_key=Path(args.key_file).read_bytes(),
+                subscription=load_subscription(args.subscription_path),
+                key_id=args.key_id,
+                subscription_path=args.subscription_path,
+            )
+            print(result.model_dump_json(indent=2))
+            return
         print(acknowledge_change_bundle(
             args.subscription_path,
             args.bundle_path,
