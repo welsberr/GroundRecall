@@ -22,6 +22,7 @@ dependencies = [
 [project.scripts]
 groundrecall = "groundrecall.cli:main"
 groundrecall-mcp = "groundrecall.mcp:main"
+groundrecall-mcp-http = "groundrecall.mcp_http:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

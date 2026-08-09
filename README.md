@@ -296,6 +296,16 @@ requires a remote MCP endpoint, so LAN use needs the authenticated adapter and
 private-network deployment described in
 [chatgpt-mcp-integration-roadmap.md](docs/chatgpt-mcp-integration-roadmap.md).
 
+The repository now includes a bounded HTTP pilot:
+
+```bash
+groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
+  --subject-id alice --bearer-token "$GROUNDRECALL_MCP_TOKEN"
+```
+
+It exposes read-only tools by default and is intended for a private tunnel or
+local testing, not direct public exposure.
+
 `propose_contribution` returns a draft proposal only; it does not write to the
 canonical store. All MCP tools accept optional `policy_config`,
 `policy_request`, and `subject_id` arguments so callers can attach policy

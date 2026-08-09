@@ -59,6 +59,8 @@ clients. It is not itself the remote ChatGPT endpoint.
 
 ### CG-00: Contract and product boundary
 
+Status: contract documented; remote transport implementation is still a pilot.
+
 - Define the remote tool inventory and mark each tool `read`, `proposal`, or
   `write`.
 - Add a server identity and adapter schema version.
@@ -73,6 +75,10 @@ accepted information without inspecting private paths or raw logs.
 
 ### CG-01: Remote MCP transport adapter
 
+Status: bounded JSON-RPC-over-HTTP pilot implemented in
+`src/groundrecall/mcp_http.py` and exposed as `groundrecall-mcp-http`. It is
+not yet validated against ChatGPT or a streamable-HTTP compatibility suite.
+
 - Add a supported HTTP MCP transport around the existing handlers, preserving
   JSON schemas and stable tool names.
 - Keep stdio and HTTP adapters on the same core implementation.
@@ -85,6 +91,11 @@ Exit: an authenticated remote MCP client can initialize, list tools, and call a
 read-only GroundRecall tool over the selected transport.
 
 ### CG-02: Authentication, realm mapping, and mandatory policy
+
+Status: pilot adapter requires server-owned policy configuration, supports an
+optional bearer token, and can pin one server-owned subject identity. Full
+OAuth/tunnel identity mapping and project/team realm resolution remain future
+work.
 
 - Add an authentication adapter suitable for the chosen tunnel/service path.
 - Map authenticated identity to principal, project, and team realms.
