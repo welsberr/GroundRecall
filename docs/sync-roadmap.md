@@ -129,6 +129,13 @@ The intended model is:
   replication
 - explicit release classification and access policy on every shareable object
 
+Assistant-facing remote access is a separate adapter lane. The current
+`groundrecall-mcp` process is a local stdio server. ChatGPT web requires a
+remote MCP endpoint; private-LAN use therefore needs an authenticated HTTP
+adapter and an approved private-network path such as Secure MCP Tunnel. The
+implementation plan is maintained in
+[chatgpt-mcp-integration-roadmap.md](chatgpt-mcp-integration-roadmap.md).
+
 This avoids treating compiled wiki pages or generated bundles as merge primitives.
 Federation is controlled publication of provenance-bearing knowledge objects,
 not blind memory copying between hosts.
@@ -221,6 +228,11 @@ GroundRecall should distinguish four federation modes:
    distribution, audit logs, retention classes, and privileged-data handling.
 4. **Public release federation:** redacted, signed, license-aware knowledge
    packs with reproducible checksums and immutable release manifests.
+
+ChatGPT integration is a consumer/access surface across these modes, not a
+fifth authority realm. Identity mapping and server-side policy must select the
+underlying principal, project, or team realm before any remote result is
+returned.
 
 ### Exchange Format
 
@@ -354,16 +366,20 @@ prioritizes benefits that do not require real-time distributed consensus:
 4. **Add subscriptions and incremental change bundles.** Let authorized
    consumers request bounded updates and route supersession, contradiction,
    expiry, and revocation events.
-5. **Deepen group review.** Support multi-reviewer/quorum rules, separation of
+5. **Expose governed assistant access.** Add the remote MCP adapter, mandatory
+   server-side policy, identity-to-realm mapping, private-network tunnel,
+   read-only ChatGPT pilot, and audit/freshness/error contracts. Keep ChatGPT
+   access separate from canonical promotion.
+6. **Deepen group review.** Support multi-reviewer/quorum rules, separation of
    contribution from approval, receiver feedback, and cross-instance
    adjudication records.
-6. **Implement continuity operations.** Add orphan detection, custody transfer,
+7. **Implement continuity operations.** Add orphan detection, custody transfer,
    instance retirement, restore/rehydration tests, and stale-replica
    reconciliation.
-7. **Add institutional views.** Generate onboarding packs, decision timelines,
+8. **Add institutional views.** Generate onboarding packs, decision timelines,
    unresolved-question lists, expertise/steward directories, dependency impact
    reports, and governance health reports with privacy guardrails.
-8. **Complete controlled release.** Add license-aware public/internal packs,
+9. **Complete controlled release.** Add license-aware public/internal packs,
    reproducible build manifests, and withdrawal/revocation notices.
 
 This sequence deliberately treats network transport as replaceable
@@ -710,7 +726,10 @@ The current repo does not yet provide:
 - real-time networked sync
 - conflict-free replicated data types
 - hosted review services
+- remote ChatGPT MCP access without an authenticated transport and mandatory
+  server-side policy
 
-The next useful milestone is a practical local event-log, stable re-import,
-temporal validity, and rollback model—not a full distributed platform in one
-step.
+The next useful integration milestone is CG-00 through CG-04 in
+[chatgpt-mcp-integration-roadmap.md](chatgpt-mcp-integration-roadmap.md): a
+read-only, policy-bound ChatGPT access path that does not weaken local-first
+operation or shared-memory authority.

@@ -892,6 +892,12 @@ Exit:
 - assistants can use the institutional workflows without bypassing policy or
   creating a second canonical schema.
 
+ChatGPT-specific remote access is a follow-on adapter track, not an assumption
+that the current stdio MCP process is internet- or LAN-service ready. See
+[chatgpt-mcp-integration-roadmap.md](chatgpt-mcp-integration-roadmap.md) for
+CG-00 through CG-06. In particular, CG-02 mandatory server-side policy and
+CG-03 authenticated private-network deployment must precede a ChatGPT pilot.
+
 ### IF-12: Evaluation, Operations, And Paper Evidence
 
 GroundRecall:
@@ -972,7 +978,9 @@ IF-10 release packs
   ↓
 IF-11 adapters
   ↓
-IF-12 evaluation and paper evidence
+CG-00 contract → CG-01 remote adapter → CG-02 policy/identity
+  ↓                                      ↓
+IF-12 evaluation and paper evidence ← CG-03/04 pilot
 ```
 
 IF-04 may begin after IF-01, but its policy obligations should not be considered

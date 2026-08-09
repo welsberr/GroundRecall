@@ -291,6 +291,11 @@ The MCP server exposes institutional read/report tools for assistant adapters:
 - `stewardship_orphans`
 - `propose_contribution`
 
+The current `groundrecall-mcp` command is a local stdio server. ChatGPT web
+requires a remote MCP endpoint, so LAN use needs the authenticated adapter and
+private-network deployment described in
+[chatgpt-mcp-integration-roadmap.md](docs/chatgpt-mcp-integration-roadmap.md).
+
 `propose_contribution` returns a draft proposal only; it does not write to the
 canonical store. All MCP tools accept optional `policy_config`,
 `policy_request`, and `subject_id` arguments so callers can attach policy
