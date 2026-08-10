@@ -104,8 +104,10 @@ JSONL access events with correlation ID, principal/realm, method/tool, decision,
 result class, HTTP outcome, and bounded denial reason; request arguments and
 bearer tokens are never recorded. Audit remains opt-in and local-file backed.
 An operator logrotate template now provides bounded daily rotation (14 archives,
-50 MiB size trigger, compression); tamper evidence, centralized export, and
-deployment-specific retention approval remain future work.
+50 MiB size trigger, compression). Active-file records now carry a SHA-256
+previous-record link and record hash, with a verifier helper; rename-based
+rotation deliberately starts a new independently verifiable chain in each file.
+Centralized export and deployment-specific retention approval remain future work.
 
 The identity-file pilot keeps authorization server-owned: callers cannot select
 another subject, realm, release level, or tool outside the intersection of the

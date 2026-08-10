@@ -4,7 +4,7 @@ import json
 import re
 import pytest
 
-from groundrecall.mcp_http import DEFAULT_READ_ONLY_TOOLS, MCPHTTPApplication, MCPHTTPConfig
+from groundrecall.mcp_http import DEFAULT_READ_ONLY_TOOLS, MCPHTTPApplication, MCPHTTPConfig, verify_audit_log
 
 
 def test_http_mcp_requires_server_policy_and_exposes_read_only_tools(tmp_path) -> None:
@@ -112,3 +112,34 @@ def test_http_audit_is_opt_in(tmp_path) -> None:
     app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice"))
     app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     assert not list(tmp_path.glob("**/*.jsonl"))
+
+
+def test_http_audit_log_is_hash_chained_and_verifiable_across_restart(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    audit = tmp_path / "mcp.jsonl"
+    config = MCPHTTPConfig(policy_config=str(policy), subject_id="alice", audit_log_path=str(audit))
+    MCPHTTPApplication(config).dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    MCPHTTPApplication(config).dispatch({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+    summary = verify_audit_log(str(audit))
+    assert summary["records"] == 2
+    assert summary["chained_records"] == 2
+    assert re.fullmatch(r"[0-9a-f]{64}", summary["last_hash"])
+    rows = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert rows[0]["previous_hash"] == ""
+    assert rows[1]["previous_hash"] == rows[0]["record_hash"]
+
+
+def test_http_audit_verifier_detects_tampering_and_accepts_legacy_prefix(tmp_path) -> None:
+    audit = tmp_path / "mcp.jsonl"
+    audit.write_text('{"event_kind":"legacy"}\n', encoding="utf-8")
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), audit_log_path=str(audit)))
+    app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    assert verify_audit_log(str(audit))["chained_records"] == 1
+    rows = audit.read_text(encoding="utf-8").splitlines()
+    tampered = json.loads(rows[-1]); tampered["decision"] = "denied"
+    audit.write_text("\n".join(rows[:-1] + [json.dumps(tampered)]) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="hash mismatch"):
+        verify_audit_log(str(audit))

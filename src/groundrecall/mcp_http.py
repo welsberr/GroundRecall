@@ -8,6 +8,7 @@ server owns policy configuration and identity; callers cannot replace them.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
@@ -105,11 +106,35 @@ def _json_response(
 
 
 class _AuditLog:
-    """Optional append-only JSONL access log; never records request content."""
+    """Optional append-only JSONL access log; never records request content.
+
+    Records form a hash chain within the active file.  Rotation intentionally
+    starts a new chain (the first record has an empty ``previous_hash``), so
+    archives remain independently verifiable and no mutable sidecar state is
+    required.
+    """
 
     def __init__(self, path: str):
         self.path = Path(path) if path else None
         self._lock = Lock()
+        self._previous_hash = self._read_previous_hash()
+
+    def _read_previous_hash(self) -> str:
+        if self.path is None or not self.path.is_file():
+            return ""
+        try:
+            for line in reversed(self.path.read_text(encoding="utf-8").splitlines()):
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                value = row.get("record_hash") if isinstance(row, dict) else None
+                if isinstance(value, str) and value:
+                    return value
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            # Do not make an optional audit sink prevent service startup.  The
+            # verifier remains strict and reports malformed/tampered records.
+            return ""
+        return ""
 
     def write(self, *, correlation_id: str, principal: MCPPrincipal | None,
               method: str, tool: str = "", decision: str, result_class: str,
@@ -139,8 +164,67 @@ class _AuditLog:
             row["reason"] = reason
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
+            row["hash_algorithm"] = "sha256"
+            row["previous_hash"] = self._previous_hash
+            row["record_hash"] = _audit_record_hash(row, self._previous_hash)
             with self.path.open("a", encoding="utf-8") as handle:
                 handle.write(json.dumps(row, sort_keys=True) + "\n")
+            self._previous_hash = row["record_hash"]
+
+
+def _audit_record_hash(row: dict[str, Any], previous_hash: str) -> str:
+    payload = dict(row)
+    payload.pop("record_hash", None)
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256((previous_hash + "\n" + canonical).encode("utf-8")).hexdigest()
+
+
+def verify_audit_log(path: str) -> dict[str, Any]:
+    """Verify the active JSONL audit chain and return bounded summary data.
+
+    Legacy unchained records are accepted before the first chained record so
+    existing logs remain readable.  Once chaining begins, every subsequent
+    record must carry a valid hash and predecessor link.  Rotation boundaries
+    are represented by a new file whose first chained record has an empty
+    ``previous_hash``.
+    """
+    log_path = Path(path)
+    if not log_path.is_file():
+        raise ValueError("audit log does not exist")
+    previous = ""
+    chained = False
+    records = 0
+    chained_records = 0
+    try:
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValueError(f"cannot read audit log: {exc}") from exc
+    for line_number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        records += 1
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid audit JSON at line {line_number}") from exc
+        if not isinstance(row, dict):
+            raise ValueError(f"audit record at line {line_number} is not an object")
+        record_hash = row.get("record_hash")
+        if not record_hash:
+            if chained:
+                raise ValueError(f"missing record hash at line {line_number}")
+            continue
+        if row.get("hash_algorithm") != "sha256":
+            raise ValueError(f"unsupported audit hash algorithm at line {line_number}")
+        if row.get("previous_hash", "") != previous:
+            raise ValueError(f"audit chain predecessor mismatch at line {line_number}")
+        expected = _audit_record_hash(row, previous)
+        if record_hash != expected:
+            raise ValueError(f"audit record hash mismatch at line {line_number}")
+        chained = True
+        chained_records += 1
+        previous = record_hash
+    return {"records": records, "chained_records": chained_records, "last_hash": previous}
 
 
 class MCPHTTPApplication:
