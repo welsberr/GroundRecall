@@ -39,8 +39,46 @@ class MCPHTTPConfig:
     policy_config: str
     subject_id: str = ""
     bearer_token: str = ""
+    identity_file: str = ""
     allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
     max_body_bytes: int = 1_000_000
+
+
+@dataclass(frozen=True)
+class MCPPrincipal:
+    subject_id: str
+    realm_id: str = ""
+    maximum_release_level: str = "private"
+    allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
+
+
+def _load_identities(path: str) -> dict[str, MCPPrincipal]:
+    if not path:
+        return {}
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("identity file must contain a JSON object")
+    rows = payload.get("identities", [])
+    if not isinstance(rows, list):
+        raise ValueError("identity file identities must be a list")
+    identities: dict[str, MCPPrincipal] = {}
+    for row in rows:
+        if not isinstance(row, dict) or not str(row.get("token", "")) or not str(row.get("subject_id", "")):
+            raise ValueError("identity entries require token and subject_id")
+        token = str(row["token"])
+        tools = frozenset(row.get("allowed_tools") or DEFAULT_READ_ONLY_TOOLS)
+        unknown = tools - TOOLS.keys()
+        if unknown:
+            raise ValueError(f"identity contains unknown MCP tools: {sorted(unknown)}")
+        if token in identities:
+            raise ValueError("identity file contains duplicate token")
+        identities[token] = MCPPrincipal(
+            subject_id=str(row["subject_id"]),
+            realm_id=str(row.get("realm_id", "")),
+            maximum_release_level=str(row.get("maximum_release_level", "private")),
+            allowed_tools=tools,
+        )
+    return identities
 
 
 def _json_response(request_id: Any, result: Any = None, error: dict[str, Any] | None = None) -> bytes:
@@ -64,14 +102,31 @@ class MCPHTTPApplication:
         if unknown:
             raise ValueError(f"unknown MCP tools: {sorted(unknown)}")
         self.config = config
+        self.identities = _load_identities(config.identity_file)
+        if config.identity_file and not self.identities:
+            raise ValueError("identity file must contain at least one identity")
+        if self.identities and config.bearer_token:
+            raise ValueError("configure either bearer_token or identity_file, not both")
 
-    def dispatch(self, request: dict[str, Any]) -> bytes | None:
+    def principal_for_token(self, token: str = "") -> MCPPrincipal:
+        if self.identities:
+            principal = self.identities.get(token)
+            if principal is None:
+                raise PermissionError("unknown bearer token")
+            return principal
+        if self.config.bearer_token and token != self.config.bearer_token:
+            raise PermissionError("invalid bearer token")
+        return MCPPrincipal(subject_id=self.config.subject_id, allowed_tools=self.config.allowed_tools)
+
+    def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
+        principal = self.principal_for_token(token)
+        enabled_tools = self.config.allowed_tools & principal.allowed_tools
         method = request.get("method")
         request_id = request.get("id")
         if method == "tools/list":
             tools = []
             for tool in list_tools():
-                if tool["name"] not in self.config.allowed_tools:
+                if tool["name"] not in enabled_tools:
                     continue
                 exposed = dict(tool)
                 exposed["annotations"] = {"readOnlyHint": True}
@@ -80,14 +135,20 @@ class MCPHTTPApplication:
         if method == "tools/call":
             params = dict(request.get("params") or {})
             name = str(params.get("name", ""))
-            if name not in self.config.allowed_tools:
+            if name not in enabled_tools:
                 return _json_response(request_id, error={"code": -32003, "message": "tool is not enabled by server policy"})
             arguments = dict(params.get("arguments") or {})
             # Server-owned controls override caller-supplied policy and identity.
             arguments["policy_config"] = self.config.policy_config
             if self.config.subject_id:
-                arguments["subject_id"] = self.config.subject_id
+                arguments["subject_id"] = principal.subject_id
+            elif principal.subject_id:
+                arguments["subject_id"] = principal.subject_id
+            if principal.maximum_release_level:
+                arguments["maximum_release_level"] = principal.maximum_release_level
             arguments.pop("policy_request", None)
+            if principal.realm_id:
+                arguments["policy_request"] = {"metadata": {"groundrecall.realm_id": principal.realm_id}}
             params["arguments"] = arguments
             request = dict(request)
             request["params"] = params
@@ -104,10 +165,15 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
         server_version = "GroundRecallMCP/0.1"
 
         def _authorized(self) -> bool:
-            expected = application.config.bearer_token
-            if not expected:
+            try:
+                self._principal = application.principal_for_token(self._token())
                 return True
-            return self.headers.get("Authorization", "") == f"Bearer {expected}"
+            except PermissionError:
+                return False
+
+        def _token(self) -> str:
+            value = self.headers.get("Authorization", "")
+            return value[7:] if value.startswith("Bearer ") else ""
 
         def _write(self, status: int, body: bytes, content_type: str = "application/json") -> None:
             self.send_response(status)
@@ -141,7 +207,7 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
                 request = json.loads(self.rfile.read(length))
                 if not isinstance(request, dict):
                     raise ValueError("request must be a JSON object")
-                body = application.dispatch(request)
+                body = application.dispatch(request, token=self._token())
                 if body is not None:
                     self._write(200, body)
             except (ValueError, TypeError, json.JSONDecodeError) as exc:
@@ -160,8 +226,9 @@ def main() -> None:
     parser.add_argument("--policy-config", required=True, help="Server-owned policy plugin configuration.")
     parser.add_argument("--subject-id", default="", help="Server-owned principal identity for all requests.")
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
+    parser.add_argument("--identity-file", default="", help="JSON file mapping bearer tokens to server-owned principals and tool caps.")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token, identity_file=args.identity_file))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

@@ -303,6 +303,15 @@ groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
   --subject-id alice --bearer-token "$GROUNDRECALL_MCP_TOKEN"
 ```
 
+For multiple collaborators, replace the fixed token with a server-owned
+identity file (JSON entries contain `token`, `subject_id`, optional `realm_id`,
+`maximum_release_level`, and `allowed_tools`):
+
+```bash
+groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
+  --identity-file /path/to/mcp-identities.json
+```
+
 It exposes read-only tools by default and is intended for a private tunnel or
 local testing, not direct public exposure.
 
