@@ -37,6 +37,12 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
     }
 )
 
+# Keep transport negotiation independent from the local stdio adapter.  These
+# values are intentionally constants: responses must not disclose policy
+# paths, store locations, or other server internals.
+MCP_HTTP_PROTOCOL_VERSION = "2025-06-18"
+MCP_HTTP_SERVER_INFO = {"name": "groundrecall-mcp-http", "version": "0.1.0a1"}
+
 
 @dataclass(frozen=True)
 class MCPHTTPConfig:
@@ -269,6 +275,26 @@ class MCPHTTPApplication:
         enabled_tools = self.config.allowed_tools & principal.allowed_tools
         method = request.get("method")
         request_id = request.get("id")
+        if method == "initialize":
+            self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                             decision="allowed", result_class="success", http_status=200)
+            return _json_response(
+                request_id,
+                {
+                    "protocolVersion": MCP_HTTP_PROTOCOL_VERSION,
+                    "capabilities": {"tools": {"listChanged": False}},
+                    "serverInfo": dict(MCP_HTTP_SERVER_INFO),
+                },
+                correlation_id=correlation_id,
+            )
+        if method == "ping":
+            self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                             decision="allowed", result_class="success", http_status=200)
+            return _json_response(request_id, {}, correlation_id=correlation_id)
+        if method == "notifications/initialized":
+            self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                             decision="allowed", result_class="notification", http_status=200)
+            return None
         if method == "tools/list":
             tools = []
             for tool in list_tools():

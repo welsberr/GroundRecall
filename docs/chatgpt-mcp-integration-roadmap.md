@@ -76,8 +76,10 @@ accepted information without inspecting private paths or raw logs.
 ### CG-01: Remote MCP transport adapter
 
 Status: bounded JSON-RPC-over-HTTP pilot implemented in
-`src/groundrecall/mcp_http.py` and exposed as `groundrecall-mcp-http`. It is
-not yet validated against ChatGPT or a streamable-HTTP compatibility suite.
+`src/groundrecall/mcp_http.py` and exposed as `groundrecall-mcp-http`. The
+adapter now serves stable MCP `initialize` and `ping` responses, with a
+read-only tools capability advertisement. It is not yet validated against
+ChatGPT or a streamable-HTTP compatibility suite.
 
 - Add a supported HTTP MCP transport around the existing handlers, preserving
   JSON schemas and stable tool names.

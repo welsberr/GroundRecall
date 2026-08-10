@@ -4,7 +4,14 @@ import json
 import re
 import pytest
 
-from groundrecall.mcp_http import DEFAULT_READ_ONLY_TOOLS, MCPHTTPApplication, MCPHTTPConfig, verify_audit_log
+from groundrecall.mcp_http import (
+    DEFAULT_READ_ONLY_TOOLS,
+    MCPHTTPApplication,
+    MCPHTTPConfig,
+    MCP_HTTP_PROTOCOL_VERSION,
+    MCP_HTTP_SERVER_INFO,
+    verify_audit_log,
+)
 from groundrecall.mcp_audit_verify import main as verify_audit_cli
 
 
@@ -20,6 +27,42 @@ def test_http_mcp_requires_server_policy_and_exposes_read_only_tools(tmp_path) -
     assert all(tool["annotations"]["readOnlyHint"] is True for tool in listed["result"]["tools"])
     blocked = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "export_snapshot", "arguments": {"store_dir": str(tmp_path), "out_dir": str(tmp_path / "out")}}}, token="secret"))
     assert blocked["error"]["code"] == -32003
+
+
+def test_http_mcp_initialize_and_ping_return_stable_transport_handshake(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice"))
+
+    initialized = json.loads(app.dispatch({
+        "jsonrpc": "2.0",
+        "id": "init-1",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "1999-01-01",
+            "clientInfo": {"name": "test-client", "version": "1"},
+            "policy_config": "/should-never-appear",
+        },
+    }))
+    assert initialized["id"] == "init-1"
+    assert initialized["result"]["protocolVersion"] == MCP_HTTP_PROTOCOL_VERSION
+    assert initialized["result"]["serverInfo"] == MCP_HTTP_SERVER_INFO
+    assert "/should-never-appear" not in json.dumps(initialized)
+    assert initialized["result"]["capabilities"] == {"tools": {"listChanged": False}}
+
+    ping = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 2, "method": "ping"}))
+    assert ping["result"] == {}
+    assert ping["_meta"]["groundrecall"]["correlation_id"]
+
+
+def test_http_mcp_rejects_unsupported_method_without_calling_tool_core(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice"))
+    response = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 3, "method": "resources/list"}))
+    assert response["id"] == 3
+    assert response["error"]["code"] == -32000
+    assert "Unsupported method" in response["error"]["message"]
 
 
 def test_http_application_requires_server_policy_and_rejects_unknown_tool(tmp_path) -> None:
