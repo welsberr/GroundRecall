@@ -10,6 +10,8 @@ from groundrecall.mcp_http import (
     MCPHTTPConfig,
     MCP_HTTP_PROTOCOL_VERSION,
     MCP_HTTP_SERVER_INFO,
+    MCP_HTTP_MIN_RESPONSE_BYTES,
+    _bounded_response_body,
     verify_audit_log,
 )
 from groundrecall.mcp_audit_verify import main as verify_audit_cli
@@ -73,6 +75,28 @@ def test_http_application_requires_server_policy_and_rejects_unknown_tool(tmp_pa
     policy = tmp_path / "policy.yaml"; policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
     with pytest.raises(ValueError, match="unknown MCP tools"):
         MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), allowed_tools=frozenset({"missing"})))
+
+
+def test_http_response_limit_returns_bounded_error_without_content_leak(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="max_response_bytes"):
+        MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), max_response_bytes=MCP_HTTP_MIN_RESPONSE_BYTES - 1))
+    secret_body = b'{"result":{"secret":"must-not-leak"}}\n'
+    bounded, exceeded = _bounded_response_body(secret_body, MCP_HTTP_MIN_RESPONSE_BYTES)
+    assert exceeded is True
+    assert bounded == b'{"error":"response_too_large"}\n'
+    assert b"must-not-leak" not in bounded
+
+
+def test_http_response_limit_preserves_small_responses(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), max_response_bytes=128))
+    response = app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "ping"})
+    bounded, exceeded = _bounded_response_body(response, app.config.max_response_bytes)
+    assert exceeded is False
+    assert bounded == response
 
 
 def test_http_identity_file_caps_subject_tools_and_release(tmp_path) -> None:

@@ -42,6 +42,8 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
 # paths, store locations, or other server internals.
 MCP_HTTP_PROTOCOL_VERSION = "2025-06-18"
 MCP_HTTP_SERVER_INFO = {"name": "groundrecall-mcp-http", "version": "0.1.0a1"}
+MCP_HTTP_RESPONSE_TOO_LARGE = b'{"error":"response_too_large"}\n'
+MCP_HTTP_MIN_RESPONSE_BYTES = len(MCP_HTTP_RESPONSE_TOO_LARGE)
 
 
 @dataclass(frozen=True)
@@ -52,6 +54,7 @@ class MCPHTTPConfig:
     identity_file: str = ""
     allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
     max_body_bytes: int = 1_000_000
+    max_response_bytes: int = 1_000_000
     audit_log_path: str = ""
 
 
@@ -109,6 +112,25 @@ def _json_response(
     else:
         payload["result"] = result
     return (json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8")
+
+
+def _bounded_response_body(body: bytes, maximum: int) -> tuple[bytes, bool]:
+    """Return a response body bounded by ``maximum`` without exposing content."""
+    if len(body) <= maximum:
+        return body, False
+    return MCP_HTTP_RESPONSE_TOO_LARGE, True
+
+
+def _response_correlation_id(body: bytes) -> str:
+    """Extract only the server-generated correlation ID from a response."""
+    try:
+        payload = json.loads(body)
+        value = payload.get("_meta", {}).get("groundrecall", {}).get("correlation_id", "")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        value = ""
+    if isinstance(value, str) and len(value) == 32 and all(char in "0123456789abcdef" for char in value):
+        return value
+    return uuid.uuid4().hex
 
 
 class _AuditLog:
@@ -244,6 +266,8 @@ class MCPHTTPApplication:
         unknown = config.allowed_tools - TOOLS.keys()
         if unknown:
             raise ValueError(f"unknown MCP tools: {sorted(unknown)}")
+        if config.max_response_bytes < MCP_HTTP_MIN_RESPONSE_BYTES:
+            raise ValueError(f"max_response_bytes must be at least {MCP_HTTP_MIN_RESPONSE_BYTES}")
         self.config = config
         self.audit = _AuditLog(config.audit_log_path)
         self.identities = _load_identities(config.identity_file)
@@ -412,7 +436,21 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
                     raise ValueError("request must be a JSON object")
                 body = application.dispatch(request, token=self._token())
                 if body is not None:
-                    self._write(200, body)
+                    bounded, exceeded = _bounded_response_body(body, application.config.max_response_bytes)
+                    if exceeded:
+                        application.audit.write(
+                            correlation_id=_response_correlation_id(body),
+                            principal=self._principal,
+                            method=str(request.get("method", "")),
+                            tool=str((request.get("params") or {}).get("name", "")),
+                            decision="denied",
+                            result_class="response_too_large",
+                            http_status=502,
+                            reason="response_too_large",
+                        )
+                        self._write(502, bounded)
+                    else:
+                        self._write(200, bounded)
             except (ValueError, TypeError, json.JSONDecodeError) as exc:
                 self._write(400, json.dumps({"error": "invalid_request", "message": str(exc)}).encode() + b"\n")
 
@@ -430,9 +468,10 @@ def main() -> None:
     parser.add_argument("--subject-id", default="", help="Server-owned principal identity for all requests.")
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
     parser.add_argument("--identity-file", default="", help="JSON file mapping bearer tokens to server-owned principals and tool caps.")
+    parser.add_argument("--max-response-bytes", type=int, default=1_000_000, help="Maximum MCP response size; oversized results return a bounded error.")
     parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token, identity_file=args.identity_file, audit_log_path=args.audit_log_path))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

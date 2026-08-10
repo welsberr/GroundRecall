@@ -300,7 +300,8 @@ The repository now includes a bounded HTTP pilot:
 
 ```bash
 groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
-  --subject-id alice --bearer-token "$GROUNDRECALL_MCP_TOKEN"
+  --subject-id alice --bearer-token "$GROUNDRECALL_MCP_TOKEN" \
+  --max-response-bytes 1000000
 ```
 
 For boot-time private deployment, use the reviewed systemd template and setup
@@ -319,6 +320,11 @@ groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
 
 It exposes read-only tools by default and is intended for a private tunnel or
 local testing, not direct public exposure.
+
+The adapter bounds both request and response bodies. An oversized MCP result
+returns the fixed `response_too_large` error without including any part of the
+result; configure `--max-response-bytes` for the deployment's client and
+latency budget.
 
 `propose_contribution` returns a draft proposal only; it does not write to the
 canonical store. All MCP tools accept optional `policy_config`,

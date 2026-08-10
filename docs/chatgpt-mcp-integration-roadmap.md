@@ -78,7 +78,9 @@ accepted information without inspecting private paths or raw logs.
 Status: bounded JSON-RPC-over-HTTP pilot implemented in
 `src/groundrecall/mcp_http.py` and exposed as `groundrecall-mcp-http`. The
 adapter now serves stable MCP `initialize` and `ping` responses, with a
-read-only tools capability advertisement. It is not yet validated against
+read-only tools capability advertisement. Request and response bodies are
+bounded; an oversized response is replaced with a fixed error body so result
+content cannot leak through an error path. It is not yet validated against
 ChatGPT or a streamable-HTTP compatibility suite.
 
 - Add a supported HTTP MCP transport around the existing handlers, preserving
