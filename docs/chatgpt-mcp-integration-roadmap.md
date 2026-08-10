@@ -97,7 +97,9 @@ either a fixed bearer token or a server-owned JSON identity file, advertises
 `readOnlyHint` for its default tool set, and maps each configured identity to
 an explicit subject, realm, release cap, and tool allow-list. Full
 OAuth/tunnel identity mapping and dynamic project/team realm resolution remain
-future work.
+future work. Each HTTP response now carries a server-generated correlation ID,
+and tool-call policy metadata includes that ID plus the server-selected realm;
+durable MCP audit logging remains future work.
 
 The identity-file pilot keeps authorization server-owned: callers cannot select
 another subject, realm, release level, or tool outside the intersection of the
