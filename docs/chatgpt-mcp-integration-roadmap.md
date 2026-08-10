@@ -109,6 +109,12 @@ previous-record link and record hash, with a verifier helper; rename-based
 rotation deliberately starts a new independently verifiable chain in each file.
 Centralized export and deployment-specific retention approval remain future work.
 
+The logrotate template now includes an operator-controlled `postrotate` hook
+that invokes `groundrecall-mcp-audit-manifest` using a documented, editable
+binary-path placeholder. Manifest output is atomically replaced and command
+output is suppressed; missing or failed commands produce only a bounded host
+warning so log rotation itself remains safe.
+
 The `groundrecall-mcp-audit-verify` operator command verifies an active JSONL
 chain and returns a nonzero status for malformed or tampered records while
 printing only bounded summary data by default.
@@ -137,7 +143,9 @@ Status: a non-installed systemd deployment template is available at
 account, loopback binding, bounded restart behavior, and explicit writable
 paths. Setup and credential handling are documented in
 `docs/mcp-http-systemd.md`. Tunnel enrollment, rotation/revocation, and a
-production health supervisor remain operator/integration work.
+production health supervisor remain operator/integration work. The accompanying
+logrotate template can generate a metadata-only audit manifest after rotation;
+operators must set the local command path and review retention/permissions.
 
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;

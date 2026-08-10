@@ -47,3 +47,16 @@ def test_logrotate_template_is_bounded_and_uses_safe_rename_rotation():
         assert directive in text
     assert "copytruncate" not in text
     assert "bearer" not in text.lower()
+
+
+def test_logrotate_template_has_operator_controlled_atomic_manifest_hook():
+    text = LOGROTATE.read_text(encoding="utf-8")
+    assert "manifest_bin=/opt/groundrecall/.venv/bin/groundrecall-mcp-audit-manifest" in text
+    assert "postrotate" in text and "endscript" in text
+    assert "--output /var/log/groundrecall/mcp-access.manifest.json" in text
+    assert "logger -t groundrecall-mcp-audit" in text
+    assert "manifest generation failed after log rotation" in text
+    assert "manifest command not found" in text
+    # The hook delegates atomic output to the manifest utility and never emits
+    # audit records to the logrotate shell output.
+    assert ">/dev/null" in text

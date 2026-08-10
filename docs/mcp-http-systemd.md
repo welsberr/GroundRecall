@@ -65,6 +65,16 @@ project data-governance requirements, and protect rotated files because they
 contain principal, realm, tool, decision, and correlation metadata (never
 request content or bearer tokens).
 
+The template also contains an operator-controlled `postrotate` hook that calls
+`groundrecall-mcp-audit-manifest` after a successful rotation. Before installing
+the template, edit `manifest_bin` to the command path in the host's GroundRecall
+environment (the checked-in `/opt/groundrecall/.venv/bin/...` value is only a
+documented placeholder). The hook writes
+`mcp-access.manifest.json` through the utility's atomic replace operation and
+redirects command output so audit records are never printed. If the command is
+missing or fails, logrotate continues and emits only a bounded warning through
+`logger`; operators can regenerate the manifest after correcting the path.
+
 Operators can verify the active chain without exposing record contents:
 
 ```sh

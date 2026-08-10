@@ -2,6 +2,8 @@
 # /etc/logrotate.d/groundrecall-mcp-http after reviewing retention policy.
 # The adapter opens the configured path for each event, so rename-based
 # rotation is safe and does not require a service restart.
+# Set this operator-controlled path to the installed audit-manifest command.
+# The placeholder is intentionally not assumed to exist on every host.
 /var/log/groundrecall/mcp-access.jsonl {
     daily
     rotate 14
@@ -13,4 +15,16 @@
     dateext
     dateformat -%Y%m%d
     create 0640 groundrecall groundrecall
+    postrotate
+        manifest_bin=/opt/groundrecall/.venv/bin/groundrecall-mcp-audit-manifest
+        if [ -x "$manifest_bin" ]; then
+            "$manifest_bin" /var/log/groundrecall \
+                --output /var/log/groundrecall/mcp-access.manifest.json \
+                >/dev/null || logger -t groundrecall-mcp-audit \
+                "manifest generation failed after log rotation" || true
+        else
+            logger -t groundrecall-mcp-audit \
+                "manifest command not found; set manifest_bin in logrotate template" || true
+        fi
+    endscript
 }
