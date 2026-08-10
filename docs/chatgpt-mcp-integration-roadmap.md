@@ -98,8 +98,12 @@ either a fixed bearer token or a server-owned JSON identity file, advertises
 an explicit subject, realm, release cap, and tool allow-list. Full
 OAuth/tunnel identity mapping and dynamic project/team realm resolution remain
 future work. Each HTTP response now carries a server-generated correlation ID,
-and tool-call policy metadata includes that ID plus the server-selected realm;
-durable MCP audit logging remains future work.
+and tool-call policy metadata includes that ID plus the server-selected realm.
+When `--audit-log-path` is configured, the adapter appends privacy-conscious
+JSONL access events with correlation ID, principal/realm, method/tool, decision,
+result class, HTTP outcome, and bounded denial reason; request arguments and
+bearer tokens are never recorded. Audit remains opt-in and local-file backed
+pending retention, rotation, and tamper-evidence design.
 
 The identity-file pilot keeps authorization server-owned: callers cannot select
 another subject, realm, release level, or tool outside the intersection of the

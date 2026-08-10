@@ -83,3 +83,32 @@ def test_http_injects_correlation_and_realm_metadata_into_policy_request(tmp_pat
     metadata = captured["policy_request"]["metadata"]
     assert metadata == {"groundrecall.correlation_id": correlation_id, "groundrecall.realm_id": "project:alpha"}
     assert captured["subject_id"] == "alice"
+
+
+def test_http_optional_audit_log_records_safe_access_decisions(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    audit = tmp_path / "audit" / "mcp.jsonl"
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice",
+                                            bearer_token="secret", audit_log_path=str(audit)))
+    listed = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}, token="secret"))
+    correlation_id = listed["_meta"]["groundrecall"]["correlation_id"]
+    blocked = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 2, "method": "tools/call",
+                                       "params": {"name": "export_snapshot", "arguments": {"prompt": "do not log"}}}, token="secret"))
+    assert blocked["error"]["code"] == -32003
+    rows = [json.loads(line) for line in audit.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 2
+    assert rows[0]["correlation_id"] == correlation_id
+    assert rows[0]["subject_id"] == "alice"
+    assert rows[0]["decision"] == "allowed"
+    assert rows[1]["decision"] == "denied"
+    assert rows[1]["reason"] == "tool_not_enabled"
+    assert all("prompt" not in row and "secret" not in json.dumps(row) for row in rows)
+
+
+def test_http_audit_is_opt_in(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice"))
+    app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    assert not list(tmp_path.glob("**/*.jsonl"))

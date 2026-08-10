@@ -10,6 +10,8 @@ from __future__ import annotations
 import argparse
 import json
 import uuid
+from datetime import datetime, timezone
+from threading import Lock
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -43,6 +45,7 @@ class MCPHTTPConfig:
     identity_file: str = ""
     allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
     max_body_bytes: int = 1_000_000
+    audit_log_path: str = ""
 
 
 @dataclass(frozen=True)
@@ -101,6 +104,45 @@ def _json_response(
     return (json.dumps(payload, separators=(",", ":")) + "\n").encode("utf-8")
 
 
+class _AuditLog:
+    """Optional append-only JSONL access log; never records request content."""
+
+    def __init__(self, path: str):
+        self.path = Path(path) if path else None
+        self._lock = Lock()
+
+    def write(self, *, correlation_id: str, principal: MCPPrincipal | None,
+              method: str, tool: str = "", decision: str, result_class: str,
+              http_status: int | None = None, reason: str = "") -> None:
+        if self.path is None:
+            return
+        row: dict[str, Any] = {
+            "event_kind": "groundrecall_mcp_access",
+            "schema_version": "groundrecall.mcp_access.v1",
+            "event_id": uuid.uuid4().hex,
+            "recorded_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "correlation_id": correlation_id,
+            "method": method,
+            "decision": decision,
+            "result_class": result_class,
+        }
+        if tool:
+            row["tool"] = tool
+        if principal is not None:
+            row["subject_id"] = principal.subject_id
+            if principal.realm_id:
+                row["realm_id"] = principal.realm_id
+            row["maximum_release_level"] = principal.maximum_release_level
+        if http_status is not None:
+            row["http_status"] = http_status
+        if reason:
+            row["reason"] = reason
+        with self._lock:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(row, sort_keys=True) + "\n")
+
+
 class MCPHTTPApplication:
     def __init__(self, config: MCPHTTPConfig):
         if not config.policy_config:
@@ -113,6 +155,7 @@ class MCPHTTPApplication:
         if unknown:
             raise ValueError(f"unknown MCP tools: {sorted(unknown)}")
         self.config = config
+        self.audit = _AuditLog(config.audit_log_path)
         self.identities = _load_identities(config.identity_file)
         if config.identity_file and not self.identities:
             raise ValueError("identity file must contain at least one identity")
@@ -131,7 +174,14 @@ class MCPHTTPApplication:
 
     def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
         correlation_id = uuid.uuid4().hex
-        principal = self.principal_for_token(token)
+        method = str(request.get("method", ""))
+        try:
+            principal = self.principal_for_token(token)
+        except PermissionError as exc:
+            self.audit.write(correlation_id=correlation_id, principal=None, method=method,
+                             decision="denied", result_class="authorization_error",
+                             http_status=401, reason=str(exc))
+            raise
         enabled_tools = self.config.allowed_tools & principal.allowed_tools
         method = request.get("method")
         request_id = request.get("id")
@@ -143,11 +193,16 @@ class MCPHTTPApplication:
                 exposed = dict(tool)
                 exposed["annotations"] = {"readOnlyHint": True}
                 tools.append(exposed)
+            self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                             decision="allowed", result_class="success", http_status=200)
             return _json_response(request_id, {"tools": tools}, correlation_id=correlation_id)
         if method == "tools/call":
             params = dict(request.get("params") or {})
             name = str(params.get("name", ""))
             if name not in enabled_tools:
+                self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                                 tool=name, decision="denied", result_class="policy_denied",
+                                 http_status=200, reason="tool_not_enabled")
                 return _json_response(request_id, error={"code": -32003, "message": "tool is not enabled by server policy"}, correlation_id=correlation_id)
             arguments = dict(params.get("arguments") or {})
             # Server-owned controls override caller-supplied policy and identity.
@@ -170,7 +225,16 @@ class MCPHTTPApplication:
             request["params"] = params
         response = handle_request(request)
         if response is None:
+            self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                             tool=str((request.get("params") or {}).get("name", "")),
+                             decision="allowed", result_class="notification", http_status=200)
             return None
+        error = response.get("error")
+        self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                         tool=str((request.get("params") or {}).get("name", "")),
+                         decision="allowed" if error is None else "completed",
+                         result_class="error" if error is not None else "success", http_status=200,
+                         reason="handler_error" if error is not None else "")
         response = dict(response)
         response["_meta"] = {"groundrecall": {"correlation_id": correlation_id}}
         return (json.dumps(response, separators=(",", ":")) + "\n").encode("utf-8")
@@ -245,8 +309,9 @@ def main() -> None:
     parser.add_argument("--subject-id", default="", help="Server-owned principal identity for all requests.")
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
     parser.add_argument("--identity-file", default="", help="JSON file mapping bearer tokens to server-owned principals and tool caps.")
+    parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token, identity_file=args.identity_file))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token, identity_file=args.identity_file, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
