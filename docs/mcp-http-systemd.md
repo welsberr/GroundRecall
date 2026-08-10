@@ -75,3 +75,19 @@ groundrecall-mcp-audit-verify --json /var/log/groundrecall/mcp-access.jsonl
 The command exits zero only when the file is readable and valid; malformed or
 tampered records return a nonzero status. Both output modes contain only
 aggregate counts and the final hash.
+
+To preserve a metadata-only inventory across log rotation, generate a manifest
+after rotation (from a trusted operator or timer) and verify it before export:
+
+```sh
+groundrecall-mcp-audit-manifest /var/log/groundrecall \
+  --output /var/log/groundrecall/mcp-access.manifest.json
+groundrecall-mcp-audit-manifest /var/log/groundrecall \
+  --verify /var/log/groundrecall/mcp-access.manifest.json --json
+```
+
+The manifest contains file names, byte sizes, SHA-256 hashes, and generation
+time only; it never embeds audit records or credentials. A missing, changed, or
+unexpected matching audit file makes verification fail. Keep the manifest under
+the same retention and access controls as the rotated logs, and do not place it
+inside the `mcp-access.jsonl*` pattern.

@@ -24,6 +24,7 @@ groundrecall = "groundrecall.cli:main"
 groundrecall-mcp = "groundrecall.mcp:main"
 groundrecall-mcp-http = "groundrecall.mcp_http:main"
 groundrecall-mcp-audit-verify = "groundrecall.mcp_audit_verify:main"
+groundrecall-mcp-audit-manifest = "groundrecall.mcp_audit_manifest:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
