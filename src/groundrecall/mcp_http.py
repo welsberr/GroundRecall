@@ -276,6 +276,17 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
                 self._write(404, b'{"error":"not_found"}\n')
                 return
             if not self._authorized():
+                # Do not parse or retain an unauthorized body.  Record only a
+                # transport-level denial and a server-generated correlation ID.
+                application.audit.write(
+                    correlation_id=uuid.uuid4().hex,
+                    principal=None,
+                    method="HTTP /mcp",
+                    decision="denied",
+                    result_class="authorization_error",
+                    http_status=401,
+                    reason="invalid bearer token",
+                )
                 self._write(401, b'{"error":"unauthorized"}\n')
                 return
             try:
