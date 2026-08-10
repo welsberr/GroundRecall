@@ -124,6 +124,13 @@ passing request metadata.
 
 ### CG-03: Private-network deployment
 
+Status: a non-installed systemd deployment template is available at
+`deploy/systemd/groundrecall-mcp-http.service`, with a least-privilege service
+account, loopback binding, bounded restart behavior, and explicit writable
+paths. Setup and credential handling are documented in
+`docs/mcp-http-systemd.md`. Tunnel enrollment, rotation/revocation, and a
+production health supervisor remain operator/integration work.
+
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;
   never expose the canonical store directly.

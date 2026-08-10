@@ -1,0 +1,44 @@
+[Unit]
+Description=GroundRecall read-only MCP HTTP adapter
+Documentation=https://github.com/renunney/GroundRecall/blob/main/docs/chatgpt-mcp-integration-roadmap.md
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60s
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=groundrecall
+Group=groundrecall
+WorkingDirectory=/var/lib/groundrecall
+
+# Install the package into this virtualenv (see docs/mcp-http-systemd.md).
+ExecStart=/opt/groundrecall/.venv/bin/groundrecall-mcp-http \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --policy-config /etc/groundrecall/mcp-policy.yaml \
+  --identity-file /etc/groundrecall/mcp-identities.json \
+  --audit-log-path /var/log/groundrecall/mcp-access.jsonl
+Restart=on-failure
+RestartSec=5s
+
+# The adapter is intentionally loopback-only. A tunnel or reverse proxy is
+# responsible for any approved remote access.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/groundrecall /var/log/groundrecall
+ReadOnlyPaths=/etc/groundrecall
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -303,6 +303,11 @@ groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
   --subject-id alice --bearer-token "$GROUNDRECALL_MCP_TOKEN"
 ```
 
+For boot-time private deployment, use the reviewed systemd template and setup
+notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
+binds to loopback and is not installed or enabled automatically; a private
+tunnel or approved reverse proxy must provide any remote access.
+
 For multiple collaborators, replace the fixed token with a server-owned
 identity file (JSON entries contain `token`, `subject_id`, optional `realm_id`,
 `maximum_release_level`, and `allowed_tools`):
