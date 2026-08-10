@@ -64,3 +64,14 @@ adapter keeps the file descriptor open. Align retention and deletion with
 project data-governance requirements, and protect rotated files because they
 contain principal, realm, tool, decision, and correlation metadata (never
 request content or bearer tokens).
+
+Operators can verify the active chain without exposing record contents:
+
+```sh
+groundrecall-mcp-audit-verify /var/log/groundrecall/mcp-access.jsonl
+groundrecall-mcp-audit-verify --json /var/log/groundrecall/mcp-access.jsonl
+```
+
+The command exits zero only when the file is readable and valid; malformed or
+tampered records return a nonzero status. Both output modes contain only
+aggregate counts and the final hash.

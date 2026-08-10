@@ -109,6 +109,10 @@ previous-record link and record hash, with a verifier helper; rename-based
 rotation deliberately starts a new independently verifiable chain in each file.
 Centralized export and deployment-specific retention approval remain future work.
 
+The `groundrecall-mcp-audit-verify` operator command verifies an active JSONL
+chain and returns a nonzero status for malformed or tampered records while
+printing only bounded summary data by default.
+
 The identity-file pilot keeps authorization server-owned: callers cannot select
 another subject, realm, release level, or tool outside the intersection of the
 server and identity allow-lists. It is intentionally a local/private-network

@@ -5,6 +5,7 @@ import re
 import pytest
 
 from groundrecall.mcp_http import DEFAULT_READ_ONLY_TOOLS, MCPHTTPApplication, MCPHTTPConfig, verify_audit_log
+from groundrecall.mcp_audit_verify import main as verify_audit_cli
 
 
 def test_http_mcp_requires_server_policy_and_exposes_read_only_tools(tmp_path) -> None:
@@ -143,3 +144,26 @@ def test_http_audit_verifier_detects_tampering_and_accepts_legacy_prefix(tmp_pat
     audit.write_text("\n".join(rows[:-1] + [json.dumps(tampered)]) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="hash mismatch"):
         verify_audit_log(str(audit))
+
+
+def test_mcp_audit_verify_cli_reports_bounded_summary_without_record_contents(tmp_path, capsys) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    audit = tmp_path / "mcp.jsonl"
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice", audit_log_path=str(audit)))
+    app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
+    assert verify_audit_cli([str(audit)]) == 0
+    output = capsys.readouterr().out
+    assert "OK: records=1 chained_records=1" in output
+    assert "alice" not in output
+    assert verify_audit_cli(["--json", str(audit)]) == 0
+    assert '"records":1' in capsys.readouterr().out
+
+
+def test_mcp_audit_verify_cli_returns_nonzero_for_tampering(tmp_path, capsys) -> None:
+    audit = tmp_path / "mcp.jsonl"
+    audit.write_text('{"event_kind":"legacy"}\n', encoding="utf-8")
+    assert verify_audit_cli([str(audit)]) == 0
+    audit.write_text("not-json\n", encoding="utf-8")
+    assert verify_audit_cli([str(audit)]) == 1
+    assert "INVALID:" in capsys.readouterr().err
