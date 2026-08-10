@@ -46,4 +46,21 @@ The unit restarts failed processes with a bounded burst. `ProtectSystem`,
 `NoNewPrivileges`, an empty capability set, private temporary storage, and
 explicit writable paths limit the service account. Logs go to journald; access
 audit records are written only when `--audit-log-path` is configured and must
-be rotated/retained by the host operator.
+be rotated/retained by the host operator. The repository includes a conservative
+logrotate template at `deploy/logrotate/groundrecall-mcp-http`; install it only
+after reviewing local retention requirements:
+
+```sh
+sudo install -o root -g root -m 0644 \
+  deploy/logrotate/groundrecall-mcp-http \
+  /etc/logrotate.d/groundrecall-mcp-http
+sudo logrotate -d /etc/logrotate.d/groundrecall-mcp-http
+```
+
+The template rotates daily, keeps 14 archives, compresses older archives, and
+rotates at 50 MiB. It uses rename-based rotation because the adapter opens the
+JSONL path for each event; do not add `copytruncate` unless a locally modified
+adapter keeps the file descriptor open. Align retention and deletion with
+project data-governance requirements, and protect rotated files because they
+contain principal, realm, tool, decision, and correlation metadata (never
+request content or bearer tokens).

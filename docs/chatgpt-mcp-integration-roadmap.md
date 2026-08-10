@@ -102,8 +102,10 @@ and tool-call policy metadata includes that ID plus the server-selected realm.
 When `--audit-log-path` is configured, the adapter appends privacy-conscious
 JSONL access events with correlation ID, principal/realm, method/tool, decision,
 result class, HTTP outcome, and bounded denial reason; request arguments and
-bearer tokens are never recorded. Audit remains opt-in and local-file backed
-pending retention, rotation, and tamper-evidence design.
+bearer tokens are never recorded. Audit remains opt-in and local-file backed.
+An operator logrotate template now provides bounded daily rotation (14 archives,
+50 MiB size trigger, compression); tamper evidence, centralized export, and
+deployment-specific retention approval remain future work.
 
 The identity-file pilot keeps authorization server-owned: callers cannot select
 another subject, realm, release level, or tool outside the intersection of the
@@ -176,7 +178,8 @@ publication authority.
 - Test prompt injection in stored records and malicious tool arguments.
 - Test tunnel outage, policy reload, identity revocation, key rotation, and
   ChatGPT app tool-schema drift.
-- Add retention and deletion rules for remote request/audit data.
+- Add deployment-specific retention/deletion approval, tamper evidence, and
+  centralized export for remote request/audit data.
 - Document supported ChatGPT plans and workspace administrator controls as
   deployment prerequisites, not product guarantees.
 

@@ -1,0 +1,16 @@
+# GroundRecall MCP access audit (JSONL). Install as
+# /etc/logrotate.d/groundrecall-mcp-http after reviewing retention policy.
+# The adapter opens the configured path for each event, so rename-based
+# rotation is safe and does not require a service restart.
+/var/log/groundrecall/mcp-access.jsonl {
+    daily
+    rotate 14
+    maxsize 50M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    dateext
+    dateformat -%Y%m%d
+    create 0640 groundrecall groundrecall
+}
