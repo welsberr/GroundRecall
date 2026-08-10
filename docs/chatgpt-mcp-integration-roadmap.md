@@ -92,10 +92,10 @@ read-only GroundRecall tool over the selected transport.
 
 ### CG-02: Authentication, realm mapping, and mandatory policy
 
-Status: pilot adapter requires server-owned policy configuration, supports an
-optional bearer token, and can pin one server-owned subject identity. Full
-OAuth/tunnel identity mapping and project/team realm resolution remain future
-work.
+Status: pilot adapter requires an existing server-owned policy file, supports
+an optional bearer token, advertises `readOnlyHint` for its default tool set,
+and can pin one server-owned subject identity. Full OAuth/tunnel identity
+mapping and project/team realm resolution remain future work.
 
 - Add an authentication adapter suitable for the chosen tunnel/service path.
 - Map authenticated identity to principal, project, and team realms.

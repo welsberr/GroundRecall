@@ -11,9 +11,11 @@ import argparse
 import json
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from .mcp import TOOLS, handle_request, list_tools
+from .policy import load_policy_plugins
 
 
 DEFAULT_READ_ONLY_TOOLS = frozenset(
@@ -54,6 +56,10 @@ class MCPHTTPApplication:
     def __init__(self, config: MCPHTTPConfig):
         if not config.policy_config:
             raise ValueError("server policy_config is required")
+        policy_path = Path(config.policy_config)
+        if not policy_path.is_file():
+            raise ValueError("server policy_config must point to an existing policy file")
+        load_policy_plugins(policy_path)
         unknown = config.allowed_tools - TOOLS.keys()
         if unknown:
             raise ValueError(f"unknown MCP tools: {sorted(unknown)}")
@@ -63,7 +69,13 @@ class MCPHTTPApplication:
         method = request.get("method")
         request_id = request.get("id")
         if method == "tools/list":
-            tools = [tool for tool in list_tools() if tool["name"] in self.config.allowed_tools]
+            tools = []
+            for tool in list_tools():
+                if tool["name"] not in self.config.allowed_tools:
+                    continue
+                exposed = dict(tool)
+                exposed["annotations"] = {"readOnlyHint": True}
+                tools.append(exposed)
             return _json_response(request_id, {"tools": tools})
         if method == "tools/call":
             params = dict(request.get("params") or {})
