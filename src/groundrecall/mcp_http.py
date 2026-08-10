@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import uuid
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -81,8 +82,18 @@ def _load_identities(path: str) -> dict[str, MCPPrincipal]:
     return identities
 
 
-def _json_response(request_id: Any, result: Any = None, error: dict[str, Any] | None = None) -> bytes:
+def _json_response(
+    request_id: Any,
+    result: Any = None,
+    error: dict[str, Any] | None = None,
+    *,
+    correlation_id: str = "",
+) -> bytes:
     payload: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id}
+    if correlation_id:
+        # MCP permits implementation metadata on responses.  Keep this
+        # deliberately free of credentials or caller-supplied values.
+        payload["_meta"] = {"groundrecall": {"correlation_id": correlation_id}}
     if error is not None:
         payload["error"] = error
     else:
@@ -119,6 +130,7 @@ class MCPHTTPApplication:
         return MCPPrincipal(subject_id=self.config.subject_id, allowed_tools=self.config.allowed_tools)
 
     def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
+        correlation_id = uuid.uuid4().hex
         principal = self.principal_for_token(token)
         enabled_tools = self.config.allowed_tools & principal.allowed_tools
         method = request.get("method")
@@ -131,12 +143,12 @@ class MCPHTTPApplication:
                 exposed = dict(tool)
                 exposed["annotations"] = {"readOnlyHint": True}
                 tools.append(exposed)
-            return _json_response(request_id, {"tools": tools})
+            return _json_response(request_id, {"tools": tools}, correlation_id=correlation_id)
         if method == "tools/call":
             params = dict(request.get("params") or {})
             name = str(params.get("name", ""))
             if name not in enabled_tools:
-                return _json_response(request_id, error={"code": -32003, "message": "tool is not enabled by server policy"})
+                return _json_response(request_id, error={"code": -32003, "message": "tool is not enabled by server policy"}, correlation_id=correlation_id)
             arguments = dict(params.get("arguments") or {})
             # Server-owned controls override caller-supplied policy and identity.
             arguments["policy_config"] = self.config.policy_config
@@ -147,14 +159,20 @@ class MCPHTTPApplication:
             if principal.maximum_release_level:
                 arguments["maximum_release_level"] = principal.maximum_release_level
             arguments.pop("policy_request", None)
+            metadata = {"groundrecall.correlation_id": correlation_id}
             if principal.realm_id:
-                arguments["policy_request"] = {"metadata": {"groundrecall.realm_id": principal.realm_id}}
+                metadata["groundrecall.realm_id"] = principal.realm_id
+            # Caller policy fields are ignored, but server-generated metadata
+            # is supplied so policy providers can correlate evaluations safely.
+            arguments["policy_request"] = {"metadata": metadata}
             params["arguments"] = arguments
             request = dict(request)
             request["params"] = params
         response = handle_request(request)
         if response is None:
             return None
+        response = dict(response)
+        response["_meta"] = {"groundrecall": {"correlation_id": correlation_id}}
         return (json.dumps(response, separators=(",", ":")) + "\n").encode("utf-8")
 
 
