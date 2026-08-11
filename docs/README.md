@@ -16,6 +16,7 @@ Primary docs:
 - [textbook-ocr-ingestion.md](textbook-ocr-ingestion.md)
 - [library-argument-ingestion.md](library-argument-ingestion.md)
 - [sync-roadmap.md](sync-roadmap.md)
+- [chatgpt-mcp-integration-roadmap.md](chatgpt-mcp-integration-roadmap.md)
 - [knowledge-graph-roadmap.md](knowledge-graph-roadmap.md)
 
 Preprint preparation:

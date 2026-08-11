@@ -6,6 +6,11 @@ canonical store, supports review and promotion, exports assistant-neutral
 snapshots, and can generate assistant-specific bundles for tools such as Codex
 and Claude Code.
 
+It is a governed memory layer, not a chat transcript store or an autonomous
+agent runtime. GroundRecall keeps durable state, provenance, release policy,
+review status, federation custody, and audit history separate from the
+ephemeral sessions that use it.
+
 GroundRecall is intended for work where durable context matters:
 
 - site, app, and service administration across sessions
@@ -46,6 +51,17 @@ only at the end, or not at all.
 - Export pack-ready query bundles for Didactopus.
 - Initialize an assistant-neutral host/project memory protocol with
   `groundrecall protocol-init`.
+- Run policy-gated institutional federation workflows for scopes, work,
+  decisions, contributions, review receipts, stewardship, custody, catalogs,
+  subscriptions, signed change bundles, quarantine, release packs, and
+  withdrawal notices.
+- Serve a bounded local/private-network HTTP MCP adapter with MCP
+  `initialize`/`ping`, read-only query tools, server-owned identity and realm
+  caps, request/response limits, correlation IDs, and privacy-conscious audit
+  logging.
+- Create and query governed assistant handoff proposals for ChatGPT/Codex
+  interoperability; handoffs are proposal records, not arbitrary host
+  execution or direct canonical-memory writes.
 
 ## Installation
 
@@ -326,6 +342,11 @@ state substrate for ChatGPT and Codex. Handoffs will be compact,
 proposal-only task/plan/progress/result records with stable IDs and references
 to governed GroundRecall context; chat transcripts and arbitrary host
 execution are not synchronized through the memory layer.
+
+The currently implemented handoff surface is limited to proposal/query methods
+(`handoff_propose`, `handoff_get`, and `handoff_list`). Status transitions,
+progress/result records, and Codex-side claim/discovery automation remain
+planned work.
 
 The adapter bounds both request and response bodies. An oversized MCP result
 returns the fixed `response_too_large` error without including any part of the

@@ -1,10 +1,37 @@
 # GroundRecall Implemented Features Summary
 
-Date: 2026-07-29
+Date: 2026-08-11
 
 This summary records the implemented GroundRecall capabilities that are in
 scope for preprint revision after IF-14 and PRR-02. It separates tested
 prototype behavior from limitations and future work.
+
+## Assistant Interoperability And Remote MCP
+
+GroundRecall has a tested local MCP server and a bounded HTTP MCP adapter for
+private-network deployment. The HTTP adapter supports MCP `initialize`,
+`ping`, tool discovery, and bounded read/query calls while keeping policy and
+identity controls server-owned.
+
+- Default HTTP exposure is read-only and advertises `readOnlyHint`.
+- Fixed bearer-token and server-owned identity-file pilot modes are supported;
+  OAuth/OIDC and tunnel-issued identity remain future deployment work.
+- Principals can be capped by subject, realm, release level, and tool set.
+- Request and response sizes are bounded; oversized responses return a fixed
+  error without including result content.
+- Responses carry correlation IDs; optional JSONL audit records exclude request
+  content and bearer tokens.
+- Audit records support hash chaining, verification, rotation, and metadata-only
+  manifests with an operator CLI and logrotate hook.
+- A proposal-only handoff inbox supports versioned assistant handoff records
+  with stable IDs, idempotency keys, provenance, context references, and the
+  `handoff_propose`, `handoff_get`, and `handoff_list` MCP methods.
+
+The HTTP adapter, systemd unit, logrotate template, and audit utilities are
+deployment templates and pilots. No service or tunnel is installed by the
+repository, ChatGPT compatibility has not been certified, and handoff status,
+progress/result records, Codex claim automation, OAuth, and centralized audit
+export remain future work.
 
 ## Current Evidence Snapshot
 
@@ -23,6 +50,11 @@ Current machine-readable reports show:
 
 The generated local revision snapshot is
 `examples/preprint/out/revision_evidence_snapshot.json`.
+
+The evidence counts above describe the institutional/preprint evidence
+snapshot and do not include the later ChatGPT/MCP integration commits listed
+below; regenerate the snapshot before using those counts as a current release
+claim.
 
 ## Core Knowledge Substrate
 
