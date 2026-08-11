@@ -33,7 +33,9 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
         "impact_report",
         "stewardship_orphans",
         "review_backlog",
-        "review_backlog_item",
+    "review_backlog_item",
+    "handoff_get",
+    "handoff_list",
     }
 )
 
@@ -325,7 +327,7 @@ class MCPHTTPApplication:
                 if tool["name"] not in enabled_tools:
                     continue
                 exposed = dict(tool)
-                exposed["annotations"] = {"readOnlyHint": True}
+                exposed["annotations"] = {"readOnlyHint": tool["name"] != "handoff_propose"}
                 tools.append(exposed)
             self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
                              decision="allowed", result_class="success", http_status=200)

@@ -19,6 +19,7 @@ from .query import query_concept
 from .search_index import search_index
 from .review_backlog import BacklogPolicyError, aggregate_backlog, record_interaction
 from .review_dashboard import dashboard_item_detail
+from .handoff import get_handoff, list_handoffs, propose_handoff
 
 
 SERVER_INFO = {"name": "groundrecall-mcp", "version": "0.1.0a1"}
@@ -363,6 +364,36 @@ def _propose_contribution(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(_attach_policy(payload, decision))
 
 
+def _handoff_propose(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    fields = dict(arguments)
+    fields.pop("store_dir", None)
+    fields.pop("policy_config", None)
+    fields.pop("policy_request", None)
+    result = propose_handoff(arguments["store_dir"], policy_provider=provider, **fields)
+    return _json_text(result.model_dump(mode="json"))
+
+
+def _handoff_get(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "query", "action": "handoff_get", "subject_id": str(arguments.get("subject_id", "")), "record_kind": "assistant_handoff", "record_id": str(arguments.get("handoff_id", "")), "scope_id": str(arguments.get("project", "")), "target_release_level": str(arguments.get("maximum_release_level", "private"))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    item = get_handoff(arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")))
+    if item is None:
+        return _json_text({"ok": False, "error": "handoff not found"})
+    return _json_text(_attach_policy({"ok": True, "handoff": item.model_dump(mode="json")}, decision))
+
+
+def _handoff_list(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "query", "action": "handoff_list", "subject_id": str(arguments.get("subject_id", "")), "record_kind": "assistant_handoff", "scope_id": str(arguments.get("project", "")), "target_release_level": str(arguments.get("maximum_release_level", "private"))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    items = list_handoffs(arguments["store_dir"], subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), project=str(arguments.get("project", "")), status=str(arguments.get("status", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), limit=int(arguments.get("limit", 20)))
+    return _json_text(_attach_policy({"schema_version": "groundrecall.assistant_handoff_list.v1", "handoffs": [item.model_dump(mode="json") for item in items]}, decision))
+
+
 TOOLS: dict[str, dict[str, Any]] = {
     "review_backlog": {
         "description": "Read a policy-filtered, bounded local review backlog digest; never promotes or adjudicates records.",
@@ -585,6 +616,21 @@ TOOLS: dict[str, dict[str, Any]] = {
             "required": ["contributor_id", "destination_scope_id", "contribution_intent"],
         },
         "handler": _propose_contribution,
+    },
+    "handoff_propose": {
+        "description": "Create a governed cross-assistant handoff proposal; never performs canonical memory writes or host execution.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "project": {"type": "string"}, "objective": {"type": "string"}, "task_id": {"type": "string"}, "handoff_id": {"type": "string"}, "constraints": {"type": "array", "items": {"type": "string"}}, "acceptance_criteria": {"type": "array", "items": {"type": "string"}}, "context_refs": {"type": "array", "items": {"type": "string"}}, "requested_action": {"type": "string"}, "from_surface": {"type": "string"}, "to_surface": {"type": "string"}, "host_id": {"type": "string"}, "realm_id": {"type": "string"}, "release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "project", "objective"]},
+        "handler": _handoff_propose,
+    },
+    "handoff_get": {
+        "description": "Read one subject- and realm-scoped cross-assistant handoff proposal.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id"]},
+        "handler": _handoff_get,
+    },
+    "handoff_list": {
+        "description": "List bounded subject- and realm-scoped cross-assistant handoff proposals.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "project": {"type": "string"}, "realm_id": {"type": "string"}, "status": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "limit": {"type": "integer", "default": 20}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir"]},
+        "handler": _handoff_list,
     },
 }
 
