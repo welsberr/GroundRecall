@@ -321,6 +321,12 @@ groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
 It exposes read-only tools by default and is intended for a private tunnel or
 local testing, not direct public exposure.
 
+The planned cross-assistant lane treats GroundRecall as the shared durable
+state substrate for ChatGPT and Codex. Handoffs will be compact,
+proposal-only task/plan/progress/result records with stable IDs and references
+to governed GroundRecall context; chat transcripts and arbitrary host
+execution are not synchronized through the memory layer.
+
 The adapter bounds both request and response bodies. An oversized MCP result
 returns the fixed `response_too_large` error without including any part of the
 result; configure `--max-response-bytes` for the deployment's client and

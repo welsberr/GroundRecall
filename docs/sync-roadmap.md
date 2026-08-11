@@ -136,6 +136,12 @@ adapter and an approved private-network path such as Secure MCP Tunnel. The
 implementation plan is maintained in
 [chatgpt-mcp-integration-roadmap.md](chatgpt-mcp-integration-roadmap.md).
 
+Cross-assistant interoperability follows the same boundary: GroundRecall is
+the shared state substrate, while ChatGPT and Codex remain separate clients.
+The planned handoff lane uses compact, proposal-only task/plan/progress/result
+records with stable IDs and context references; it does not synchronize chat
+transcripts or grant a reasoning client arbitrary host execution authority.
+
 This avoids treating compiled wiki pages or generated bundles as merge primitives.
 Federation is controlled publication of provenance-bearing knowledge objects,
 not blind memory copying between hosts.

@@ -1,7 +1,7 @@
 # ChatGPT MCP Integration Roadmap
 
 Date: 2026-08-09
-Status: planned integration track
+Status: implementation track; remote adapter pilot is advancing toward an Edu read-only pilot
 Primary repository: `/home/netuser/bin/GroundRecall`
 
 ## Purpose
@@ -34,6 +34,12 @@ behavior may change.
    approvals, audit records, and policy decisions.
 7. **The local service remains useful alone.** Tunnel or ChatGPT outages must
    not interrupt local GroundRecall, assistant, or review workflows.
+8. **Assistants share state, not sessions.** ChatGPT and Codex exchange compact,
+   governed task records and references; neither chat history nor a terminal
+   session becomes canonical memory.
+9. **Execution remains explicit.** A ChatGPT handoff may propose work for
+   Codex, but it does not grant ChatGPT arbitrary shell, repository, or host
+   authority.
 
 ## Target architecture
 
@@ -46,6 +52,7 @@ GroundRecall MCP HTTP adapter
   ├─ authentication and principal/project mapping
   ├─ mandatory server policy and release filtering
   ├─ bounded query/read tools
+  ├─ task/plan/progress/result handoff records
   ├─ audit and correlation IDs
   └─ GroundRecall local query/review APIs
         │
@@ -162,19 +169,31 @@ operators must set the local command path and review retention/permissions.
 Exit: the service is reachable from approved ChatGPT web sessions without a
 publicly exposed GroundRecall port.
 
-### CG-04: ChatGPT read-only pilot
+### CG-04: ChatGPT read-only pilot and assistant handoff
 
 - Create a private custom MCP app in ChatGPT developer mode where the account
   and workspace plan support it.
 - Publish only read/search/fetch-style tools initially.
+- Define versioned `AssistantHandoff`, task, plan, progress, and result records
+  linked by stable task and handoff IDs.
+- Expose proposal/query methods such as `handoff_propose`, `handoff_get`,
+  `handoff_list`, `handoff_update_status`, `progress_append`, and
+  `result_propose`; keep canonical promotion separate and policy-gated.
+- Store context references, constraints, acceptance criteria, provenance,
+  expiry, and idempotency keys rather than copied transcripts or prompt-sized
+  context.
+- Provide an explicit Codex-side discovery path scoped to host, repository,
+  project, and subject. Do not assume every Codex session automatically
+  claims or executes a handoff.
 - Test prompts for prior-work lookup, reviewed claim retrieval, freshness,
   contradiction visibility, and scope denial.
 - Verify that inaccessible topics, counts, assignees, and error paths do not
   leak protected project existence.
 - Record the app tool snapshot and review changes before republishing updates.
 
-Exit: a browser session can retrieve useful, provenance-bearing GroundRecall
-context from the LAN host while the pilot remains read-only.
+Exit: an Edu/Enterprise browser session can retrieve useful,
+provenance-bearing GroundRecall context and create a governed, proposal-only
+handoff that a scoped Codex session can accept and complete.
 
 ### CG-05: Governed proposals and review actions
 
@@ -211,9 +230,9 @@ CG-00 contract
   ↓
 CG-01 HTTP adapter ──→ CG-02 identity/policy
                            ↓
-                      CG-03 tunnel/service
+CG-03 tunnel/service
                            ↓
-                      CG-04 read-only pilot
+                 CG-04 read-only + handoff pilot
                            ↓
                       CG-05 governed proposals
                            ↓
