@@ -25,6 +25,7 @@ from . import (
     library_argument_bundle_r4,
     library_argument_bundle_r5,
     library_argument_bundle_r6,
+    library_argument_bundle_r7,
     handoff_discovery,
     catalog,
     change_feed,
@@ -85,6 +86,7 @@ COMMANDS = {
     "argument-bundle-r4": library_argument_bundle_r4.main,
     "argument-bundle-r5": library_argument_bundle_r5.main,
     "argument-bundle-r6": library_argument_bundle_r6.main,
+    "argument-bundle-r7": library_argument_bundle_r7.main,
     "handoff-discover": handoff_discovery.main,
 }
 

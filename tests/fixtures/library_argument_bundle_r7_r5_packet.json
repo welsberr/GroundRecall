@@ -1,0 +1,17 @@
+{
+  "r5_schema_version": "library.argument_bundle.r5.candidate-evidence.v1",
+  "bundle_id": "bundle.r0.golden",
+  "release_level": "private",
+  "review_state": "draft",
+  "evidence_cards": [
+    {
+      "evidence_card_id": "evidence-card.fixture",
+      "claim_id": "claim.article",
+      "review_state": "draft",
+      "release_level": "private"
+    }
+  ],
+  "foundation_dossiers": [],
+  "adjudications": [],
+  "boundary": "Candidate scaffolding only."
+}

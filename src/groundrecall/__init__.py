@@ -143,6 +143,7 @@ from .library_argument_bundle_audit import audit_library_argument_bundle, audit_
 from .library_argument_bundle_r4 import align_claim_families, generate_r4_candidates, export_r4_candidates
 from .library_argument_bundle_r5 import generate_r5_candidates, export_r5_candidates, record_r5_adjudication
 from .library_argument_bundle_r6 import compile_knowledge_basis_manifest, preflight_library_argument_bundle
+from .library_argument_bundle_r7 import evaluate_library_argument_bundle
 from .erasure import ErasurePlan, ErasureTarget, ErasureTombstone, plan_exceptional_erasure
 from .federation import (
     FederationBundle,
