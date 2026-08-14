@@ -92,6 +92,22 @@ def test_handoff_recovery_does_not_duplicate_event_after_interrupted_cleanup(tmp
     assert len(list_handoff_events(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1")) == 1
 
 
+def test_handoff_recovers_interrupted_lease_mutation(tmp_path):
+    from datetime import datetime, timezone, timedelta
+    from groundrecall.handoff import claim_handoff
+
+    item = propose_handoff(str(tmp_path), project="demo", objective="lease", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    expires = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    recovered = item.model_copy(update={"lease_id": "lease-recovery", "lease_subject_id": "alice", "lease_host_id": "host-a", "lease_expires_at": expires})
+    event = HandoffEvent(event_id="event-lease-recovery", event_type="lease", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, lease_id="lease-recovery", lease_subject_id="alice", lease_host_id="host-a", lease_expires_at=expires, lease_action="claimed", created_at="2026-08-14T00:00:00+00:00")
+    journal = _transaction_path(tmp_path, item.handoff_id)
+    journal.write_text(json.dumps({"handoff": recovered.model_dump(mode="json"), "event": event.model_dump(mode="json")}), encoding="utf-8")
+    restored = get_handoff(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1")
+    assert restored is not None and restored.lease_id == "lease-recovery"
+    with pytest.raises(ValueError, match="active lease"):
+        claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+
+
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
     item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1", host_id="codex-1").handoff
     with pytest.raises(ValueError, match="expected_status is required"):
