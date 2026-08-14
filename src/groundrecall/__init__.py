@@ -134,6 +134,11 @@ from .library_argument_bundle import (
     serialize_library_argument_bundle,
     validate_library_argument_bundle,
 )
+from .doclift_argument_adapter import (
+    DocliftArgumentAdapterError,
+    extract_doclift_argument_bundle,
+    export_doclift_argument_bundle,
+)
 from .erasure import ErasurePlan, ErasureTarget, ErasureTombstone, plan_exceptional_erasure
 from .federation import (
     FederationBundle,
@@ -208,6 +213,9 @@ from .store import GroundRecallStore
 
 __all__ = [
     "GroundRecallStore",
+    "DocliftArgumentAdapterError",
+    "extract_doclift_argument_bundle",
+    "export_doclift_argument_bundle",
     "contradiction_case_id_for_claims",
     "contradiction_cases_for_claim_ids",
     "accept_contradiction_candidate",

@@ -128,3 +128,26 @@ analysis, example, exercise, and reviewer verdict.
 GenieHive workers may process queued chunks into draft JSON records. Imports
 must be idempotent by source hash, chunk id, prompt id, and model id so that
 slow or partial runs can resume without duplicating records.
+
+## R2 deterministic candidate adapter
+
+GroundRecall R2 provides `groundrecall argument-bundle-extract INPUT OUTPUT`
+and the `extract_doclift_argument_bundle` Python API. It consumes a doclift
+`document.chunks.json` object (`{"chunks": [...]}`), or an equivalent object
+with optional source/document metadata, and emits a validated
+`library.argument_bundle.v1` bundle.
+
+The baseline maps chunk roles and `analysis_hints` to draft `claim_instances`
+for statements, premises, conclusions, evidence, objections, rebuttals,
+critiques, and questions. It preserves chunk text and supplied line, page,
+character, or timestamp anchors. Simple textual citation markers become
+`citation_assertions` with `assertion_type: mentions` and
+`support_status: unresolved`; they do not assert support, truth, or a resolved
+target. IDs are stable for the input document/chunk/text, while content hashes,
+run IDs, timestamps, tool identity, and input hashes are retained in version
+and provenance records.
+
+All R2 records are `release_level: private` and `review_state: draft`. The
+adapter performs no model call, promotion, database write, publication, or
+canonical claim alignment. An optional model hook, if added later, must be
+explicitly selected and must retain `origin: model` plus the same draft gate.

@@ -1,0 +1,14 @@
+{
+  "source_id": "source.r2.example",
+  "document_id": "doc.r2.example",
+  "title": "R2 extraction fixture",
+  "canonical_uri": "https://example.org/r2",
+  "source_kind": "article",
+  "document_kind": "article",
+  "chunks": [
+    {"chunk_id": "r2-c1", "role": "premise", "analysis_hints": ["premise_candidate"], "line_start": 10, "line_end": 11, "text": "Because the sample is small, the estimate is uncertain."},
+    {"chunk_id": "r2-c2", "role": "claim", "analysis_hints": ["conclusion_candidate"], "line_start": 12, "line_end": 12, "text": "Conclusion: the result should be treated as provisional [1]."},
+    {"chunk_id": "r2-c3", "role": "objection", "analysis_hints": ["counterargument_candidate"], "line_start": 13, "line_end": 14, "text": "However, critics object that the comparison is incomplete."},
+    {"chunk_id": "r2-c4", "role": "question", "analysis_hints": ["question_candidate"], "line_start": 15, "line_end": 15, "text": "Does the later dataset change the result?"}
+  ]
+}
