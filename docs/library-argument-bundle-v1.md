@@ -1,7 +1,8 @@
 # `library.argument_bundle.v1` handoff
 
-Status: R1 deterministic handoff validation/export. No extractor, lineage
-worker, or downstream UI is part of this phase.
+Status: R3 deterministic handoff validation, draft extraction, and read-only
+review/completeness auditing. No promotion, database write, or downstream UI is
+part of this phase.
 
 GroundRecall owns this initial contract location:
 
@@ -23,8 +24,24 @@ The equivalent CLI command is:
 groundrecall argument-bundle-export INPUT.json OUTPUT.json [--public]
 ```
 
-This phase validates and hands off bundles only; it does not ingest, infer,
-promote, or write to the GroundRecall database.
+## R3 audit and review queue surface
+
+`groundrecall argument-bundle-audit INPUT.json OUTPUT.json` produces a stable,
+private/draft audit envelope. It reports `claim_unreviewed`, missing or invalid
+source spans, unresolved or invalid citation assertions, missing argument
+links, incomplete coverage, and explicit `public_release_blocker` findings.
+Each finding has a stable ID, priority, reason, subject ID/type, and
+deterministic provenance. Each finding also produces a `needs_review` queue
+candidate with the same private/draft boundary.
+
+The API is `audit_library_argument_bundle(payload)` (and
+`audit_library_argument_bundle_file`). It is intentionally read-only: it does
+not call `GroundRecallStore`, write review-candidate files, alter the input,
+or promote any bundle record. R1 validation can still be run separately; R3
+auditing accepts malformed references so they become actionable review work.
+
+R1/R2/R3 remain handoff-only: they do not ingest into, promote to, or write to
+the GroundRecall database.
 
 The bundle is an envelope around provenance-bearing records. It defines source,
 document, version, and span identity before claims are interpreted. A span may

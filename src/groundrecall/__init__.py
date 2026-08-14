@@ -139,6 +139,7 @@ from .doclift_argument_adapter import (
     extract_doclift_argument_bundle,
     export_doclift_argument_bundle,
 )
+from .library_argument_bundle_audit import audit_library_argument_bundle, audit_library_argument_bundle_file
 from .erasure import ErasurePlan, ErasureTarget, ErasureTombstone, plan_exceptional_erasure
 from .federation import (
     FederationBundle,
@@ -216,6 +217,8 @@ __all__ = [
     "DocliftArgumentAdapterError",
     "extract_doclift_argument_bundle",
     "export_doclift_argument_bundle",
+    "audit_library_argument_bundle",
+    "audit_library_argument_bundle_file",
     "contradiction_case_id_for_claims",
     "contradiction_cases_for_claim_ids",
     "accept_contradiction_candidate",
