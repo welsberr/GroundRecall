@@ -20,6 +20,7 @@ from . import (
     institutional_review,
     institutional_views,
     library_argument_bundle,
+    handoff_discovery,
     catalog,
     change_feed,
     prior_work,
@@ -74,6 +75,7 @@ COMMANDS = {
     "review-remind": review_backlog_reminders.main,
     "review-benchmark": review_backlog_benchmark.main,
     "argument-bundle-export": library_argument_bundle.main,
+    "handoff-discover": handoff_discovery.main,
 }
 
 

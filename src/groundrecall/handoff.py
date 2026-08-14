@@ -116,7 +116,7 @@ def _read(path: Path) -> AssistantHandoff:
     return AssistantHandoff.model_validate_json(path.read_text(encoding="utf-8"))
 
 
-def list_handoffs(store_dir: str | Path, *, subject_id: str = "", realm_id: str = "", project: str = "", status: str = "", maximum_release_level: str = "private", limit: int = 20) -> list[AssistantHandoff]:
+def list_handoffs(store_dir: str | Path, *, subject_id: str = "", realm_id: str = "", project: str = "", host_id: str = "", status: str = "", maximum_release_level: str = "private", limit: int = 20) -> list[AssistantHandoff]:
     records: list[AssistantHandoff] = []
     for path in sorted(_directory(store_dir).glob("*.json"), key=lambda p: p.name):
         try:
@@ -128,6 +128,8 @@ def list_handoffs(store_dir: str | Path, *, subject_id: str = "", realm_id: str 
         if realm_id and item.realm_id != realm_id:
             continue
         if project and item.project != project:
+            continue
+        if host_id and item.host_id != host_id:
             continue
         if status and item.status != status:
             continue

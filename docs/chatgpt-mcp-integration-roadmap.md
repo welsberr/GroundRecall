@@ -190,6 +190,9 @@ publicly exposed GroundRecall port.
 - Provide an explicit Codex-side discovery path scoped to host, repository,
   project, and subject. Do not assume every Codex session automatically
   claims or executes a handoff.
+- `groundrecall-handoff-discover` now provides that path as a bounded,
+  policy-filtered read-only command, with project/host/subject/realm/status and
+  release-level filters. It never auto-claims or executes a handoff.
 - Test prompts for prior-work lookup, reviewed claim retrieval, freshness,
   contradiction visibility, and scope denial.
 - Verify that inaccessible topics, counts, assignees, and error paths do not
