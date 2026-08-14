@@ -16,6 +16,7 @@ dependencies = [
   "epistemap @ git+https://github.com/welsberr/Epistemap.git@v0.1.0a4",
   "cryptography>=40,<46",
   "pydantic>=2,<3",
+  "jsonschema>=4,<5",
   "PyYAML>=6,<7",
 ]
 

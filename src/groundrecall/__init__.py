@@ -127,6 +127,13 @@ from .query import (
     search_claims,
 )
 from .export import export_graph_bundle, export_groundrecall_graph_bundle, export_groundrecall_query_bundle
+from .library_argument_bundle import (
+    LibraryArgumentBundleError,
+    adapt_library_argument_bundle,
+    export_library_argument_bundle,
+    serialize_library_argument_bundle,
+    validate_library_argument_bundle,
+)
 from .erasure import ErasurePlan, ErasureTarget, ErasureTombstone, plan_exceptional_erasure
 from .federation import (
     FederationBundle,

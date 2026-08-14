@@ -1,12 +1,30 @@
 # `library.argument_bundle.v1` handoff
 
-Status: R0 contract and golden fixture only. No extractor, lineage worker, or
-downstream UI is part of this phase.
+Status: R1 deterministic handoff validation/export. No extractor, lineage
+worker, or downstream UI is part of this phase.
 
 GroundRecall owns this initial contract location:
 
 - Schema: `docs/schemas/library.argument_bundle.v1.schema.json`
 - Golden fixture: `docs/fixtures/library.argument_bundle.v1.golden.json`
+
+## R1 handoff surface
+
+`groundrecall.library_argument_bundle` provides validation, legacy review-state
+adaptation, and canonical JSON serialization. Validation rejects unknown schema
+versions, malformed records, duplicate IDs, invalid references, and inverted
+spans. Public serialization requires every record to be public and rejects local
+filesystem paths. IDs, hashes, spans, provenance, release levels, and review
+states are preserved.
+
+The equivalent CLI command is:
+
+```text
+groundrecall argument-bundle-export INPUT.json OUTPUT.json [--public]
+```
+
+This phase validates and hands off bundles only; it does not ingest, infer,
+promote, or write to the GroundRecall database.
 
 The bundle is an envelope around provenance-bearing records. It defines source,
 document, version, and span identity before claims are interpreted. A span may

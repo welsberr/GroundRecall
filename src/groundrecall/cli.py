@@ -19,6 +19,7 @@ from . import (
     institutional_release,
     institutional_review,
     institutional_views,
+    library_argument_bundle,
     catalog,
     change_feed,
     prior_work,
@@ -72,6 +73,7 @@ COMMANDS = {
     "review-assign": review_backlog.assign_main,
     "review-remind": review_backlog_reminders.main,
     "review-benchmark": review_backlog_benchmark.main,
+    "argument-bundle-export": library_argument_bundle.main,
 }
 
 
