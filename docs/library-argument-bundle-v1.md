@@ -1,8 +1,8 @@
 # `library.argument_bundle.v1` handoff
 
-Status: R3 deterministic handoff validation, draft extraction, and read-only
-review/completeness auditing. No promotion, database write, or downstream UI is
-part of this phase.
+Status: R4 deterministic handoff validation, draft extraction, read-only
+auditing, and candidate-only claim-family/lineage generation. No promotion,
+database write, or downstream UI is part of this phase.
 
 GroundRecall owns this initial contract location:
 
@@ -54,6 +54,27 @@ relations, citation assertions, lineage candidates, coverage audits, review
 receipts, and a knowledge-basis manifest. Candidate relations, citations, and
 lineage are assertions awaiting review, not conclusions produced by this
 contract.
+
+## R4 candidate alignment and lineage
+
+`groundrecall argument-bundle-r4 INPUT.json OUTPUT.json` adds deterministic,
+private/draft review candidates. Use `--canonical-references REFERENCES.json`
+to compare claims with a JSON array of supplied references (each may provide
+`canonical_claim_ref_id`, `namespace`, `key`, `label`, and `text`). Claims that
+do not meet the threshold receive an `unresolved` canonical reference; supplied
+matches remain `candidate`. `--threshold` defaults to `0.2` lexical Jaccard
+similarity.
+
+The API is `generate_r4_candidates(bundle, canonical_references=None)`. It
+copies its input and returns exact `evidence_span_ids` for every generated
+reference and lineage candidate. Lineage types include `shared_phrase`,
+`shared_argument`, `independent_recurrence`, and `explicit_citation`.
+
+Similarity and citation topology are observations about wording or graph
+shape. They are not support, entailment, influence, or truth. Every R4 record
+therefore carries `evidence_basis`, `truth_status: not_assessed`, rationale,
+and deterministic provenance. Independent recurrence and shared argument are
+reviewable hypotheses, not conclusions.
 
 ## Shared rules
 

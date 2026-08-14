@@ -140,6 +140,7 @@ from .doclift_argument_adapter import (
     export_doclift_argument_bundle,
 )
 from .library_argument_bundle_audit import audit_library_argument_bundle, audit_library_argument_bundle_file
+from .library_argument_bundle_r4 import align_claim_families, generate_r4_candidates, export_r4_candidates
 from .erasure import ErasurePlan, ErasureTarget, ErasureTombstone, plan_exceptional_erasure
 from .federation import (
     FederationBundle,
@@ -219,6 +220,9 @@ __all__ = [
     "export_doclift_argument_bundle",
     "audit_library_argument_bundle",
     "audit_library_argument_bundle_file",
+    "align_claim_families",
+    "generate_r4_candidates",
+    "export_r4_candidates",
     "contradiction_case_id_for_claims",
     "contradiction_cases_for_claim_ids",
     "accept_contradiction_candidate",

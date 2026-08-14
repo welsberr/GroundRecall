@@ -1,0 +1,9 @@
+[
+  {
+    "canonical_claim_ref_id": "ref.supplied.population",
+    "namespace": "citegeist.claim",
+    "key": "population-measure",
+    "label": "population-level measure",
+    "text": "Population change is measured at the population level."
+  }
+]

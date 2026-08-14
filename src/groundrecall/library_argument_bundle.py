@@ -85,6 +85,9 @@ def _check_reference_integrity(bundle: Mapping[str, Any], ids: Mapping[str, set[
             require("spans", value, f"claim {item['claim_id']}")
         for value in item.get("canonical_claim_ref_ids", []):
             require("canonical_claim_references", value, f"claim {item['claim_id']}")
+    for item in bundle["canonical_claim_references"]:
+        for value in item.get("evidence_span_ids", []):
+            require("spans", value, f"canonical claim reference {item['canonical_claim_ref_id']}")
     for item in bundle["argument_relations"]:
         require("claim_instances", item["from_claim_id"], "argument relation")
         require("claim_instances", item["to_claim_id"], "argument relation")
@@ -98,6 +101,8 @@ def _check_reference_integrity(bundle: Mapping[str, Any], ids: Mapping[str, set[
         require("documents", item["to_document_id"], "lineage candidate")
         for value in item["evidence_span_ids"]:
             require("spans", value, "lineage candidate")
+        for value in item.get("evidence_claim_ids", []):
+            require("claim_instances", value, "lineage candidate")
     for item in bundle["coverage_audits"]:
         for value in item["expected_span_ids"]:
             require("spans", value, "coverage audit")

@@ -149,7 +149,7 @@
       "required": ["canonical_claim_ref_id", "namespace", "key", "match_status", "release_level", "review_state"],
       "properties": {
         "canonical_claim_ref_id": { "$ref": "#/$defs/id" }, "namespace": { "type": "string", "minLength": 1 }, "key": { "type": "string", "minLength": 1 }, "label": { "type": "string" },
-        "match_status": { "type": "string", "enum": ["candidate", "accepted", "rejected", "unresolved"] }, "release_level": { "$ref": "#/$defs/releaseLevel" }, "review_state": { "$ref": "#/$defs/reviewState" }
+        "match_status": { "type": "string", "enum": ["candidate", "accepted", "rejected", "unresolved"] }, "evidence_span_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "match_type": { "type": "string" }, "confidence": { "type": "number", "minimum": 0, "maximum": 1 }, "rationale": { "type": "string" }, "evidence_basis": { "type": "string", "enum": ["similarity_only", "citation_topology", "similarity", "mixed"] }, "truth_status": { "type": "string", "enum": ["not_assessed", "assessed"] }, "provenance": { "$ref": "#/$defs/provenance" }, "release_level": { "$ref": "#/$defs/releaseLevel" }, "review_state": { "$ref": "#/$defs/reviewState" }
       }
     },
     "argumentRelation": {
@@ -170,7 +170,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["lineage_candidate_id", "from_document_id", "to_document_id", "lineage_type", "evidence_span_ids", "confidence", "release_level", "review_state"],
       "properties": {
-        "lineage_candidate_id": { "$ref": "#/$defs/id" }, "from_document_id": { "$ref": "#/$defs/id" }, "to_document_id": { "$ref": "#/$defs/id" }, "lineage_type": { "type": "string", "enum": ["explicit_citation", "quotation", "paraphrase", "shared_phrase", "shared_argument", "silent_borrowing", "independent_recurrence", "other"] }, "evidence_span_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }, "confidence": { "type": "number", "minimum": 0, "maximum": 1 }, "release_level": { "$ref": "#/$defs/releaseLevel" }, "review_state": { "$ref": "#/$defs/reviewState" }, "provenance": { "$ref": "#/$defs/provenance" }
+        "lineage_candidate_id": { "$ref": "#/$defs/id" }, "from_document_id": { "$ref": "#/$defs/id" }, "to_document_id": { "$ref": "#/$defs/id" }, "lineage_type": { "type": "string", "enum": ["explicit_citation", "quotation", "paraphrase", "shared_phrase", "shared_argument", "silent_borrowing", "independent_recurrence", "other"] }, "evidence_span_ids": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/id" } }, "evidence_claim_ids": { "type": "array", "items": { "$ref": "#/$defs/id" } }, "confidence": { "type": "number", "minimum": 0, "maximum": 1 }, "evidence_basis": { "type": "string", "enum": ["similarity", "citation_topology", "mixed"] }, "truth_status": { "type": "string", "enum": ["not_assessed", "assessed"] }, "rationale": { "type": "string" }, "release_level": { "$ref": "#/$defs/releaseLevel" }, "review_state": { "$ref": "#/$defs/reviewState" }, "provenance": { "$ref": "#/$defs/provenance" }
       }
     },
     "coverageAudit": {

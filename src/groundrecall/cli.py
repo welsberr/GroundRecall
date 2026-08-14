@@ -22,6 +22,7 @@ from . import (
     library_argument_bundle,
     doclift_argument_adapter,
     library_argument_bundle_audit,
+    library_argument_bundle_r4,
     handoff_discovery,
     catalog,
     change_feed,
@@ -79,6 +80,7 @@ COMMANDS = {
     "argument-bundle-export": library_argument_bundle.main,
     "argument-bundle-extract": doclift_argument_adapter.main,
     "argument-bundle-audit": library_argument_bundle_audit.main,
+    "argument-bundle-r4": library_argument_bundle_r4.main,
     "handoff-discover": handoff_discovery.main,
 }
 
