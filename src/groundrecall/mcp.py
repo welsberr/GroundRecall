@@ -21,11 +21,13 @@ from .review_backlog import BacklogPolicyError, aggregate_backlog, record_intera
 from .review_dashboard import dashboard_item_detail
 from .handoff import (
     append_handoff_progress,
+    claim_handoff,
     get_handoff,
     list_handoff_events,
     list_handoffs,
     propose_handoff,
     propose_handoff_result,
+    release_handoff,
     update_handoff_status,
 )
 
@@ -411,6 +413,32 @@ def _handoff_update_status(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(result.model_dump(mode="json"))
 
 
+def _handoff_claim(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    result = claim_handoff(
+        arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")),
+        host_id=str(arguments.get("host_id", "")), project=str(arguments.get("project", "")),
+        lease_seconds=int(arguments.get("lease_seconds", 900)), policy_provider=provider,
+        realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")),
+        expected_status=str(arguments.get("expected_status", "")), idempotency_key=str(arguments.get("idempotency_key", "")),
+        provenance=dict(arguments.get("provenance", {}) or {}),
+    )
+    return _json_text(result.model_dump(mode="json"))
+
+
+def _handoff_release(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    result = release_handoff(
+        arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")),
+        host_id=str(arguments.get("host_id", "")), project=str(arguments.get("project", "")),
+        lease_id=str(arguments.get("lease_id", "")), policy_provider=provider,
+        realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")),
+        expected_status=str(arguments.get("expected_status", "")), idempotency_key=str(arguments.get("idempotency_key", "")),
+        provenance=dict(arguments.get("provenance", {}) or {}),
+    )
+    return _json_text(result.model_dump(mode="json"))
+
+
 def _handoff_progress(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
     event = append_handoff_progress(arguments["store_dir"], arguments["handoff_id"], state=str(arguments.get("state", "")), observations=list(arguments.get("observations", []) or []), next_action=str(arguments.get("next_action", "")), policy_provider=provider, subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
@@ -679,6 +707,16 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Policy-gated operational handoff status transition; never executes host work or promotes canonical memory.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "status": {"type": "string", "enum": ["proposed", "accepted", "executing", "blocked", "completed"]}, "expected_status": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "status"]},
         "handler": _handoff_update_status,
+    },
+    "handoff_claim": {
+        "description": "Claim a scoped handoff for a bounded lease; never executes host work or writes canonical memory.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "subject_id": {"type": "string"}, "host_id": {"type": "string"}, "project": {"type": "string"}, "expected_status": {"type": "string"}, "lease_seconds": {"type": "integer", "minimum": 1, "maximum": 3600, "default": 900}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "subject_id", "host_id", "project", "expected_status"]},
+        "handler": _handoff_claim,
+    },
+    "handoff_release": {
+        "description": "Release a caller-owned or expired scoped handoff lease; never changes status, executes host work, or writes canonical memory.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "subject_id": {"type": "string"}, "host_id": {"type": "string"}, "project": {"type": "string"}, "lease_id": {"type": "string"}, "expected_status": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "subject_id", "host_id", "project"]},
+        "handler": _handoff_release,
     },
     "progress_append": {
         "description": "Append a policy-gated, proposal-only progress record to a handoff.",

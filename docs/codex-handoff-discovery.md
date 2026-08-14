@@ -21,6 +21,11 @@ Codex session.
 
 Discovery does not claim, accept, execute, or mutate a handoff. A separate
 authorized lifecycle call must perform any status transition or progress/result
-append. A missing policy configuration uses GroundRecall's default-allow
+append. Codex can explicitly claim a matching handoff with `handoff_claim`,
+which requires the target subject, host, project, expected status, and a lease
+duration bounded to 1--3600 seconds. The returned lease ID is required to
+release the lease; expired leases can be safely reclaimed or released only
+within the same subject/host/project/realm scope. Claim and release do not
+execute host work and are opt-in HTTP tools. A missing policy configuration uses GroundRecall's default-allow
 behavior for local development; production deployments should always provide a
 server-owned policy file.

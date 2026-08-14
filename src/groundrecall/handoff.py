@@ -20,7 +20,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result"]
+HandoffEventType = Literal["status", "progress", "result", "lease"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -52,6 +52,10 @@ class AssistantHandoff(BaseModel):
     idempotency_key: str = ""
     created_at: str
     updated_at: str
+    lease_id: str = ""
+    lease_subject_id: str = ""
+    lease_host_id: str = ""
+    lease_expires_at: str = ""
 
 
 class HandoffResult(BaseModel):
@@ -60,6 +64,9 @@ class HandoffResult(BaseModel):
     writes_performed: bool = True
     canonical_write: bool = False
     policy_decision: PolicyDecision
+    lease_id: str = ""
+    lease_expires_at: str = ""
+    lease_released: bool = False
 
 
 class HandoffEvent(BaseModel):
@@ -83,6 +90,11 @@ class HandoffEvent(BaseModel):
     artifacts: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
     next_safe_action: str = ""
+    lease_id: str = ""
+    lease_subject_id: str = ""
+    lease_host_id: str = ""
+    lease_expires_at: str = ""
+    lease_action: str = ""
     provenance: dict[str, Any] = Field(default_factory=dict)
     idempotency_key: str = ""
     created_at: str
@@ -90,6 +102,19 @@ class HandoffEvent(BaseModel):
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _lease_is_active(item: AssistantHandoff, *, now: datetime | None = None) -> bool:
+    if not item.lease_id or not item.lease_expires_at:
+        return False
+    try:
+        expires = datetime.fromisoformat(item.lease_expires_at)
+    except ValueError:
+        return False
+    current = now or datetime.now(timezone.utc)
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    return expires > current
 
 
 def _directory(store_dir: str | Path) -> Path:
@@ -228,6 +253,124 @@ def update_handoff_status(store_dir: str | Path, handoff_id: str, status: str, *
         target.write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
         _append_event(store_dir, event)
         return HandoffResult(handoff=item, policy_decision=decision)
+
+
+def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:
+    """Require a claim to stay inside the handoff's explicit target scope."""
+    if not subject_id or subject_id != item.subject_id:
+        raise PermissionError("handoff claim subject does not match target scope")
+    if not host_id or not item.host_id or host_id != item.host_id:
+        raise PermissionError("handoff claim host does not match target scope")
+    if not project or project != item.project:
+        raise PermissionError("handoff claim project does not match target scope")
+
+
+def claim_handoff(
+    store_dir: str | Path,
+    handoff_id: str,
+    *,
+    subject_id: str,
+    host_id: str,
+    project: str,
+    lease_seconds: int = 900,
+    policy_provider: PolicyDecisionProvider | None = None,
+    realm_id: str = "",
+    maximum_release_level: str = "private",
+    expected_status: str = "",
+    idempotency_key: str = "",
+    provenance: dict[str, Any] | None = None,
+) -> HandoffResult:
+    """Claim a handoff for a bounded period; this grants no execution authority."""
+    if not expected_status:
+        raise ValueError("expected_status is required for a handoff claim")
+    if lease_seconds < 1 or lease_seconds > 3600:
+        raise ValueError("lease_seconds must be between 1 and 3600")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None:
+            raise ValueError("handoff not found")
+        _validate_lease_scope(item, subject_id=subject_id, host_id=host_id, project=project)
+        if item.status != expected_status:
+            raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        decision = _handoff_policy(policy_provider, action="handoff_claim", handoff=item, status=item.status)
+        if decision.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff claim")
+        if existing is not None and existing.event_type == "lease" and existing.lease_action == "claimed":
+            return HandoffResult(handoff=item, policy_decision=decision, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+        if _lease_is_active(item):
+            raise ValueError("handoff already has an active lease")
+        now = datetime.now(timezone.utc)
+        expires = (now.timestamp() + lease_seconds)
+        expires_at = datetime.fromtimestamp(expires, tz=timezone.utc).isoformat()
+        lease_id = f"lease-{uuid.uuid4().hex[:16]}"
+        prior_lease = item.lease_id
+        item.lease_id = lease_id
+        item.lease_subject_id = subject_id
+        item.lease_host_id = host_id
+        item.lease_expires_at = expires_at
+        item.updated_at = now.isoformat()
+        _path(store_dir, handoff_id).write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        _append_event(store_dir, HandoffEvent(
+            event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="lease", handoff_id=item.handoff_id,
+            task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id,
+            release_level=item.release_level, lease_id=lease_id, lease_subject_id=subject_id,
+            lease_host_id=host_id, lease_expires_at=expires_at, lease_action="claimed",
+            provenance={**dict(provenance or {}), **({"previous_lease_id": prior_lease} if prior_lease else {})},
+            idempotency_key=idempotency_key, created_at=now.isoformat(),
+        ))
+        return HandoffResult(handoff=item, policy_decision=decision, lease_id=lease_id, lease_expires_at=expires_at)
+
+
+def release_handoff(
+    store_dir: str | Path,
+    handoff_id: str,
+    *,
+    subject_id: str,
+    host_id: str,
+    project: str,
+    lease_id: str = "",
+    policy_provider: PolicyDecisionProvider | None = None,
+    realm_id: str = "",
+    maximum_release_level: str = "private",
+    expected_status: str = "",
+    idempotency_key: str = "",
+    provenance: dict[str, Any] | None = None,
+) -> HandoffResult:
+    """Release a caller-owned lease, including an expired lease, without changing status."""
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None:
+            raise ValueError("handoff not found")
+        _validate_lease_scope(item, subject_id=subject_id, host_id=host_id, project=project)
+        if expected_status and item.status != expected_status:
+            raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
+        decision = _handoff_policy(policy_provider, action="handoff_release", handoff=item, status=item.status)
+        if decision.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff release")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        if existing is not None and existing.event_type == "lease" and existing.lease_action == "released":
+            return HandoffResult(handoff=item, policy_decision=decision, lease_released=True)
+        if not item.lease_id:
+            raise ValueError("handoff has no active lease")
+        if lease_id and lease_id != item.lease_id:
+            raise PermissionError("handoff lease does not match supplied lease_id")
+        if item.lease_subject_id != subject_id or item.lease_host_id != host_id:
+            raise PermissionError("handoff lease owner does not match release scope")
+        old_lease_id = item.lease_id
+        old_expires_at = item.lease_expires_at
+        now = _now()
+        item.lease_id = item.lease_subject_id = item.lease_host_id = item.lease_expires_at = ""
+        item.updated_at = now
+        _path(store_dir, handoff_id).write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
+        _append_event(store_dir, HandoffEvent(
+            event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="lease", handoff_id=item.handoff_id,
+            task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id,
+            release_level=item.release_level, lease_id=old_lease_id, lease_subject_id=subject_id,
+            lease_host_id=host_id, lease_expires_at=old_expires_at, lease_action="released",
+            provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=now,
+        ))
+        return HandoffResult(handoff=item, policy_decision=decision, lease_id=old_lease_id, lease_expires_at=old_expires_at, lease_released=True)
 
 
 def append_handoff_progress(store_dir: str | Path, handoff_id: str, *, state: str = "", observations: list[str] | None = None, next_action: str = "", policy_provider: PolicyDecisionProvider | None = None, subject_id: str = "", realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:

@@ -193,6 +193,11 @@ publicly exposed GroundRecall port.
 - `groundrecall-handoff-discover` now provides that path as a bounded,
   policy-filtered read-only command, with project/host/subject/realm/status and
   release-level filters. It never auto-claims or executes a handoff.
+- Add explicit `handoff_claim` and `handoff_release` calls for Codex-side
+  acceptance. Claims require matching subject, target host, project, realm,
+  expected status, idempotency key, and a 1--3600 second lease. Expired leases
+  can be reclaimed or released only within the original scope; claim/release
+  never executes host work and remain opt-in HTTP writes.
 - Test prompts for prior-work lookup, reviewed claim retrieval, freshness,
   contradiction visibility, and scope denial.
 - Verify that inaccessible topics, counts, assignees, and error paths do not
