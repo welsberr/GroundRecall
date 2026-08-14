@@ -33,8 +33,15 @@ sudo install -o root -g root -m 0644 deploy/systemd/groundrecall-mcp-http.servic
 sudo systemctl daemon-reload
 sudo systemctl start groundrecall-mcp-http.service
 curl --fail --silent http://127.0.0.1:8765/healthz
+curl --fail --silent http://127.0.0.1:8765/readyz
 sudo systemctl status groundrecall-mcp-http.service
 ```
+
+`/healthz` is a bounded liveness response and does not inspect or disclose
+store contents. `/readyz` reports only boolean policy/store checks and returns
+HTTP 503 until the server-owned policy file and `--store-dir` are available;
+it never returns their paths or data. Configure `--store-dir` in local unit
+copies when using readiness probes.
 
 Enable on boot only after validating the policy, identity mapping, and tunnel:
 

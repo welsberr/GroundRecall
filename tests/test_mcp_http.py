@@ -91,6 +91,38 @@ def test_http_application_requires_server_policy_and_rejects_unknown_tool(tmp_pa
         MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), allowed_tools=frozenset({"missing"})))
 
 
+def test_http_readiness_is_bounded_and_checks_policy_store(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    not_ready = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy)))
+    ready, payload = not_ready.readiness()
+    assert ready is False
+    assert payload == {"ok": False, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": False}, "reason": "store_not_configured"}
+    store = tmp_path / "store"
+    store.mkdir()
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), store_dir=str(store)))
+    ready, payload = app.readiness()
+    assert ready is True
+    assert payload == {"ok": True, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": True}, "reason": "ready"}
+    assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_http_store_dir_is_server_owned_when_configured(tmp_path, monkeypatch) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    store = tmp_path / "store"; store.mkdir()
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), store_dir=str(store), subject_id="alice"))
+    captured = {}
+
+    def fake_handle(request):
+        captured.update(request["params"]["arguments"])
+        return {"jsonrpc": "2.0", "id": request["id"], "result": {"ok": True}}
+
+    monkeypatch.setattr("groundrecall.mcp_http.handle_request", fake_handle)
+    app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "search_store", "arguments": {"store_dir": "/caller-controlled"}}})
+    assert captured["store_dir"] == str(store)
+
+
 def test_http_response_limit_returns_bounded_error_without_content_leak(tmp_path) -> None:
     policy = tmp_path / "policy.yaml"
     policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")

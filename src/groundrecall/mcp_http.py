@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from threading import Lock
@@ -53,6 +54,7 @@ MCP_HTTP_MIN_RESPONSE_BYTES = len(MCP_HTTP_RESPONSE_TOO_LARGE)
 @dataclass(frozen=True)
 class MCPHTTPConfig:
     policy_config: str
+    store_dir: str = ""
     subject_id: str = ""
     realm_id: str = ""
     bearer_token: str = ""
@@ -281,6 +283,17 @@ class MCPHTTPApplication:
         if self.identities and config.bearer_token:
             raise ValueError("configure either bearer_token or identity_file, not both")
 
+    def readiness(self) -> tuple[bool, dict[str, Any]]:
+        """Return bounded operational checks without revealing configured paths."""
+        policy_ok = Path(self.config.policy_config).is_file()
+        store_configured = bool(self.config.store_dir)
+        store_path = Path(self.config.store_dir) if store_configured else None
+        store_ok = bool(store_path and store_path.is_dir() and os.access(store_path, os.R_OK | os.W_OK))
+        checks = {"policy": policy_ok, "store": store_ok}
+        ready = policy_ok and store_configured and store_ok
+        reason = "ready" if ready else ("store_not_configured" if not store_configured else "dependency_unavailable")
+        return ready, {"ok": ready, "service": "groundrecall-mcp-http", "checks": checks, "reason": reason}
+
     def principal_for_token(self, token: str = "") -> MCPPrincipal:
         if self.identities:
             principal = self.identities.get(token)
@@ -346,6 +359,8 @@ class MCPHTTPApplication:
             arguments = dict(params.get("arguments") or {})
             # Server-owned controls override caller-supplied policy and identity.
             arguments["policy_config"] = self.config.policy_config
+            if self.config.store_dir:
+                arguments["store_dir"] = self.config.store_dir
             if self.config.subject_id:
                 arguments["subject_id"] = principal.subject_id
             elif principal.subject_id:
@@ -410,6 +425,9 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
         def do_GET(self) -> None:  # noqa: N802
             if self.path == "/healthz":
                 self._write(200, b'{"ok":true,"service":"groundrecall-mcp-http"}\n')
+            elif self.path == "/readyz":
+                ready, payload = application.readiness()
+                self._write(200 if ready else 503, (json.dumps(payload, separators=(",", ":")) + "\n").encode())
             else:
                 self._write(404, b'{"error":"not_found"}\n')
 
@@ -473,6 +491,7 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--policy-config", required=True, help="Server-owned policy plugin configuration.")
+    parser.add_argument("--store-dir", default="", help="Server-owned store path used for readiness and MCP calls.")
     parser.add_argument("--subject-id", default="", help="Server-owned principal identity for all requests.")
     parser.add_argument("--realm-id", default="", help="Server-owned realm for fixed-token deployments.")
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
@@ -480,7 +499,7 @@ def main() -> None:
     parser.add_argument("--max-response-bytes", type=int, default=1_000_000, help="Maximum MCP response size; oversized results return a bounded error.")
     parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

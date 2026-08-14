@@ -352,6 +352,12 @@ events remain outside canonical memory. HTTP exposes the event query by
 default; lifecycle write tools require an explicit server allow-list. Codex
 claim/discovery automation remains planned work.
 
+The adapter provides bounded `/healthz` and `/readyz` endpoints. `/healthz`
+reports liveness without inspecting data. `/readyz` checks the server-owned
+policy file and configured `--store-dir`, returning only boolean check results
+and HTTP 503 when dependencies are unavailable; it never exposes paths or
+store contents.
+
 Handoff status and lease mutations are journaled per record and persisted with
 atomic replacement plus fsync. Scoped reads recover an interrupted mutation
 idempotently. A malformed recovery journal is intentionally retained for

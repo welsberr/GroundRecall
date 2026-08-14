@@ -158,6 +158,11 @@ production health supervisor remain operator/integration work. The accompanying
 logrotate template can generate a metadata-only audit manifest after rotation;
 operators must set the local command path and review retention/permissions.
 
+The adapter now provides bounded `/healthz` and `/readyz` endpoints. Liveness
+does not inspect data; readiness checks only the server-owned policy file and
+configured store availability, returning boolean checks without paths or store
+contents. The systemd template supplies `--store-dir` for this probe.
+
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;
   never expose the canonical store directly.
