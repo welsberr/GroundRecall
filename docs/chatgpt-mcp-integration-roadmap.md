@@ -184,6 +184,9 @@ publicly exposed GroundRecall port.
   progress/result records are append-only operational proposals. The bounded
   HTTP adapter exposes event reads by default; lifecycle writes require an
   explicit allow-list.
+- Handoff status and lease persistence uses an atomic per-record journal with
+  fsync and bounded read-time recovery; interrupted writes are completed
+  idempotently before returning a scoped handoff.
 - Store context references, constraints, acceptance criteria, provenance,
   expiry, and idempotency keys rather than copied transcripts or prompt-sized
   context.

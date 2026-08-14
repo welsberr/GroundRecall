@@ -352,6 +352,11 @@ events remain outside canonical memory. HTTP exposes the event query by
 default; lifecycle write tools require an explicit server allow-list. Codex
 claim/discovery automation remains planned work.
 
+Handoff status and lease mutations are journaled per record and persisted with
+atomic replacement plus fsync. Scoped reads recover an interrupted mutation
+idempotently. A malformed recovery journal is intentionally retained for
+operator inspection rather than silently discarded.
+
 For fixed-token deployments, `--subject-id` and `--realm-id` are server-owned
 identity controls; identity-file entries provide those controls per token.
 

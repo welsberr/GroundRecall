@@ -32,6 +32,10 @@ identity controls server-owned.
   remain proposal-only operational events. `handoff_events` exposes a bounded,
   subject/realm/release-filtered event history; lifecycle write tools are opt-in
   on the HTTP adapter.
+- Handoff status and lease mutations use a bounded per-record transaction
+  journal, atomic replacement, file/directory fsync, and read-time recovery.
+  An interrupted mutation is completed idempotently before a scoped read
+  returns; malformed journals remain for operator inspection.
 
 The HTTP adapter, systemd unit, logrotate template, and audit utilities are
 deployment templates and pilots. No service or tunnel is installed by the

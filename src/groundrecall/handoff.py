@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -137,12 +138,85 @@ def _events_path(store_dir: str | Path, handoff_id: str) -> Path:
     return _directory(store_dir) / f"{safe}.events.jsonl"
 
 
+def _transaction_path(store_dir: str | Path, handoff_id: str) -> Path:
+    safe = "".join(ch for ch in handoff_id if ch.isalnum() or ch in "-_.:")
+    if not safe or safe != handoff_id:
+        raise ValueError("handoff_id contains unsupported characters")
+    return _directory(store_dir) / f"{safe}.txn"
+
+
+def _fsync_directory(path: Path) -> None:
+    try:
+        fd = os.open(path, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    except OSError:
+        # Some filesystems (and test doubles) do not permit directory fsync;
+        # file-level fsync and atomic replace still provide safe recovery.
+        return
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8") as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        _fsync_directory(path.parent)
+    finally:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _event_present(path: Path, event_id: str) -> bool:
+    if not path.exists():
+        return False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            if HandoffEvent.model_validate_json(line).event_id == event_id:
+                return True
+        except (ValueError, TypeError):
+            continue
+    return False
+
+
+def _recover_pending(store_dir: str | Path, handoff_id: str) -> None:
+    """Complete an interrupted status/lease transaction on the next read."""
+    transaction = _transaction_path(store_dir, handoff_id)
+    if not transaction.exists():
+        return
+    try:
+        payload = json.loads(transaction.read_text(encoding="utf-8"))
+        item = AssistantHandoff.model_validate(payload["handoff"])
+        event_payload = payload.get("event")
+        event = HandoffEvent.model_validate(event_payload) if event_payload else None
+    except (OSError, ValueError, TypeError, KeyError):
+        # Leave malformed journals in place for operator inspection; do not
+        # turn a read into an unsafe destructive recovery operation.
+        return
+    _atomic_write(_path(store_dir, handoff_id), item.model_dump_json(indent=2) + "\n")
+    if event is not None:
+        events_path = _events_path(store_dir, handoff_id)
+        if not _event_present(events_path, event.event_id):
+            _append_event(store_dir, event)
+    transaction.unlink(missing_ok=True)
+    _fsync_directory(transaction.parent)
+
+
 def _read(path: Path) -> AssistantHandoff:
     return AssistantHandoff.model_validate_json(path.read_text(encoding="utf-8"))
 
 
 def list_handoffs(store_dir: str | Path, *, subject_id: str = "", realm_id: str = "", project: str = "", host_id: str = "", status: str = "", maximum_release_level: str = "private", limit: int = 20) -> list[AssistantHandoff]:
     records: list[AssistantHandoff] = []
+    for transaction in _directory(store_dir).glob("*.txn"):
+        _recover_pending(store_dir, transaction.name.removesuffix(".txn"))
     for path in sorted(_directory(store_dir).glob("*.json"), key=lambda p: p.name):
         try:
             item = _read(path)
@@ -167,6 +241,7 @@ def list_handoffs(store_dir: str | Path, *, subject_id: str = "", realm_id: str 
 
 
 def get_handoff(store_dir: str | Path, handoff_id: str, *, subject_id: str = "", realm_id: str = "", maximum_release_level: str = "private") -> AssistantHandoff | None:
+    _recover_pending(store_dir, handoff_id)
     path = _path(store_dir, handoff_id)
     if not path.exists():
         return None
@@ -205,6 +280,22 @@ def _append_event(store_dir: str | Path, event: HandoffEvent) -> None:
     path = _events_path(store_dir, event.handoff_id)
     with path.open("a", encoding="utf-8") as stream:
         stream.write(event.model_dump_json() + "\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    _fsync_directory(path.parent)
+
+
+def _persist_mutation(store_dir: str | Path, item: AssistantHandoff, event: HandoffEvent) -> None:
+    """Journal, atomically replace, and append one handoff mutation."""
+    transaction = _transaction_path(store_dir, item.handoff_id)
+    payload = json.dumps({"handoff": item.model_dump(mode="json"), "event": event.model_dump(mode="json")}, separators=(",", ":")) + "\n"
+    _atomic_write(transaction, payload)
+    _atomic_write(_path(store_dir, item.handoff_id), item.model_dump_json(indent=2) + "\n")
+    events_path = _events_path(store_dir, item.handoff_id)
+    if not _event_present(events_path, event.event_id):
+        _append_event(store_dir, event)
+    transaction.unlink(missing_ok=True)
+    _fsync_directory(transaction.parent)
 
 
 def _event_idempotent(store_dir: str | Path, handoff_id: str, key: str, *, subject_id: str, realm_id: str) -> HandoffEvent | None:
@@ -249,9 +340,7 @@ def update_handoff_status(store_dir: str | Path, handoff_id: str, status: str, *
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status=status, provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=now)
         item.status = status  # type: ignore[assignment]
         item.updated_at = now
-        target = _path(store_dir, handoff_id)
-        target.write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        _append_event(store_dir, event)
+        _persist_mutation(store_dir, item, event)
         return HandoffResult(handoff=item, policy_decision=decision)
 
 
@@ -310,8 +399,7 @@ def claim_handoff(
         item.lease_host_id = host_id
         item.lease_expires_at = expires_at
         item.updated_at = now.isoformat()
-        _path(store_dir, handoff_id).write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        _append_event(store_dir, HandoffEvent(
+        _persist_mutation(store_dir, item, HandoffEvent(
             event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="lease", handoff_id=item.handoff_id,
             task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id,
             release_level=item.release_level, lease_id=lease_id, lease_subject_id=subject_id,
@@ -362,8 +450,7 @@ def release_handoff(
         now = _now()
         item.lease_id = item.lease_subject_id = item.lease_host_id = item.lease_expires_at = ""
         item.updated_at = now
-        _path(store_dir, handoff_id).write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        _append_event(store_dir, HandoffEvent(
+        _persist_mutation(store_dir, item, HandoffEvent(
             event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="lease", handoff_id=item.handoff_id,
             task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id,
             release_level=item.release_level, lease_id=old_lease_id, lease_subject_id=subject_id,
@@ -427,6 +514,5 @@ def propose_handoff(store_dir: str | Path, *, policy_provider: PolicyDecisionPro
         realm_id=realm_id, release_level=release_level, provenance=dict(fields.get("provenance", {}) or {}),
         idempotency_key=idem, created_at=now, updated_at=now,
     )
-    target = _path(store_dir, handoff_id)
-    target.write_text(item.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    _atomic_write(_path(store_dir, handoff_id), item.model_dump_json(indent=2) + "\n")
     return HandoffResult(handoff=item, policy_decision=decision)

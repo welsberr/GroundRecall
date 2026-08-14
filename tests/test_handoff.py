@@ -14,6 +14,7 @@ from groundrecall.handoff import (
     release_handoff,
     update_handoff_status,
 )
+from groundrecall.handoff import HandoffEvent, _transaction_path
 from groundrecall.mcp import handle_request, list_tools
 
 
@@ -65,6 +66,30 @@ def test_mcp_exposes_handoff_lifecycle_without_canonical_writes(tmp_path):
     assert call("progress_append", {"state": "executing", "observations": ["started"]})["canonical_write"] is False
     assert call("result_propose", {"outcome": "blocked", "unresolved": ["dependency"]})["canonical_write"] is False
     assert len(call("handoff_events", {})["events"]) == 3
+
+
+def test_handoff_recovers_interrupted_status_transaction(tmp_path):
+    item = propose_handoff(str(tmp_path), project="demo", objective="recover", subject_id="alice", realm_id="r1").handoff
+    recovered = item.model_copy(update={"status": "accepted", "updated_at": "2026-08-14T00:00:00+00:00"})
+    event = HandoffEvent(event_id="event-recovery", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, status="accepted", created_at="2026-08-14T00:00:00+00:00")
+    journal = _transaction_path(tmp_path, item.handoff_id)
+    journal.write_text(json.dumps({"handoff": recovered.model_dump(mode="json"), "event": event.model_dump(mode="json")}), encoding="utf-8")
+    restored = get_handoff(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1")
+    assert restored is not None and restored.status == "accepted"
+    assert [e.event_id for e in list_handoff_events(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1")] == ["event-recovery"]
+    assert not journal.exists()
+
+
+def test_handoff_recovery_does_not_duplicate_event_after_interrupted_cleanup(tmp_path):
+    item = propose_handoff(str(tmp_path), project="demo", objective="recover", subject_id="alice", realm_id="r1").handoff
+    recovered = item.model_copy(update={"status": "accepted"})
+    event = HandoffEvent(event_id="event-existing", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, status="accepted", created_at="2026-08-14T00:00:00+00:00")
+    events_path = tmp_path / "handoffs" / f"{item.handoff_id}.events.jsonl"
+    events_path.write_text(event.model_dump_json() + "\n", encoding="utf-8")
+    journal = _transaction_path(tmp_path, item.handoff_id)
+    journal.write_text(json.dumps({"handoff": recovered.model_dump(mode="json"), "event": event.model_dump(mode="json")}), encoding="utf-8")
+    assert get_handoff(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1").status == "accepted"
+    assert len(list_handoff_events(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1")) == 1
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
