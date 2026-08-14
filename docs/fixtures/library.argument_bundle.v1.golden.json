@@ -1,0 +1,82 @@
+{
+  "schema_version": "library.argument_bundle.v1",
+  "bundle_id": "bundle.r0.golden",
+  "created_at": "2026-08-13T12:00:00Z",
+  "release_level": "private",
+  "review_state": "draft",
+  "knowledge_basis_manifest": {
+    "manifest_id": "basis.r0.golden",
+    "source_ids": ["source.article.example", "source.video.example"],
+    "claim_ids": ["claim.article.premise", "claim.video.statement"],
+    "coverage_audit_ids": ["coverage.r0.golden"],
+    "completeness": "partial",
+    "basis_note": "Golden contract fixture; candidate records are intentionally not publishable.",
+    "release_level": "private",
+    "review_state": "draft"
+  },
+  "sources": [
+    {
+      "source_id": "source.article.example",
+      "source_kind": "article",
+      "title": "Example Article on Population Change",
+      "canonical_uri": "https://example.org/article/population-change",
+      "publisher": "Example Journal",
+      "source_hash": "sha256:article-source-fixture",
+      "published_at": "2026-01-15",
+      "accessed_at": "2026-08-13T12:00:00Z",
+      "rights_note": "Fixture metadata and short excerpt only.",
+      "release_level": "public",
+      "review_state": "reviewed",
+      "provenance": {"origin": "import", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}
+    },
+    {
+      "source_id": "source.video.example",
+      "source_kind": "video",
+      "title": "Example Interview on Population Change",
+      "canonical_uri": "https://example.org/video/population-change-interview",
+      "publisher": "Example Media",
+      "source_hash": "sha256:video-source-fixture",
+      "published_at": "2026-02-01",
+      "accessed_at": "2026-08-13T12:00:00Z",
+      "duration_seconds": 3720,
+      "rights_note": "Fixture metadata and timestamp locator only.",
+      "release_level": "public",
+      "review_state": "triaged",
+      "provenance": {"origin": "import", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}
+    }
+  ],
+  "documents": [
+    {"document_id": "doc.article.example", "source_id": "source.article.example", "document_kind": "article", "language": "en", "release_level": "public", "review_state": "reviewed"},
+    {"document_id": "doc.video.example", "source_id": "source.video.example", "document_kind": "video", "language": "en", "release_level": "public", "review_state": "triaged"}
+  ],
+  "versions": [
+    {"version_id": "version.article.example.v1", "document_id": "doc.article.example", "content_hash": "sha256:article-fixture", "captured_at": "2026-08-13T12:00:00Z", "normalization": "doclift-markdown", "tool": "fixture", "release_level": "public", "review_state": "reviewed"},
+    {"version_id": "version.video.example.transcript.v1", "document_id": "doc.video.example", "content_hash": "sha256:video-transcript-fixture", "captured_at": "2026-08-13T12:00:00Z", "normalization": "timestamped-transcript", "tool": "fixture", "release_level": "private", "review_state": "triaged"}
+  ],
+  "spans": [
+    {"span_id": "span.article.lines.10-12", "version_id": "version.article.example.v1", "locator_kind": "line", "start": 10, "end": 12, "quoted_text": "Population change is measured across populations, not individual lifetimes.", "release_level": "public", "review_state": "reviewed"},
+    {"span_id": "span.video.time.184.5-196.0", "version_id": "version.video.example.transcript.v1", "locator_kind": "timestamp", "start": 184.5, "end": 196.0, "speaker": "interviewee", "quoted_text": "The comparison depends on the population-level measure.", "release_level": "private", "review_state": "triaged"}
+  ],
+  "claim_instances": [
+    {"claim_id": "claim.article.premise", "text": "Population change is measured at the population level.", "claim_kind": "premise", "source_span_ids": ["span.article.lines.10-12"], "canonical_claim_ref_ids": ["ref.population.change"], "release_level": "private", "review_state": "draft", "provenance": {"origin": "model", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}},
+    {"claim_id": "claim.video.statement", "text": "The speaker ties the comparison to a population-level measure.", "claim_kind": "statement", "source_span_ids": ["span.video.time.184.5-196.0"], "release_level": "private", "review_state": "triaged", "provenance": {"origin": "import", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}}
+  ],
+  "canonical_claim_references": [
+    {"canonical_claim_ref_id": "ref.population.change", "namespace": "example.taxonomy", "key": "population-change", "label": "Population change", "match_status": "candidate", "release_level": "private", "review_state": "draft"}
+  ],
+  "argument_relations": [
+    {"relation_id": "relation.video-to-article", "from_claim_id": "claim.video.statement", "to_claim_id": "claim.article.premise", "relation_type": "illustrates", "release_level": "private", "review_state": "draft", "provenance": {"origin": "model", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}}
+  ],
+  "citation_assertions": [
+    {"citation_assertion_id": "citation.article-to-article", "claim_id": "claim.article.premise", "target_source_id": "source.article.example", "target_span_ids": ["span.article.lines.10-12"], "assertion_type": "supports", "support_status": "claimed", "release_level": "private", "review_state": "draft", "provenance": {"origin": "model", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}}
+  ],
+  "lineage_candidates": [
+    {"lineage_candidate_id": "lineage.video-repeats-article", "from_document_id": "doc.video.example", "to_document_id": "doc.article.example", "lineage_type": "shared_argument", "evidence_span_ids": ["span.video.time.184.5-196.0", "span.article.lines.10-12"], "confidence": 0.42, "release_level": "private", "review_state": "draft", "provenance": {"origin": "model", "captured_at": "2026-08-13T12:00:00Z", "agent_or_tool": "fixture"}}
+  ],
+  "coverage_audits": [
+    {"coverage_audit_id": "coverage.r0.golden", "scope": "argument-bearing spans in both documents", "expected_span_ids": ["span.article.lines.10-12", "span.video.time.184.5-196.0"], "covered_claim_ids": ["claim.article.premise", "claim.video.statement"], "status": "partial", "gaps": ["No reviewer has assessed whether the video statement supports the article premise."], "release_level": "private", "review_state": "draft"}
+  ],
+  "review_receipts": [
+    {"receipt_id": "receipt.article-source", "subject_type": "source", "subject_id": "source.article.example", "reviewer_role": "repository-engineer", "decision": "accept", "checked_at": "2026-08-13T12:00:00Z", "checks": ["fixture metadata is public-safe", "canonical URI is present"], "release_level": "private", "review_state": "reviewed"}
+  ]
+}
