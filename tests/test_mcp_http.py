@@ -31,6 +31,20 @@ def test_http_mcp_requires_server_policy_and_exposes_read_only_tools(tmp_path) -
     assert blocked["error"]["code"] == -32003
 
 
+def test_http_handoff_lifecycle_writes_are_opt_in(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    default = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice"))
+    listed = json.loads(default.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/list"}))
+    names = {tool["name"] for tool in listed["result"]["tools"]}
+    assert "handoff_events" in names
+    assert "handoff_update_status" not in names
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice", allowed_tools=frozenset({"handoff_update_status", "handoff_events"})))
+    listed = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}))
+    annotations = {tool["name"]: tool["annotations"]["readOnlyHint"] for tool in listed["result"]["tools"]}
+    assert annotations == {"handoff_update_status": False, "handoff_events": True}
+
+
 def test_http_mcp_initialize_and_ping_return_stable_transport_handshake(tmp_path) -> None:
     policy = tmp_path / "policy.yaml"
     policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
@@ -151,6 +165,7 @@ def test_http_injects_correlation_and_realm_metadata_into_policy_request(tmp_pat
     metadata = captured["policy_request"]["metadata"]
     assert metadata == {"groundrecall.correlation_id": correlation_id, "groundrecall.realm_id": "project:alpha"}
     assert captured["subject_id"] == "alice"
+    assert captured["realm_id"] == "project:alpha"
 
 
 def test_http_optional_audit_log_records_safe_access_decisions(tmp_path) -> None:

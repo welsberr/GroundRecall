@@ -36,8 +36,10 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
     "review_backlog_item",
     "handoff_get",
     "handoff_list",
+    "handoff_events",
     }
 )
+HANDOFF_WRITE_TOOLS = frozenset({"handoff_propose", "handoff_update_status", "progress_append", "result_propose"})
 
 # Keep transport negotiation independent from the local stdio adapter.  These
 # values are intentionally constants: responses must not disclose policy
@@ -52,6 +54,7 @@ MCP_HTTP_MIN_RESPONSE_BYTES = len(MCP_HTTP_RESPONSE_TOO_LARGE)
 class MCPHTTPConfig:
     policy_config: str
     subject_id: str = ""
+    realm_id: str = ""
     bearer_token: str = ""
     identity_file: str = ""
     allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
@@ -286,7 +289,7 @@ class MCPHTTPApplication:
             return principal
         if self.config.bearer_token and token != self.config.bearer_token:
             raise PermissionError("invalid bearer token")
-        return MCPPrincipal(subject_id=self.config.subject_id, allowed_tools=self.config.allowed_tools)
+        return MCPPrincipal(subject_id=self.config.subject_id, realm_id=self.config.realm_id, allowed_tools=self.config.allowed_tools)
 
     def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
         correlation_id = uuid.uuid4().hex
@@ -327,7 +330,7 @@ class MCPHTTPApplication:
                 if tool["name"] not in enabled_tools:
                     continue
                 exposed = dict(tool)
-                exposed["annotations"] = {"readOnlyHint": tool["name"] != "handoff_propose"}
+                exposed["annotations"] = {"readOnlyHint": tool["name"] not in HANDOFF_WRITE_TOOLS}
                 tools.append(exposed)
             self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
                              decision="allowed", result_class="success", http_status=200)
@@ -349,6 +352,9 @@ class MCPHTTPApplication:
                 arguments["subject_id"] = principal.subject_id
             if principal.maximum_release_level:
                 arguments["maximum_release_level"] = principal.maximum_release_level
+            # Realm is server-owned just like subject and release caps. An
+            # empty realm is intentional for fixed-token local deployments.
+            arguments["realm_id"] = principal.realm_id
             arguments.pop("policy_request", None)
             metadata = {"groundrecall.correlation_id": correlation_id}
             if principal.realm_id:
@@ -468,12 +474,13 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--policy-config", required=True, help="Server-owned policy plugin configuration.")
     parser.add_argument("--subject-id", default="", help="Server-owned principal identity for all requests.")
+    parser.add_argument("--realm-id", default="", help="Server-owned realm for fixed-token deployments.")
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
     parser.add_argument("--identity-file", default="", help="JSON file mapping bearer tokens to server-owned principals and tool caps.")
     parser.add_argument("--max-response-bytes", type=int, default=1_000_000, help="Maximum MCP response size; oversized results return a bounded error.")
     parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

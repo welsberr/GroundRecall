@@ -19,7 +19,15 @@ from .query import query_concept
 from .search_index import search_index
 from .review_backlog import BacklogPolicyError, aggregate_backlog, record_interaction
 from .review_dashboard import dashboard_item_detail
-from .handoff import get_handoff, list_handoffs, propose_handoff
+from .handoff import (
+    append_handoff_progress,
+    get_handoff,
+    list_handoff_events,
+    list_handoffs,
+    propose_handoff,
+    propose_handoff_result,
+    update_handoff_status,
+)
 
 
 SERVER_INFO = {"name": "groundrecall-mcp", "version": "0.1.0a1"}
@@ -394,6 +402,36 @@ def _handoff_list(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(_attach_policy({"schema_version": "groundrecall.assistant_handoff_list.v1", "handoffs": [item.model_dump(mode="json") for item in items]}, decision))
 
 
+def _handoff_update_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    fields = dict(arguments)
+    for key in ("store_dir", "handoff_id", "status", "policy_config", "policy_request", "subject_id", "realm_id", "maximum_release_level"):
+        fields.pop(key, None)
+    result = update_handoff_status(arguments["store_dir"], arguments["handoff_id"], arguments["status"], policy_provider=provider, subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), **fields)
+    return _json_text(result.model_dump(mode="json"))
+
+
+def _handoff_progress(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    event = append_handoff_progress(arguments["store_dir"], arguments["handoff_id"], state=str(arguments.get("state", "")), observations=list(arguments.get("observations", []) or []), next_action=str(arguments.get("next_action", "")), policy_provider=provider, subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
+    return _json_text({"ok": True, "writes_performed": True, "canonical_write": False, "progress": event.model_dump(mode="json")})
+
+
+def _handoff_result(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    event = propose_handoff_result(arguments["store_dir"], arguments["handoff_id"], outcome=str(arguments.get("outcome", "")), changes=list(arguments.get("changes", []) or []), tests=list(arguments.get("tests", []) or []), artifacts=list(arguments.get("artifacts", []) or []), unresolved=list(arguments.get("unresolved", []) or []), next_safe_action=str(arguments.get("next_safe_action", "")), policy_provider=provider, subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
+    return _json_text({"ok": True, "writes_performed": True, "canonical_write": False, "result": event.model_dump(mode="json")})
+
+
+def _handoff_events(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "query", "action": "handoff_events", "subject_id": str(arguments.get("subject_id", "")), "record_kind": "assistant_handoff_event", "record_id": str(arguments.get("handoff_id", "")), "target_release_level": str(arguments.get("maximum_release_level", "private"))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    events = list_handoff_events(arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), limit=int(arguments.get("limit", 100)))
+    return _json_text(_attach_policy({"schema_version": "groundrecall.assistant_handoff_event_list.v1", "events": [event.model_dump(mode="json") for event in events]}, decision))
+
+
 TOOLS: dict[str, dict[str, Any]] = {
     "review_backlog": {
         "description": "Read a policy-filtered, bounded local review backlog digest; never promotes or adjudicates records.",
@@ -631,6 +669,26 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "List bounded subject- and realm-scoped cross-assistant handoff proposals.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "project": {"type": "string"}, "realm_id": {"type": "string"}, "status": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "limit": {"type": "integer", "default": 20}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir"]},
         "handler": _handoff_list,
+    },
+    "handoff_events": {
+        "description": "Read bounded, subject- and realm-scoped append-only handoff status, progress, and result records.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "limit": {"type": "integer", "default": 100}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id"]},
+        "handler": _handoff_events,
+    },
+    "handoff_update_status": {
+        "description": "Policy-gated operational handoff status transition; never executes host work or promotes canonical memory.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "status": {"type": "string", "enum": ["proposed", "accepted", "executing", "blocked", "completed"]}, "expected_status": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "status"]},
+        "handler": _handoff_update_status,
+    },
+    "progress_append": {
+        "description": "Append a policy-gated, proposal-only progress record to a handoff.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "state": {"type": "string"}, "observations": {"type": "array", "items": {"type": "string"}}, "next_action": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id"]},
+        "handler": _handoff_progress,
+    },
+    "result_propose": {
+        "description": "Append a policy-gated, proposal-only result record to a handoff.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "outcome": {"type": "string"}, "changes": {"type": "array", "items": {"type": "string"}}, "tests": {"type": "array", "items": {"type": "string"}}, "artifacts": {"type": "array", "items": {"type": "string"}}, "unresolved": {"type": "array", "items": {"type": "string"}}, "next_safe_action": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id"]},
+        "handler": _handoff_result,
     },
 }
 

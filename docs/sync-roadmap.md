@@ -138,8 +138,10 @@ implementation plan is maintained in
 
 Cross-assistant interoperability follows the same boundary: GroundRecall is
 the shared state substrate, while ChatGPT and Codex remain separate clients.
-The planned handoff lane uses compact, proposal-only task/plan/progress/result
-records with stable IDs and context references; it does not synchronize chat
+The handoff lane uses compact, proposal-only task/plan/progress/result records
+with stable IDs and context references. Local MCP now supports constrained
+status transitions and append-only progress/result events, while the bounded
+HTTP adapter keeps lifecycle writes opt-in. It does not synchronize chat
 transcripts or grant a reasoning client arbitrary host execution authority.
 
 This avoids treating compiled wiki pages or generated bundles as merge primitives.

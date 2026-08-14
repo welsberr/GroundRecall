@@ -26,12 +26,17 @@ identity controls server-owned.
 - A proposal-only handoff inbox supports versioned assistant handoff records
   with stable IDs, idempotency keys, provenance, context references, and the
   `handoff_propose`, `handoff_get`, and `handoff_list` MCP methods.
+- Handoff lifecycle is now policy-gated and append-oriented: status transitions
+  (`proposed`, `accepted`, `executing`, `blocked`, `completed`) are recorded
+  with expected-state and idempotency checks, while progress and result records
+  remain proposal-only operational events. `handoff_events` exposes a bounded,
+  subject/realm/release-filtered event history; lifecycle write tools are opt-in
+  on the HTTP adapter.
 
 The HTTP adapter, systemd unit, logrotate template, and audit utilities are
 deployment templates and pilots. No service or tunnel is installed by the
-repository, ChatGPT compatibility has not been certified, and handoff status,
-progress/result records, Codex claim automation, OAuth, and centralized audit
-export remain future work.
+repository, ChatGPT compatibility has not been certified, and Codex claim
+automation, OAuth, and centralized audit export remain future work.
 
 ## Current Evidence Snapshot
 

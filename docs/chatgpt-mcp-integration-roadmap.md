@@ -179,6 +179,11 @@ publicly exposed GroundRecall port.
 - Expose proposal/query methods such as `handoff_propose`, `handoff_get`,
   `handoff_list`, `handoff_update_status`, `progress_append`, and
   `result_propose`; keep canonical promotion separate and policy-gated.
+- The local MCP implementation now provides these lifecycle methods plus
+  `handoff_events`: status transitions are constrained and idempotent, and
+  progress/result records are append-only operational proposals. The bounded
+  HTTP adapter exposes event reads by default; lifecycle writes require an
+  explicit allow-list.
 - Store context references, constraints, acceptance criteria, provenance,
   expiry, and idempotency keys rather than copied transcripts or prompt-sized
   context.

@@ -343,10 +343,17 @@ proposal-only task/plan/progress/result records with stable IDs and references
 to governed GroundRecall context; chat transcripts and arbitrary host
 execution are not synchronized through the memory layer.
 
-The currently implemented handoff surface is limited to proposal/query methods
-(`handoff_propose`, `handoff_get`, and `handoff_list`). Status transitions,
-progress/result records, and Codex-side claim/discovery automation remain
-planned work.
+The handoff surface includes proposal/query methods (`handoff_propose`,
+`handoff_get`, `handoff_list`, and `handoff_events`) plus policy-gated
+operational methods (`handoff_update_status`, `progress_append`, and
+`result_propose`). Status changes are constrained to the documented lifecycle,
+use expected-state and idempotency checks, and append-only progress/result
+events remain outside canonical memory. HTTP exposes the event query by
+default; lifecycle write tools require an explicit server allow-list. Codex
+claim/discovery automation remains planned work.
+
+For fixed-token deployments, `--subject-id` and `--realm-id` are server-owned
+identity controls; identity-file entries provide those controls per token.
 
 The adapter bounds both request and response bodies. An oversized MCP result
 returns the fixed `response_too_large` error without including any part of the
