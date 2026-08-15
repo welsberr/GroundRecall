@@ -160,6 +160,11 @@ def _evaluate_promotion_policy(
                     "source_root": manifest.get("source_root", ""),
                     "mode": manifest.get("mode", ""),
                 },
+                **(
+                    {"decision_challenge": manifest["decision_challenge"]}
+                    if isinstance(manifest.get("decision_challenge"), dict)
+                    else {}
+                ),
             },
         )
     )

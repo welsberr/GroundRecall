@@ -6,6 +6,8 @@ from typing import Any, Literal, Protocol
 import yaml
 from pydantic import BaseModel, Field
 
+from .decision_challenge import build_decision_challenge_receipt
+
 
 PolicyDecisionPoint = Literal[
     "read",
@@ -176,6 +178,32 @@ class ClaimWrightPolicyProvider(BaseModel):
         audit_tags: list[str] = [self.provider_id]
         decision: PolicyDecisionValue = "allow"
         matched_collaboration_rules: list[str] = []
+        decision_challenge_receipt: dict[str, Any] | None = None
+
+        challenge_payload = request.metadata.get("decision_challenge")
+        if challenge_payload is not None:
+            try:
+                receipt = build_decision_challenge_receipt(
+                    challenge_payload,
+                    policy_version=self.policy_version,
+                    release_level=request.target_release_level or request.release_level or "private",
+                )
+                decision_challenge_receipt = receipt.model_dump(mode="json")
+                audit_tags.append("groundrecall.decision_challenge_receipt.v1")
+                if receipt.outcome in {"revise", "defer"}:
+                    decision = _max_decision(decision, "soft_gate")
+                    reasons.append(f"decision_challenge_{receipt.outcome}")
+                elif receipt.outcome == "escalate" or receipt.review_state == "escalated":
+                    decision = _max_decision(decision, "hard_gate")
+                    reasons.append("decision_challenge_escalation_required")
+                elif receipt.review_state == "draft":
+                    decision = _max_decision(decision, "require_review")
+                    reasons.append("decision_challenge_review_incomplete")
+            except ValueError as exc:
+                decision = _max_decision(decision, "hard_gate")
+                reasons.append("decision_challenge_invalid")
+                obligations.append("repair_decision_challenge_receipt")
+                decision_challenge_receipt = {"error": str(exc)}
 
         collaboration_rules = self.collaboration.get("rules", [])
         if isinstance(collaboration_rules, list):
@@ -260,6 +288,11 @@ class ClaimWrightPolicyProvider(BaseModel):
             metadata={
                 "claimwright_root": self.root_dir,
                 "matched_collaboration_rules": _dedupe(matched_collaboration_rules),
+                **(
+                    {"decision_challenge_receipt": decision_challenge_receipt}
+                    if decision_challenge_receipt is not None
+                    else {}
+                ),
             },
         )
 

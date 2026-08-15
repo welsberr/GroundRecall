@@ -11,6 +11,7 @@ from groundrecall.policy import (
     load_policy_plugins,
     normalize_release_level,
 )
+from groundrecall.decision_challenge import build_decision_challenge_receipt
 
 def write_claimwright_policy(root: Path) -> Path:
     (root / "policies").mkdir(parents=True)
@@ -316,3 +317,95 @@ def test_policy_plugin_loader_rejects_provider_without_type(tmp_path: Path) -> N
         assert "missing type" in str(exc)
     else:  # pragma: no cover - defensive
         raise AssertionError("expected provider type validation failure")
+
+
+def _decision_challenge_payload(*, outcome: str = "proceed", review_state: str = "reviewed") -> dict:
+    return {
+        "schema_version": "claimwright.decision_challenge.v1",
+        "challenge_id": "dc-groundrecall-001",
+        "decision_id": "promote-import-001",
+        "decision_version": 1,
+        "subject_id": "reviewer-1",
+        "action": "promote_import_to_store",
+        "review_level": "standard",
+        "trigger_codes": ["durable_memory_change"],
+        "decision_summary": "Promote reviewed import into durable memory.",
+        "failure_modes": [
+            {
+                "failure_mode_id": "fm_unreviewed_claim",
+                "hypothesis": "A claim may not have completed source review.",
+                "plausibility_basis": "The import contains newly extracted claims.",
+                "material_consequence": "Unsupported content could become durable.",
+                "decision_changing": True,
+                "discriminating_evidence": "Inspect the review ledger.",
+                "cheapest_check": "Run the review-ledger check.",
+                "check_status": "completed",
+                "result_ref": "artifact:review-ledger-001",
+                "result_summary": "All imported claims have a review entry.",
+            }
+        ],
+        "outcome": outcome,
+        "residual_uncertainty": [],
+        "stop_reason": "one_pass_complete",
+        "review_state": review_state,
+        "authority": "Policy finding only; promotion authority remains separately configured.",
+    }
+
+
+def test_claimwright_adapter_emits_idempotent_decision_challenge_receipt(tmp_path: Path) -> None:
+    provider = ClaimWrightPolicyProvider.from_directory(write_claimwright_policy(tmp_path))
+    request = PolicyRequest(
+        decision_point="promote",
+        subject_id="reviewer-1",
+        action="promote_import_to_store",
+        durable_memory_change=True,
+        metadata={"decision_challenge": _decision_challenge_payload()},
+    )
+
+    first = provider.evaluate(request)
+    second = provider.evaluate(request)
+
+    receipt = first.metadata["decision_challenge_receipt"]
+    assert first.decision == "soft_gate"
+    assert receipt["schema_version"] == "groundrecall.decision_challenge_receipt.v1"
+    assert receipt["idempotency_key"] == "promote-import-001:1:0.1"
+    assert receipt["receipt_id"] == second.metadata["decision_challenge_receipt"]["receipt_id"]
+
+
+def test_claimwright_adapter_blocks_invalid_or_escalated_decision_challenge(tmp_path: Path) -> None:
+    provider = ClaimWrightPolicyProvider.from_directory(write_claimwright_policy(tmp_path))
+
+    invalid = provider.evaluate(
+        PolicyRequest(
+            decision_point="promote",
+            subject_id="reviewer-1",
+            action="promote_import_to_store",
+            durable_memory_change=True,
+            metadata={"decision_challenge": {"schema_version": "wrong"}},
+        )
+    )
+    assert invalid.decision == "hard_gate"
+    assert "decision_challenge_invalid" in invalid.reasons
+
+    escalated = provider.evaluate(
+        PolicyRequest(
+            decision_point="promote",
+            subject_id="reviewer-1",
+            action="promote_import_to_store",
+            durable_memory_change=True,
+            metadata={"decision_challenge": _decision_challenge_payload(outcome="escalate", review_state="escalated")},
+        )
+    )
+    assert escalated.decision == "hard_gate"
+    assert "decision_challenge_escalation_required" in escalated.reasons
+
+
+def test_decision_challenge_receipt_does_not_copy_private_evidence() -> None:
+    payload = _decision_challenge_payload()
+    payload["failure_modes"][0]["private_evidence_text"] = "secret source text"
+
+    receipt = build_decision_challenge_receipt(payload, policy_version="0.1")
+
+    serialized = receipt.model_dump(mode="json")
+    assert "private_evidence_text" not in serialized
+    assert serialized["failure_mode_ids"] == ["fm_unreviewed_claim"]
