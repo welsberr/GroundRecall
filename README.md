@@ -401,6 +401,8 @@ Promotion operator consumption is receipt-only by default. A canonical executor
 can be injected explicitly by trusted server code after policy confirmation;
 the executor receives bounded identifiers and must return metadata, which is
 recorded in the receipt. CLI/MCP paths never accept arbitrary executors.
+Named executors must come from a server-owned registry/allowlist; unknown
+capability names fail closed, and omission preserves receipt-only behavior.
 
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity

@@ -223,6 +223,8 @@ filtering and no protected rationale/content.
 Promotion consumption remains dry-run/receipt-only unless trusted server code
 injects an executor capability after policy confirmation; executor metadata is
 recorded for audit and no arbitrary write hook is exposed to MCP or CLI callers.
+Executor selection is by a server-owned named registry only; unknown names
+fail closed and no name defaults to receipt-only behavior.
 Terminal `completed` and rejection-applied `blocked` transitions now clear
 active leases and append explicit release events, avoiding stale ownership
 without bypassing policy or mutating canonical memory.

@@ -548,7 +548,7 @@ def list_handoff_promotion_actions(store_dir: str | Path, *, subject_id: str = "
     return summaries
 
 
-def consume_handoff_promotion_action(store_dir: str | Path, handoff_id: str, *, action_id: str, requester_subject_id: str, project: str, promotion_target: str, confirm: bool, policy_provider: PolicyDecisionProvider, realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None, promotion_executor: Callable[[dict[str, Any]], dict[str, Any]] | None = None) -> HandoffEvent:
+def consume_handoff_promotion_action(store_dir: str | Path, handoff_id: str, *, action_id: str, requester_subject_id: str, project: str, promotion_target: str, confirm: bool, policy_provider: PolicyDecisionProvider, realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None, promotion_executor: Callable[[dict[str, Any]], dict[str, Any]] | None = None, executor_name: str = "", executor_registry: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] | None = None) -> HandoffEvent:
     """Consume a quarantined action; default is receipt-only, executor is explicit."""
     if not confirm:
         raise PermissionError("explicit confirm=true is required")
@@ -568,12 +568,18 @@ def consume_handoff_promotion_action(store_dir: str | Path, handoff_id: str, *, 
             raise PermissionError("policy blocked operator promotion consumption")
         if existing is not None and existing.event_type == "promotion_operator_receipt":
             return existing
+        if promotion_executor is not None and not executor_name:
+            raise PermissionError("promotion executor requires a configured capability name")
+        if executor_name:
+            if not executor_registry or executor_name not in executor_registry:
+                raise PermissionError("unknown promotion executor capability")
+            promotion_executor = executor_registry[executor_name]
         effect = {"canonical_effect": "none"}
         if promotion_executor is not None:
             result = promotion_executor({"handoff_id": handoff_id, "action_id": action_id, "project": project, "promotion_target": promotion_target, "realm_id": realm_id})
             if not isinstance(result, dict):
                 raise ValueError("promotion executor must return a metadata object")
-            effect = {"canonical_effect": "applied", "executor_result": result}
+            effect = {"canonical_effect": "applied", "executor_name": executor_name, "executor_result": result}
         receipt = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="promotion_operator_receipt", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, promotion_target=promotion_target, provenance={**dict(provenance or {}), "action_id": action_id, **effect, "operator_receipt": True}, idempotency_key=idempotency_key, created_at=_now())
         _append_event(store_dir, receipt)
         return receipt
