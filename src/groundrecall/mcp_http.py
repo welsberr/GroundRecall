@@ -137,6 +137,8 @@ def _response_http_status(body: bytes) -> int:
         payload = json.loads(body)
         if payload.get("error", {}).get("code") == -32005:
             return 429
+        if payload.get("error", {}).get("code") == -32006:
+            return 504
     except (TypeError, ValueError, json.JSONDecodeError):
         pass
     return 200

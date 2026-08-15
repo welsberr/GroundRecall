@@ -169,6 +169,7 @@ def test_http_execution_timeout_is_bounded_and_slot_recovers(tmp_path, monkeypat
     timed_out = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 12, "method": "ping"}))
     assert time.monotonic() - started < 0.07
     assert timed_out["error"] == {"code": -32006, "message": "request timed out"}
+    assert _response_http_status(json.dumps(timed_out).encode()) == 504
     assert str(tmp_path) not in json.dumps(timed_out)
     busy = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 13, "method": "ping"}))
     assert busy["error"]["code"] == -32005
