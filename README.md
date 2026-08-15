@@ -383,6 +383,11 @@ assignment or execution authority.
 append-only request: it does not revoke, change handoff status, write canonical
 memory, or execute host work; policy and idempotency remain enforced.
 
+`handoff_rejection_resolve` appends a reviewer-scoped `uphold`, `dismiss`, or
+`supersede` resolution for an existing request, requiring rationale/evidence
+and policy authorization. It is also append-only and does not itself revoke,
+change status, write canonical memory, or execute work.
+
 `handoff_start` is the explicit lease-bound accepted-to-executing transition.
 It requires an accepted assignment for the lease owner and performs no host
 execution itself.

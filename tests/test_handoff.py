@@ -12,6 +12,7 @@ from groundrecall.handoff import (
     request_handoff_assignment,
     accept_handoff_assignment,
     request_handoff_rejection,
+    resolve_handoff_rejection,
     start_handoff_execution,
     block_handoff,
     unblock_handoff,
@@ -318,3 +319,22 @@ def test_handoff_rejection_request_is_scoped_idempotent_and_non_mutating(tmp_pat
 def test_mcp_handoff_rejection_request_is_exposed_as_write(tmp_path):
     names = {tool["name"] for tool in list_tools()}
     assert "handoff_rejection_request" in names
+
+
+def test_handoff_rejection_resolution_requires_request_and_is_non_mutating(tmp_path):
+    item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1").handoff
+    with pytest.raises(ValueError, match="target rejection"):
+        resolve_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id="missing", decision="uphold", rationale="reviewed", realm_id="r1")
+    request = request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", reason="withdraw", realm_id="r1", idempotency_key="req-1")
+    with pytest.raises(ValueError, match="rationale or evidence"):
+        resolve_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, decision="uphold", realm_id="r1")
+    resolved = resolve_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, decision="dismiss", evidence_ref="review::1", realm_id="r1", idempotency_key="res-1")
+    assert resolved.event_type == "rejection_resolution" and resolved.review_decision == "dismiss"
+    assert get_handoff(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1").status == "proposed"
+    assert resolve_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, decision="uphold", rationale="changed", realm_id="r1", idempotency_key="res-1").event_id == resolved.event_id
+    with pytest.raises(ValueError, match="uphold, dismiss, or supersede"):
+        resolve_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, decision="cancel", rationale="x", realm_id="r1")
+
+
+def test_mcp_exposes_handoff_rejection_resolution(tmp_path):
+    assert "handoff_rejection_resolve" in {tool["name"] for tool in list_tools()}

@@ -209,6 +209,10 @@ status or canonical memory.
 withdraw request with required requester authority and rationale/evidence. It
 is append-only and idempotent: no status/revocation, canonical write, or host
 execution occurs until a separate governed operator action exists.
+`handoff_rejection_resolve` appends a scoped reviewer resolution (`uphold`,
+`dismiss`, or `supersede`) only when it references an existing request and
+includes rationale/evidence. Policy, idempotency, and provenance are recorded;
+the resolution itself does not mutate status, canonical memory, or execution.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.

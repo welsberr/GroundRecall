@@ -21,7 +21,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result", "lease", "review", "review_appeal", "assignment_request", "assignment_acceptance", "rejection_request", "promotion_request", "promotion_confirmation", "promotion_action", "promotion_operator_receipt"]
+HandoffEventType = Literal["status", "progress", "result", "lease", "review", "review_appeal", "assignment_request", "assignment_acceptance", "rejection_request", "rejection_resolution", "promotion_request", "promotion_confirmation", "promotion_action", "promotion_operator_receipt"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -716,6 +716,31 @@ def request_handoff_rejection(store_dir: str | Path, handoff_id: str, *, request
         if existing is not None and existing.event_type == "rejection_request":
             return existing
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="rejection_request", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, review_decision=action, rationale=reason, result_ref=evidence_ref, provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=_now())
+        _append_event(store_dir, event)
+        return event
+
+
+def resolve_handoff_rejection(store_dir: str | Path, handoff_id: str, *, resolver_subject_id: str, project: str, target_request_event_id: str, decision: str, rationale: str = "", evidence_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
+    """Append a governed resolution of an existing rejection/withdrawal request."""
+    if decision not in {"uphold", "dismiss", "supersede"}:
+        raise ValueError("rejection resolution must be uphold, dismiss, or supersede")
+    if not resolver_subject_id or (not rationale.strip() and not evidence_ref.strip()):
+        raise ValueError("rejection resolution requires resolver and rationale or evidence_ref")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None or project != item.project or item.realm_id != realm_id:
+            raise PermissionError("rejection resolution scope does not match")
+        events = list_handoff_events(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500)
+        target = next((event for event in events if event.event_type == "rejection_request" and event.event_id == target_request_event_id), None)
+        if target is None:
+            raise ValueError("target rejection request not found")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_rejection_resolution", handoff=item, status=item.status, subject_id=resolver_subject_id)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff rejection resolution")
+        if existing is not None and existing.event_type == "rejection_resolution":
+            return existing
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="rejection_resolution", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, reviewer_subject_id=resolver_subject_id, review_decision=decision, rationale=rationale, result_ref=evidence_ref, provenance={**dict(provenance or {}), "target_request_event_id": target_request_event_id}, idempotency_key=idempotency_key, created_at=_now())
         _append_event(store_dir, event)
         return event
 
