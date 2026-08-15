@@ -233,6 +233,9 @@ arguments and failing closed when the configured role is absent.
 HTTP identity changes are reloaded atomically; invalid or missing role data
 fails closed and is reflected in readiness checks rather than retaining stale
 authorization.
+The stdio server supports operator-controlled `SIGHUP` reload of its roles file;
+invalid data is rejected before replacement (and clears active roles), so
+enabled reviewer operations fail closed.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.

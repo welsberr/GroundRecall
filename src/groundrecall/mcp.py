@@ -983,10 +983,25 @@ def handle_request(request: dict[str, Any], *, reviewer_role: str = "", server_r
 
 
 def serve(input_stream=sys.stdin, output_stream=sys.stdout, *, reviewer_role: str = "", server_roles: frozenset[str] = frozenset()) -> None:
+    roles_file = getattr(serve, "roles_file", "")
+    active_roles = set(server_roles)
+    if roles_file:
+        import signal
+        def reload_roles(_signum, _frame):
+            nonlocal active_roles
+            try:
+                payload = json.loads(Path(roles_file).read_text(encoding="utf-8"))
+                rows = payload.get("roles")
+                if not isinstance(rows, list) or not all(isinstance(role, str) and role for role in rows):
+                    raise ValueError("roles file roles must be a list of non-empty strings")
+                active_roles = set(rows)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                active_roles = set()
+        signal.signal(signal.SIGHUP, reload_roles)
     for line in input_stream:
         if not line.strip():
             continue
-        response = handle_request(json.loads(line), reviewer_role=reviewer_role, server_roles=server_roles)
+        response = handle_request(json.loads(line), reviewer_role=reviewer_role, server_roles=frozenset(active_roles))
         if response is not None:
             output_stream.write(json.dumps(response) + "\n")
             output_stream.flush()
@@ -1002,6 +1017,7 @@ def main() -> None:
     if args.roles_file:
         payload = json.loads(Path(args.roles_file).read_text(encoding="utf-8"))
         roles = frozenset(str(role) for role in (payload.get("roles") or []))
+    serve.roles_file = args.roles_file
     serve(reviewer_role=args.reviewer_role, server_roles=roles)
 
 
