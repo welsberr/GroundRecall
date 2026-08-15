@@ -52,6 +52,11 @@ may omit this flag for backward-compatible behavior.
 after the limit receive a bounded HTTP 429/JSON-RPC `server busy` response;
 the limit does not queue unbounded work or expose store details.
 
+The template sets a 30-second execution wait with `--request-timeout-seconds`.
+Timeouts return HTTP 504/JSON-RPC `request timed out`; Python work cannot be
+safely killed, so the timed-out worker is allowed to finish while retaining
+its concurrency slot. This prevents timeout storms from bypassing the limit.
+
 Enable on boot only after validating the policy, identity mapping, and tunnel:
 
 ```sh

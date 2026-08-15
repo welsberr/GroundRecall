@@ -328,6 +328,10 @@ Set `--max-concurrent-requests` to bound in-flight MCP work (the default is
 16). Saturated requests receive a bounded `429`/`server busy` response and do
 not disclose store paths or content.
 
+Use `--request-timeout-seconds` to bound how long the HTTP caller waits for a
+dispatch. A timeout returns a bounded 504/`request timed out`; the worker is
+not force-killed and retains its concurrency slot until it finishes.
+
 For boot-time private deployment, use the reviewed systemd template and setup
 notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
 binds to loopback and is not installed or enabled automatically; a private

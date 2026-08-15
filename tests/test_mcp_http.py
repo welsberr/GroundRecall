@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import pytest
 
 from groundrecall.mcp_http import (
@@ -151,6 +152,30 @@ def test_http_concurrency_limit_is_bounded(tmp_path) -> None:
     policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
     with pytest.raises(ValueError, match="max_concurrent_requests"):
         MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), max_concurrent_requests=0))
+
+
+def test_http_execution_timeout_is_bounded_and_slot_recovers(tmp_path, monkeypatch) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), max_concurrent_requests=1, request_timeout_seconds=0.02))
+    original = app._dispatch_unbounded
+
+    def slow(request, *, token=""):
+        time.sleep(0.08)
+        return original(request, token=token)
+
+    monkeypatch.setattr(app, "_dispatch_unbounded", slow)
+    started = time.monotonic()
+    timed_out = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 12, "method": "ping"}))
+    assert time.monotonic() - started < 0.07
+    assert timed_out["error"] == {"code": -32006, "message": "request timed out"}
+    assert str(tmp_path) not in json.dumps(timed_out)
+    busy = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 13, "method": "ping"}))
+    assert busy["error"]["code"] == -32005
+    time.sleep(0.2)
+    monkeypatch.setattr(app, "_dispatch_unbounded", original)
+    recovered = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 14, "method": "ping"}))
+    assert recovered["result"] == {}
 
 
 def test_http_store_dir_is_server_owned_when_configured(tmp_path, monkeypatch) -> None:

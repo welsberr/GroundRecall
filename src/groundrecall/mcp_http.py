@@ -13,7 +13,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-from threading import BoundedSemaphore, Lock
+from threading import BoundedSemaphore, Event, Lock, Thread
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -64,6 +64,7 @@ class MCPHTTPConfig:
     max_body_bytes: int = 1_000_000
     max_response_bytes: int = 1_000_000
     max_concurrent_requests: int = 16
+    request_timeout_seconds: float = 0.0
     audit_log_path: str = ""
 
 
@@ -290,6 +291,8 @@ class MCPHTTPApplication:
             raise ValueError(f"max_response_bytes must be at least {MCP_HTTP_MIN_RESPONSE_BYTES}")
         if config.max_concurrent_requests < 1 or config.max_concurrent_requests > 1024:
             raise ValueError("max_concurrent_requests must be between 1 and 1024")
+        if config.request_timeout_seconds < 0 or config.request_timeout_seconds > 3600:
+            raise ValueError("request_timeout_seconds must be between 0 and 3600")
         self.config = config
         self.audit = _AuditLog(config.audit_log_path)
         self._request_slots = BoundedSemaphore(config.max_concurrent_requests)
@@ -334,10 +337,35 @@ class MCPHTTPApplication:
                              result_class="overloaded", http_status=429,
                              reason="request_concurrency_limit")
             return _json_response(request.get("id"), error={"code": -32005, "message": "server busy"}, correlation_id=correlation_id)
-        try:
-            return self._dispatch_unbounded(request, token=token)
-        finally:
-            self._request_slots.release()
+        if self.config.request_timeout_seconds <= 0:
+            try:
+                return self._dispatch_unbounded(request, token=token)
+            finally:
+                self._request_slots.release()
+
+        completed = Event()
+        result: dict[str, Any] = {}
+
+        def run() -> None:
+            try:
+                result["value"] = self._dispatch_unbounded(request, token=token)
+            except BaseException as exc:  # propagate handler/auth errors to caller
+                result["error"] = exc
+            finally:
+                self._request_slots.release()
+                completed.set()
+
+        Thread(target=run, name="groundrecall-mcp-request", daemon=True).start()
+        if not completed.wait(self.config.request_timeout_seconds):
+            correlation_id = uuid.uuid4().hex
+            self.audit.write(correlation_id=correlation_id, principal=None,
+                             method=str(request.get("method", "")), decision="denied",
+                             result_class="timeout", http_status=504,
+                             reason="request_execution_timeout")
+            return _json_response(request.get("id"), error={"code": -32006, "message": "request timed out"}, correlation_id=correlation_id)
+        if "error" in result:
+            raise result["error"]
+        return result.get("value")
 
     def _dispatch_unbounded(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
         correlation_id = uuid.uuid4().hex
@@ -539,9 +567,10 @@ def main() -> None:
     parser.add_argument("--identity-file", default="", help="JSON file mapping bearer tokens to server-owned principals and tool caps.")
     parser.add_argument("--max-response-bytes", type=int, default=1_000_000, help="Maximum MCP response size; oversized results return a bounded error.")
     parser.add_argument("--max-concurrent-requests", type=int, default=16, help="Maximum concurrent MCP dispatches; overload returns a bounded 429 response.")
+    parser.add_argument("--request-timeout-seconds", type=float, default=0.0, help="Optional bounded MCP execution wait; timed-out workers finish in the background while retaining their concurrency slot.")
     parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, require_policy=args.require_policy, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, max_concurrent_requests=args.max_concurrent_requests, audit_log_path=args.audit_log_path))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, require_policy=args.require_policy, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, max_concurrent_requests=args.max_concurrent_requests, request_timeout_seconds=args.request_timeout_seconds, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:
