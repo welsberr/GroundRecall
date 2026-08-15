@@ -175,6 +175,9 @@ projection for handoff/retention workflows without deleting source logs.
 The `handoff_accept` MCP method now provides explicit lease-bound acceptance
 for the Codex lifecycle; it is opt-in over HTTP and cannot execute work or
 write canonical memory.
+The `handoff_complete` method applies the same lease/scope checks and requires
+an outcome or result reference before transitioning to `completed`; it does
+not execute work or promote canonical memory.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.

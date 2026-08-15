@@ -21,6 +21,7 @@ from .review_backlog import BacklogPolicyError, aggregate_backlog, record_intera
 from .review_dashboard import dashboard_item_detail
 from .handoff import (
     accept_handoff,
+    complete_handoff,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -420,6 +421,12 @@ def _handoff_accept(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(result.model_dump(mode="json"))
 
 
+def _handoff_complete(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    result = complete_handoff(arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")), host_id=str(arguments.get("host_id", "")), project=str(arguments.get("project", "")), outcome=str(arguments.get("outcome", "")), result_ref=str(arguments.get("result_ref", "")), policy_provider=provider, realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), expected_status=str(arguments.get("expected_status", "executing")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
+    return _json_text(result.model_dump(mode="json"))
+
+
 def _handoff_claim(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
     result = claim_handoff(
@@ -719,6 +726,11 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Accept a proposed handoff only from its active subject/host/project/realm-scoped lease; never executes work or writes canonical memory.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "host_id": {"type": "string"}, "project": {"type": "string"}, "expected_status": {"type": "string", "default": "proposed"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "host_id", "project"]},
         "handler": _handoff_accept,
+    },
+    "handoff_complete": {
+        "description": "Complete a handoff only from its active lease owner with an outcome or result reference; never executes work or writes canonical memory.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "host_id": {"type": "string"}, "project": {"type": "string"}, "outcome": {"type": "string"}, "result_ref": {"type": "string"}, "expected_status": {"type": "string", "default": "executing"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "host_id", "project"]},
+        "handler": _handoff_complete,
     },
     "handoff_claim": {
         "description": "Claim a scoped handoff for a bounded lease; never executes host work or writes canonical memory.",

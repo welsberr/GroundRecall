@@ -91,6 +91,7 @@ class HandoffEvent(BaseModel):
     artifacts: list[str] = Field(default_factory=list)
     unresolved: list[str] = Field(default_factory=list)
     next_safe_action: str = ""
+    result_ref: str = ""
     lease_id: str = ""
     lease_subject_id: str = ""
     lease_host_id: str = ""
@@ -367,6 +368,37 @@ def accept_handoff(store_dir: str | Path, handoff_id: str, *, subject_id: str, h
         item.status = "accepted"
         item.updated_at = now
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="accepted", lease_id=item.lease_id, lease_subject_id=subject_id, lease_host_id=host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "accepted_by_host": host_id}, idempotency_key=idempotency_key, created_at=now)
+        _persist_mutation(store_dir, item, event)
+        return HandoffResult(handoff=item, policy_decision=decision, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+
+
+def complete_handoff(store_dir: str | Path, handoff_id: str, *, subject_id: str, host_id: str, project: str, outcome: str = "", result_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "executing", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffResult:
+    """Complete a handoff with a lease-bound result reference or outcome."""
+    if not outcome.strip() and not result_ref.strip():
+        raise ValueError("handoff completion requires outcome or result_ref")
+    if expected_status not in {"accepted", "executing"}:
+        raise ValueError("handoff completion expected_status must be accepted or executing")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None:
+            raise ValueError("handoff not found")
+        _validate_lease_scope(item, subject_id=subject_id, host_id=host_id, project=project)
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        decision = _handoff_policy(policy_provider, action="handoff_complete", handoff=item, status="completed")
+        if decision.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff completion")
+        if existing is not None and existing.event_type == "status" and existing.status == "completed":
+            return HandoffResult(handoff=item, policy_decision=decision, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+        if item.status != expected_status:
+            raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
+        if not _lease_is_active(item):
+            raise PermissionError("handoff completion requires an active lease")
+        if item.lease_subject_id != subject_id or item.lease_host_id != host_id:
+            raise PermissionError("handoff lease owner does not match completion scope")
+        now = _now()
+        item.status = "completed"
+        item.updated_at = now
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="completed", outcome=outcome, result_ref=result_ref, lease_id=item.lease_id, lease_subject_id=subject_id, lease_host_id=host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "completed_by_host": host_id}, idempotency_key=idempotency_key, created_at=now)
         _persist_mutation(store_dir, item, event)
         return HandoffResult(handoff=item, policy_decision=decision, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
 

@@ -343,6 +343,10 @@ realm plus an active lease and expected `proposed` status; it changes only the
 operational handoff record and never executes host work or promotes canonical
 memory.
 
+Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
+active matching lease, expected `accepted` or `executing` status, and an
+outcome or result reference; it only records the operational completion event.
+
 Progress and result proposals are likewise lease-bound when submitted through
 MCP: callers must provide the active lease ID, subject, host, project, realm,
 and expected status. Legacy direct Python calls can remain unbound only when

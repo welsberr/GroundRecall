@@ -5,6 +5,7 @@ import pytest
 
 from groundrecall.handoff import (
     accept_handoff,
+    complete_handoff,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -126,6 +127,19 @@ def test_handoff_acceptance_requires_active_scoped_lease_and_is_idempotent(tmp_p
     assert again.handoff.status == "accepted"
     with pytest.raises(PermissionError, match="scope"):
         accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="other", project="demo", realm_id="r1")
+
+
+def test_handoff_completion_requires_lease_scope_and_result(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="complete", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim = claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accepted = accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    with pytest.raises(ValueError, match="outcome or result_ref"):
+        complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted")
+    done = complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="tests passed", idempotency_key="done-1")
+    assert done.handoff.status == "completed" and done.lease_id == claim.lease_id
+    again = complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="tests passed", idempotency_key="done-1")
+    assert again.handoff.status == "completed"
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
