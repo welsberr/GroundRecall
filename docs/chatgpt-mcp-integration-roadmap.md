@@ -196,6 +196,9 @@ promotion.
 The operator-only promotion consumer records a bounded receipt after explicit
 confirmation and policy evaluation; MCP/HTTP clients cannot invoke it, and its
 canonical effect is `none`.
+`handoff_review_appeal` provides an append-only correction/appeal lane tied to
+an existing review event, with scope, provenance, idempotency, and policy
+checks; it does not change status or canonical memory.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.

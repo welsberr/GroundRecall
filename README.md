@@ -370,6 +370,10 @@ An operator may consume a selected quarantined action with
 explicit confirmation. This records an operator receipt only; canonical effect
 is `none` until a separate governed promotion API is invoked.
 
+`handoff_review_appeal` appends a scoped appeal/correction request against an
+existing review event. It requires rationale or an evidence reference and does
+not alter handoff status or canonical memory.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

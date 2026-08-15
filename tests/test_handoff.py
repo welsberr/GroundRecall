@@ -8,6 +8,7 @@ from groundrecall.handoff import (
     complete_handoff,
     confirm_handoff_promotion,
     apply_handoff_promotion_request,
+    appeal_handoff_review,
     consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
@@ -202,6 +203,20 @@ def test_handoff_promotion_confirmation_requires_explicit_matching_request(tmp_p
     listed = list_handoff_promotion_actions(tmp_path, subject_id="alice", project="demo", realm_id="r1")
     assert listed[0]["action_status"] == "quarantined" and "rationale" not in listed[0]
     assert list_handoff_promotion_actions(tmp_path, subject_id="bob", project="demo", realm_id="r1") == []
+
+
+def test_handoff_review_appeal_requires_existing_review_and_is_append_only(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="appeal", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="done")
+    review = review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="demo", decision="reject", rationale="needs evidence", realm_id="r1")
+    appeal = appeal_handoff_review(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", target_review_event_id=review.event_id, rationale="new evidence", realm_id="r1", idempotency_key="appeal-1")
+    assert appeal.event_type == "review_appeal" and appeal.provenance["target_review_event_id"] == review.event_id
+    assert appeal_handoff_review(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", target_review_event_id=review.event_id, rationale="changed", realm_id="r1", idempotency_key="appeal-1").event_id == appeal.event_id
+    with pytest.raises(ValueError, match="target review"):
+        appeal_handoff_review(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", target_review_event_id="missing", rationale="x", realm_id="r1")
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
