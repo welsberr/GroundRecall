@@ -388,6 +388,10 @@ memory, or execute host work; policy and idempotency remain enforced.
 and policy authorization. It is also append-only and does not itself revoke,
 change status, write canonical memory, or execute work.
 
+`handoff_rejection_apply` explicitly consumes an upheld resolution and
+transitions the handoff to `blocked`, requiring lease ownership when applicable;
+it preserves provenance without canonical mutation or execution.
+
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity
 configuration, never accepted from tool arguments, and missing roles fail

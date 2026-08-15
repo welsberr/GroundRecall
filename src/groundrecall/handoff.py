@@ -745,6 +745,38 @@ def resolve_handoff_rejection(store_dir: str | Path, handoff_id: str, *, resolve
         return event
 
 
+def apply_handoff_rejection(store_dir: str | Path, handoff_id: str, *, resolver_subject_id: str, project: str, target_request_event_id: str, target_resolution_event_id: str, confirm: bool, subject_id: str = "", host_id: str = "", lease_id: str = "", reason: str = "", evidence_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "proposed", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffResult:
+    """Consume an upheld rejection resolution into a lease-bound blocked state."""
+    if not confirm:
+        raise ValueError("rejection apply requires explicit confirm=true")
+    if not resolver_subject_id or (not reason.strip() and not evidence_ref.strip()):
+        raise ValueError("rejection apply requires resolver and reason or evidence_ref")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None or item.project != project or item.realm_id != realm_id:
+            raise PermissionError("rejection apply scope does not match")
+        events = list_handoff_events(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500)
+        request = next((event for event in events if event.event_type == "rejection_request" and event.event_id == target_request_event_id), None)
+        resolution = next((event for event in events if event.event_type == "rejection_resolution" and event.event_id == target_resolution_event_id and event.provenance.get("target_request_event_id") == target_request_event_id and event.review_decision == "uphold" and event.reviewer_subject_id == resolver_subject_id), None)
+        if request is None or resolution is None:
+            raise PermissionError("matching upheld rejection resolution is required")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_rejection_apply", handoff=item, status="blocked", subject_id=resolver_subject_id)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked rejection apply")
+        if existing is not None and existing.event_type == "status" and existing.status == "blocked":
+            return HandoffResult(handoff=item, policy_decision=policy, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+        if item.status != expected_status:
+            raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
+        if item.lease_id:
+            if not lease_id or lease_id != item.lease_id or not _lease_is_active(item) or item.lease_subject_id != subject_id or item.lease_host_id != host_id:
+                raise PermissionError("rejection apply requires active lease owner")
+        now = _now(); item.status = "blocked"; item.updated_at = now
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="blocked", outcome=reason, result_ref=evidence_ref, lease_id=item.lease_id, lease_subject_id=item.lease_subject_id, lease_host_id=item.lease_host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "applied_by_resolver": resolver_subject_id, "target_request_event_id": target_request_event_id, "target_resolution_event_id": target_resolution_event_id}, idempotency_key=idempotency_key, created_at=now)
+        _persist_mutation(store_dir, item, event)
+        return HandoffResult(handoff=item, policy_decision=policy, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+
+
 def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:
     """Require a claim to stay inside the handoff's explicit target scope."""
     if not subject_id or subject_id != item.subject_id:

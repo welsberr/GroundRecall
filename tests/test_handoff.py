@@ -13,6 +13,7 @@ from groundrecall.handoff import (
     accept_handoff_assignment,
     request_handoff_rejection,
     resolve_handoff_rejection,
+    apply_handoff_rejection,
     start_handoff_execution,
     block_handoff,
     unblock_handoff,
@@ -338,3 +339,14 @@ def test_handoff_rejection_resolution_requires_request_and_is_non_mutating(tmp_p
 
 def test_mcp_exposes_handoff_rejection_resolution(tmp_path):
     assert "handoff_rejection_resolve" in {tool["name"] for tool in list_tools()}
+
+
+def test_handoff_rejection_apply_requires_upheld_resolution_and_blocks(tmp_path):
+    item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1").handoff
+    request = request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", reason="stop", realm_id="r1")
+    resolution = resolve_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, decision="uphold", rationale="valid", realm_id="r1")
+    with pytest.raises(ValueError, match="confirm"):
+        apply_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, target_resolution_event_id=resolution.event_id, confirm=False, reason="stop", realm_id="r1")
+    applied = apply_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, target_resolution_event_id=resolution.event_id, confirm=True, reason="stop confirmed", realm_id="r1", idempotency_key="apply-1")
+    assert applied.handoff.status == "blocked"
+    assert apply_handoff_rejection(tmp_path, item.handoff_id, resolver_subject_id="reviewer", project="demo", target_request_event_id=request.event_id, target_resolution_event_id=resolution.event_id, confirm=True, reason="changed", realm_id="r1", idempotency_key="apply-1").handoff.status == "blocked"
