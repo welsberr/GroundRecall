@@ -27,6 +27,7 @@ groundrecall-mcp-http = "groundrecall.mcp_http:main"
 groundrecall-mcp-audit-verify = "groundrecall.mcp_audit_verify:main"
 groundrecall-mcp-audit-manifest = "groundrecall.mcp_audit_manifest:main"
 groundrecall-mcp-audit-export = "groundrecall.mcp_audit_export:main"
+groundrecall-handoff-promotion-operator = "groundrecall.handoff_promotion_operator:main"
 groundrecall-handoff-discover = "groundrecall.handoff_discovery:main"
 
 [tool.setuptools]

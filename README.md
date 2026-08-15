@@ -365,6 +365,11 @@ The read-only `handoff_promotion_actions` MCP method lists bounded,
 subject/project/realm/release-filtered metadata summaries of quarantined
 actions. It omits rationale and protected content and does not mutate state.
 
+An operator may consume a selected quarantined action with
+`groundrecall-handoff-promotion-operator` using server-owned policy and
+explicit confirmation. This records an operator receipt only; canonical effect
+is `none` until a separate governed promotion API is invoked.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

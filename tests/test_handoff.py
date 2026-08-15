@@ -8,6 +8,7 @@ from groundrecall.handoff import (
     complete_handoff,
     confirm_handoff_promotion,
     apply_handoff_promotion_request,
+    consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
     claim_handoff,
@@ -193,6 +194,11 @@ def test_handoff_promotion_confirmation_requires_explicit_matching_request(tmp_p
     action = apply_handoff_promotion_request(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", realm_id="r1", idempotency_key="apply-1")
     assert action.event_type == "promotion_action" and action.provenance["action_status"] == "quarantined"
     assert apply_handoff_promotion_request(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", realm_id="r1", idempotency_key="apply-1").event_id == action.event_id
+    from groundrecall.policy import StaticPolicyProvider
+    with pytest.raises(PermissionError, match="confirm=true"):
+        consume_handoff_promotion_action(str(tmp_path), item.handoff_id, action_id=action.event_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=False, policy_provider=StaticPolicyProvider(), realm_id="r1", idempotency_key="operator-1")
+    receipt = consume_handoff_promotion_action(str(tmp_path), item.handoff_id, action_id=action.event_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=True, policy_provider=StaticPolicyProvider(), realm_id="r1", idempotency_key="operator-1")
+    assert receipt.event_type == "promotion_operator_receipt" and receipt.provenance["canonical_effect"] == "none"
     listed = list_handoff_promotion_actions(tmp_path, subject_id="alice", project="demo", realm_id="r1")
     assert listed[0]["action_status"] == "quarantined" and "rationale" not in listed[0]
     assert list_handoff_promotion_actions(tmp_path, subject_id="bob", project="demo", realm_id="r1") == []

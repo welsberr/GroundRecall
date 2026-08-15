@@ -193,6 +193,9 @@ write canonical records.
 `handoff_promotion_actions` exposes bounded, policy-filtered metadata summaries
 for operators without returning protected rationale/content or performing
 promotion.
+The operator-only promotion consumer records a bounded receipt after explicit
+confirmation and policy evaluation; MCP/HTTP clients cannot invoke it, and its
+canonical effect is `none`.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.
