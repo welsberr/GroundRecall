@@ -67,6 +67,8 @@ class MCPHTTPConfig:
     max_concurrent_requests: int = 16
     request_timeout_seconds: float = 0.0
     audit_log_path: str = ""
+    reviewer_role: str = ""
+    roles: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,7 @@ class MCPPrincipal:
     realm_id: str = ""
     maximum_release_level: str = "private"
     allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
+    roles: frozenset[str] = field(default_factory=frozenset)
 
 
 def _load_identities(path: str) -> dict[str, MCPPrincipal]:
@@ -102,6 +105,7 @@ def _load_identities(path: str) -> dict[str, MCPPrincipal]:
             realm_id=str(row.get("realm_id", "")),
             maximum_release_level=str(row.get("maximum_release_level", "private")),
             allowed_tools=tools,
+            roles=frozenset(str(role) for role in (row.get("roles") or [])),
         )
     return identities
 
@@ -330,7 +334,7 @@ class MCPHTTPApplication:
             return principal
         if self.config.bearer_token and token != self.config.bearer_token:
             raise PermissionError("invalid bearer token")
-        return MCPPrincipal(subject_id=self.config.subject_id, realm_id=self.config.realm_id, allowed_tools=self.config.allowed_tools)
+        return MCPPrincipal(subject_id=self.config.subject_id, realm_id=self.config.realm_id, allowed_tools=self.config.allowed_tools, roles=self.config.roles)
 
     def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
         if not self._request_slots.acquire(blocking=False):
@@ -427,6 +431,10 @@ class MCPHTTPApplication:
                                  tool=name, decision="denied", result_class="policy_denied",
                                  http_status=200, reason="tool_not_enabled")
                 return _json_response(request_id, error={"code": -32003, "message": "tool is not enabled by server policy"}, correlation_id=correlation_id)
+            reviewer_tools = {"handoff_review", "handoff_review_appeal", "handoff_rejection_resolve", "handoff_promotion_request", "handoff_promotion_confirm", "handoff_promotion_apply"}
+            if self.config.reviewer_role and name in reviewer_tools and self.config.reviewer_role not in principal.roles:
+                self.audit.write(correlation_id=correlation_id, principal=principal, method=method, tool=name, decision="denied", result_class="role_denied", http_status=200, reason="required_reviewer_role_missing")
+                return _json_response(request_id, error={"code": -32003, "message": "required reviewer role is not assigned"}, correlation_id=correlation_id)
             arguments = dict(params.get("arguments") or {})
             # Server-owned controls override caller-supplied policy and identity.
             arguments["policy_config"] = self.config.policy_config

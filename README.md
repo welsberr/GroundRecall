@@ -388,6 +388,12 @@ memory, or execute host work; policy and idempotency remain enforced.
 and policy authorization. It is also append-only and does not itself revoke,
 change status, write canonical memory, or execute work.
 
+HTTP deployments can require a server-owned reviewer role (for example,
+`reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity
+configuration, never accepted from tool arguments, and missing roles fail
+closed for review, appeal, rejection-resolution, and promotion operations.
+Leave the role requirement empty only for explicit local-development mode.
+
 `handoff_start` is the explicit lease-bound accepted-to-executing transition.
 It requires an accepted assignment for the lease owner and performs no host
 execution itself.

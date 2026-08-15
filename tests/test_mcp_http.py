@@ -237,6 +237,16 @@ def test_http_identity_file_cannot_enable_anonymous_mode(tmp_path) -> None:
         MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), identity_file=str(identity)))
 
 
+def test_http_reviewer_role_is_server_owned_and_fails_closed(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("rules: []\n", encoding="utf-8")
+    identity = tmp_path / "identities.json"
+    identity.write_text(json.dumps({"identities": [{"token": "alice-token", "subject_id": "alice", "allowed_tools": ["handoff_review"], "roles": []}]}), encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), identity_file=str(identity), reviewer_role="handoff-reviewer", allowed_tools=frozenset({"handoff_review"})))
+    response = app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "handoff_review", "arguments": {}}}, token="alice-token")
+    assert json.loads(response)["error"]["message"] == "required reviewer role is not assigned"
+
+
 def test_http_responses_include_server_generated_correlation_ids(tmp_path) -> None:
     policy = tmp_path / "policy.yaml"
     policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")

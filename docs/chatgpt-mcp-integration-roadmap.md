@@ -213,6 +213,10 @@ execution occurs until a separate governed operator action exists.
 `dismiss`, or `supersede`) only when it references an existing request and
 includes rationale/evidence. Policy, idempotency, and provenance are recorded;
 the resolution itself does not mutate status, canonical memory, or execution.
+The HTTP adapter can require a server-owned reviewer role loaded from identity
+configuration; role-gated review, appeal, rejection-resolution, and promotion
+calls fail closed when the principal lacks that role. Empty role configuration
+is an explicit local-development compatibility mode.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.
