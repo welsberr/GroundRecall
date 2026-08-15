@@ -406,6 +406,8 @@ capability names fail closed, and omission preserves receipt-only behavior.
 HTTP server configuration accepts `promotion_executor_names` as a validated
 server-owned allowlist and reports its availability in readiness; MCP callers
 cannot alter it.
+Injected executors run with a bounded timeout and result-size validation;
+timeouts, exceptions, or invalid metadata produce an auditable no-effect receipt.
 
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity
