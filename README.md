@@ -406,6 +406,8 @@ Leave the role requirement empty only for explicit local-development mode.
 The stdio server supports the same server-owned gate with
 `--reviewer-role ROLE --roles-file roles.json`; the roles file is read by the
 server and is never supplied through MCP tool arguments.
+The HTTP adapter atomically reloads changed identity data; invalid or missing
+role data fails closed and readiness reports `reviewer_roles: false`.
 
 `handoff_start` is the explicit lease-bound accepted-to-executing transition.
 It requires an accepted assignment for the lease owner and performs no host

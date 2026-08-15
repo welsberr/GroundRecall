@@ -99,13 +99,13 @@ def test_http_readiness_is_bounded_and_checks_policy_store(tmp_path) -> None:
     not_ready = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy)))
     ready, payload = not_ready.readiness()
     assert ready is False
-    assert payload == {"ok": False, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": False}, "reason": "store_not_configured"}
+    assert payload == {"ok": False, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": False, "reviewer_roles": True}, "reason": "store_not_configured"}
     store = tmp_path / "store"
     store.mkdir()
     app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), store_dir=str(store)))
     ready, payload = app.readiness()
     assert ready is True
-    assert payload == {"ok": True, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": True}, "reason": "ready"}
+    assert payload == {"ok": True, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": True, "reviewer_roles": True}, "reason": "ready"}
     assert str(tmp_path) not in json.dumps(payload)
 
 
@@ -245,6 +245,17 @@ def test_http_reviewer_role_is_server_owned_and_fails_closed(tmp_path) -> None:
     app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), identity_file=str(identity), reviewer_role="handoff-reviewer", allowed_tools=frozenset({"handoff_review"})))
     response = app.dispatch({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "handoff_review", "arguments": {}}}, token="alice-token")
     assert json.loads(response)["error"]["message"] == "required reviewer role is not assigned"
+
+
+def test_http_identity_reload_revokes_and_readiness_fails_closed(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"; policy.write_text("rules: []\n", encoding="utf-8")
+    identity = tmp_path / "identities.json"
+    identity.write_text(json.dumps({"identities": [{"token": "t", "subject_id": "a", "allowed_tools": ["search_store"]}]}), encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), identity_file=str(identity), store_dir=str(tmp_path), reviewer_role="reviewer"))
+    identity.write_text("invalid", encoding="utf-8")
+    ready, checks = app.readiness(); assert not ready and checks["checks"]["reviewer_roles"] is False
+    with pytest.raises(PermissionError, match="identity configuration"):
+        app.principal_for_token("t")
 
 
 def test_http_responses_include_server_generated_correlation_ids(tmp_path) -> None:

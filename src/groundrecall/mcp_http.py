@@ -305,6 +305,7 @@ class MCPHTTPApplication:
         self.audit = _AuditLog(config.audit_log_path)
         self._request_slots = BoundedSemaphore(config.max_concurrent_requests)
         self.identities = _load_identities(config.identity_file)
+        self._identity_signature = (Path(config.identity_file).stat().st_mtime_ns, Path(config.identity_file).stat().st_size) if config.identity_file else (0, 0)
         if config.identity_file and not self.identities:
             raise ValueError("identity file must contain at least one identity")
         if self.identities and config.bearer_token:
@@ -316,8 +317,15 @@ class MCPHTTPApplication:
         store_configured = bool(self.config.store_dir)
         store_path = Path(self.config.store_dir) if store_configured else None
         store_ok = bool(store_path and store_path.is_dir() and os.access(store_path, os.R_OK | os.W_OK))
-        checks = {"policy": policy_ok, "store": store_ok}
-        ready = policy_ok and store_configured and store_ok
+        roles_ok = True
+        if self.config.reviewer_role:
+            try:
+                self._reload_identities()
+                roles_ok = any(self.config.reviewer_role in principal.roles for principal in self.identities.values()) or (not self.identities and self.config.reviewer_role in self.config.roles)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                roles_ok = False
+        checks = {"policy": policy_ok, "store": store_ok, "reviewer_roles": roles_ok}
+        ready = policy_ok and store_configured and store_ok and roles_ok
         reason = "ready" if ready else ("store_not_configured" if not store_configured else "dependency_unavailable")
         return ready, {"ok": ready, "service": "groundrecall-mcp-http", "checks": checks, "reason": reason}
 
@@ -328,6 +336,10 @@ class MCPHTTPApplication:
             return False
 
     def principal_for_token(self, token: str = "") -> MCPPrincipal:
+        try:
+            self._reload_identities()
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            raise PermissionError("server identity configuration unavailable") from exc
         if self.identities:
             principal = self.identities.get(token)
             if principal is None:
@@ -336,6 +348,18 @@ class MCPHTTPApplication:
         if self.config.bearer_token and token != self.config.bearer_token:
             raise PermissionError("invalid bearer token")
         return MCPPrincipal(subject_id=self.config.subject_id, realm_id=self.config.realm_id, allowed_tools=self.config.allowed_tools, roles=self.config.roles)
+
+    def _reload_identities(self) -> None:
+        """Atomically reload server-owned identities when the file changes."""
+        if not self.config.identity_file:
+            return
+        path = Path(self.config.identity_file)
+        stat = path.stat(); signature = (stat.st_mtime_ns, stat.st_size)
+        if signature == self._identity_signature:
+            return
+        identities = _load_identities(path)
+        self.identities = identities
+        self._identity_signature = signature
 
     def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
         if not self._request_slots.acquire(blocking=False):

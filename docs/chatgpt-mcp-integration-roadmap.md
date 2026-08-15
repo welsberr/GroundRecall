@@ -230,6 +230,9 @@ is an explicit local-development compatibility mode.
 The stdio MCP entry point supports the same gate via server startup options
 (`--reviewer-role` and `--roles-file`), keeping reviewer identity outside tool
 arguments and failing closed when the configured role is absent.
+HTTP identity changes are reloaded atomically; invalid or missing role data
+fails closed and is reflected in readiness checks rather than retaining stale
+authorization.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.
