@@ -12,6 +12,7 @@ from groundrecall.mcp_http import (
     MCP_HTTP_SERVER_INFO,
     MCP_HTTP_MIN_RESPONSE_BYTES,
     _bounded_response_body,
+    _response_http_status,
     verify_audit_log,
 )
 from groundrecall.mcp_audit_verify import main as verify_audit_cli
@@ -138,6 +139,7 @@ def test_http_concurrency_limit_returns_bounded_overload_and_recovers(tmp_path) 
         overloaded = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 10, "method": "ping"}))
         assert overloaded["error"] == {"code": -32005, "message": "server busy"}
         assert str(tmp_path) not in json.dumps(overloaded)
+        assert _response_http_status(json.dumps(overloaded).encode()) == 429
     finally:
         app._request_slots.release()
     recovered = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 11, "method": "ping"}))

@@ -130,6 +130,17 @@ def _bounded_response_body(body: bytes, maximum: int) -> tuple[bytes, bool]:
     return MCP_HTTP_RESPONSE_TOO_LARGE, True
 
 
+def _response_http_status(body: bytes) -> int:
+    """Map transport-level overload errors to HTTP without exposing details."""
+    try:
+        payload = json.loads(body)
+        if payload.get("error", {}).get("code") == -32005:
+            return 429
+    except (TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return 200
+
+
 def _response_correlation_id(body: bytes) -> str:
     """Extract only the server-generated correlation ID from a response."""
     try:
@@ -505,7 +516,7 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
                         )
                         self._write(502, bounded)
                     else:
-                        self._write(200, bounded)
+                        self._write(_response_http_status(bounded), bounded)
             except (ValueError, TypeError, json.JSONDecodeError) as exc:
                 self._write(400, json.dumps({"error": "invalid_request", "message": str(exc)}).encode() + b"\n")
 
