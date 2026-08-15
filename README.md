@@ -385,6 +385,9 @@ execution itself.
 `handoff_block` provides a lease-bound accepted/executing-to-blocked
 transition with a required reason or evidence reference; it performs no host
 execution or canonical write.
+`handoff_unblock` resolves a blocked handoff back to `accepted` with an active
+lease, scoped owner, and resolution/evidence reference; it does not execute
+work or write canonical memory.
 
 `handoff_assignment_accept` appends assignee acceptance only when it references
 an existing assignment request and supplies scoped context; it does not change

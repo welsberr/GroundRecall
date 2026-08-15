@@ -13,6 +13,7 @@ from groundrecall.handoff import (
     accept_handoff_assignment,
     start_handoff_execution,
     block_handoff,
+    unblock_handoff,
     consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
@@ -263,6 +264,9 @@ def test_handoff_block_requires_active_lease_and_reason(tmp_path):
     blocked = block_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, reason="dependency unavailable", realm_id="r1", expected_status="accepted", idempotency_key="block-1")
     assert blocked.handoff.status == "blocked"
     assert block_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, reason="changed", realm_id="r1", expected_status="accepted", idempotency_key="block-1").handoff.status == "blocked"
+    unblocked = unblock_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, resolution="dependency fixed", realm_id="r1", idempotency_key="unblock-1")
+    assert unblocked.handoff.status == "accepted"
+    assert unblock_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, resolution="changed", realm_id="r1", idempotency_key="unblock-1").handoff.status == "accepted"
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

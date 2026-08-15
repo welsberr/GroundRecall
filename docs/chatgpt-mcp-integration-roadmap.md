@@ -210,6 +210,8 @@ after assignment acceptance and active lease validation; it does not execute
 host work.
 `handoff_block` adds a lease-bound escalation path to `blocked`, requiring a
 reason/evidence reference and preserving append-only provenance.
+`handoff_unblock` provides the lease-bound blocked-to-accepted resolution path
+with a required resolution/evidence reference and no execution authority.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.
