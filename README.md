@@ -403,6 +403,9 @@ the executor receives bounded identifiers and must return metadata, which is
 recorded in the receipt. CLI/MCP paths never accept arbitrary executors.
 Named executors must come from a server-owned registry/allowlist; unknown
 capability names fail closed, and omission preserves receipt-only behavior.
+HTTP server configuration accepts `promotion_executor_names` as a validated
+server-owned allowlist and reports its availability in readiness; MCP callers
+cannot alter it.
 
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity

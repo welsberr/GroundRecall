@@ -99,13 +99,13 @@ def test_http_readiness_is_bounded_and_checks_policy_store(tmp_path) -> None:
     not_ready = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy)))
     ready, payload = not_ready.readiness()
     assert ready is False
-    assert payload == {"ok": False, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": False, "reviewer_roles": True}, "reason": "store_not_configured"}
+    assert payload == {"ok": False, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": False, "reviewer_roles": True, "promotion_executors": True}, "reason": "store_not_configured"}
     store = tmp_path / "store"
     store.mkdir()
     app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), store_dir=str(store)))
     ready, payload = app.readiness()
     assert ready is True
-    assert payload == {"ok": True, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": True, "reviewer_roles": True}, "reason": "ready"}
+    assert payload == {"ok": True, "service": "groundrecall-mcp-http", "checks": {"policy": True, "store": True, "reviewer_roles": True, "promotion_executors": True}, "reason": "ready"}
     assert str(tmp_path) not in json.dumps(payload)
 
 

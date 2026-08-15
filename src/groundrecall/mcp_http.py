@@ -70,6 +70,7 @@ class MCPHTTPConfig:
     audit_log_path: str = ""
     reviewer_role: str = ""
     roles: frozenset[str] = field(default_factory=frozenset)
+    promotion_executor_names: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -301,6 +302,8 @@ class MCPHTTPApplication:
             raise ValueError("max_concurrent_requests must be between 1 and 1024")
         if config.request_timeout_seconds < 0 or config.request_timeout_seconds > 3600:
             raise ValueError("request_timeout_seconds must be between 0 and 3600")
+        if any(not isinstance(name, str) or not name for name in config.promotion_executor_names):
+            raise ValueError("promotion executor names must be non-empty strings")
         self.config = config
         self.audit = _AuditLog(config.audit_log_path)
         self._request_slots = BoundedSemaphore(config.max_concurrent_requests)
@@ -324,7 +327,7 @@ class MCPHTTPApplication:
                 roles_ok = any(self.config.reviewer_role in principal.roles for principal in self.identities.values()) or (not self.identities and self.config.reviewer_role in self.config.roles)
             except (OSError, ValueError, TypeError, json.JSONDecodeError):
                 roles_ok = False
-        checks = {"policy": policy_ok, "store": store_ok, "reviewer_roles": roles_ok}
+        checks = {"policy": policy_ok, "store": store_ok, "reviewer_roles": roles_ok, "promotion_executors": True}
         ready = policy_ok and store_configured and store_ok and roles_ok
         reason = "ready" if ready else ("store_not_configured" if not store_configured else "dependency_unavailable")
         return ready, {"ok": ready, "service": "groundrecall-mcp-http", "checks": checks, "reason": reason}
