@@ -38,6 +38,7 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
     "handoff_get",
     "handoff_list",
     "handoff_events",
+    "handoff_promotion_actions",
     }
 )
 HANDOFF_WRITE_TOOLS = frozenset({"handoff_propose", "handoff_update_status", "handoff_accept", "handoff_complete", "handoff_review", "handoff_promotion_request", "handoff_promotion_confirm", "handoff_promotion_apply", "handoff_claim", "handoff_release", "progress_append", "result_propose"})

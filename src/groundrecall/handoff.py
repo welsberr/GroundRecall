@@ -518,6 +518,19 @@ def apply_handoff_promotion_request(store_dir: str | Path, handoff_id: str, *, r
         return event
 
 
+def list_handoff_promotion_actions(store_dir: str | Path, *, subject_id: str = "", project: str = "", realm_id: str = "", maximum_release_level: str = "private", limit: int = 20) -> list[dict[str, Any]]:
+    """Return bounded metadata-only promotion-action summaries."""
+    summaries: list[dict[str, Any]] = []
+    for item in list_handoffs(store_dir, realm_id=realm_id, project=project, maximum_release_level=maximum_release_level, limit=100):
+        for event in list_handoff_events(store_dir, item.handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500):
+            if event.event_type != "promotion_action" or (subject_id and event.requester_subject_id != subject_id):
+                continue
+            summaries.append({"event_id": event.event_id, "handoff_id": event.handoff_id, "task_id": event.task_id, "project": item.project, "realm_id": event.realm_id, "release_level": event.release_level, "requester_subject_id": event.requester_subject_id, "promotion_target": event.promotion_target, "action_status": str(event.provenance.get("action_status", "quarantined")), "canonical_effect": str(event.provenance.get("canonical_effect", "none")), "created_at": event.created_at})
+            if len(summaries) >= max(1, min(limit, 100)):
+                return summaries
+    return summaries
+
+
 def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:
     """Require a claim to stay inside the handoff's explicit target scope."""
     if not subject_id or subject_id != item.subject_id:

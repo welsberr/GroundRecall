@@ -33,6 +33,7 @@ from .handoff import (
     propose_handoff_result,
     review_handoff_result,
     request_handoff_promotion,
+    list_handoff_promotion_actions,
     release_handoff,
     update_handoff_status,
 )
@@ -455,6 +456,15 @@ def _handoff_promotion_apply(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text({"ok": True, "writes_performed": True, "canonical_write": False, "promotion_action": event.model_dump(mode="json")})
 
 
+def _handoff_promotion_actions(arguments: dict[str, Any]) -> dict[str, Any]:
+    decision = _evaluate_optional_policy(arguments, {"decision_point": "query", "action": "handoff_promotion_actions", "subject_id": str(arguments.get("subject_id", "")), "record_kind": "assistant_handoff_promotion_action", "scope_id": str(arguments.get("project", "")), "target_release_level": str(arguments.get("maximum_release_level", "private"))})
+    blocked = _blocked_policy_result(decision) if decision else None
+    if blocked is not None:
+        return blocked
+    actions = list_handoff_promotion_actions(arguments["store_dir"], subject_id=str(arguments.get("subject_id", "")), project=str(arguments.get("project", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), limit=int(arguments.get("limit", 20)))
+    return _json_text(_attach_policy({"schema_version": "groundrecall.assistant_handoff_promotion_action_list.v1", "actions": actions}, decision))
+
+
 def _handoff_claim(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
     result = claim_handoff(
@@ -779,6 +789,11 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Record a bounded quarantined promotion action after confirmation; never mutates canonical memory.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "requester_subject_id": {"type": "string"}, "project": {"type": "string"}, "promotion_target": {"type": "string"}, "expected_status": {"type": "string", "default": "completed"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "requester_subject_id", "project", "promotion_target"]},
         "handler": _handoff_promotion_apply,
+    },
+    "handoff_promotion_actions": {
+        "description": "List bounded metadata-only quarantined handoff promotion actions filtered by subject/project/realm/release.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "subject_id": {"type": "string"}, "project": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "limit": {"type": "integer", "default": 20}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir"]},
+        "handler": _handoff_promotion_actions,
     },
     "handoff_claim": {
         "description": "Claim a scoped handoff for a bounded lease; never executes host work or writes canonical memory.",

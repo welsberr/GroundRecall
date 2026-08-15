@@ -361,6 +361,10 @@ actual promotion remains a separate governed operation.
 auditable quarantine/action receipt. Its canonical effect is none; an existing
 promotion API must separately approve and perform any canonical mutation.
 
+The read-only `handoff_promotion_actions` MCP method lists bounded,
+subject/project/realm/release-filtered metadata summaries of quarantined
+actions. It omits rationale and protected content and does not mutate state.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

@@ -8,6 +8,7 @@ from groundrecall.handoff import (
     complete_handoff,
     confirm_handoff_promotion,
     apply_handoff_promotion_request,
+    list_handoff_promotion_actions,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -192,6 +193,9 @@ def test_handoff_promotion_confirmation_requires_explicit_matching_request(tmp_p
     action = apply_handoff_promotion_request(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", realm_id="r1", idempotency_key="apply-1")
     assert action.event_type == "promotion_action" and action.provenance["action_status"] == "quarantined"
     assert apply_handoff_promotion_request(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", realm_id="r1", idempotency_key="apply-1").event_id == action.event_id
+    listed = list_handoff_promotion_actions(tmp_path, subject_id="alice", project="demo", realm_id="r1")
+    assert listed[0]["action_status"] == "quarantined" and "rationale" not in listed[0]
+    assert list_handoff_promotion_actions(tmp_path, subject_id="bob", project="demo", realm_id="r1") == []
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

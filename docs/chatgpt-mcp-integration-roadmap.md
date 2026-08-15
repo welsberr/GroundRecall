@@ -190,6 +190,9 @@ perform canonical promotion.
 `handoff_promotion_apply` records the confirmed request as quarantined action
 receipt (`canonical_effect: none`); it does not invoke arbitrary promotion or
 write canonical records.
+`handoff_promotion_actions` exposes bounded, policy-filtered metadata summaries
+for operators without returning protected rationale/content or performing
+promotion.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.
