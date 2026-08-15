@@ -217,6 +217,9 @@ The HTTP adapter can require a server-owned reviewer role loaded from identity
 configuration; role-gated review, appeal, rejection-resolution, and promotion
 calls fail closed when the principal lacks that role. Empty role configuration
 is an explicit local-development compatibility mode.
+The stdio MCP entry point supports the same gate via server startup options
+(`--reviewer-role` and `--roles-file`), keeping reviewer identity outside tool
+arguments and failing closed when the configured role is absent.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.

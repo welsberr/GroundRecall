@@ -921,7 +921,10 @@ def list_tools() -> list[dict[str, Any]]:
     ]
 
 
-def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
+REVIEWER_TOOLS = frozenset({"handoff_review", "handoff_review_appeal", "handoff_rejection_resolve", "handoff_promotion_request", "handoff_promotion_confirm", "handoff_promotion_apply"})
+
+
+def handle_request(request: dict[str, Any], *, reviewer_role: str = "", server_roles: frozenset[str] = frozenset()) -> dict[str, Any] | None:
     request_id = request.get("id")
     method = request.get("method")
     params = request.get("params") or {}
@@ -941,6 +944,8 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
             tool = TOOLS.get(name)
             if tool is None:
                 raise ValueError(f"Unknown tool: {name}")
+            if reviewer_role and name in REVIEWER_TOOLS and reviewer_role not in server_roles:
+                raise PermissionError("required reviewer role is not assigned")
             handler: Callable[[dict[str, Any]], dict[str, Any]] = tool["handler"]
             result = handler(params.get("arguments") or {})
         else:
@@ -954,18 +959,27 @@ def handle_request(request: dict[str, Any]) -> dict[str, Any] | None:
         }
 
 
-def serve(input_stream=sys.stdin, output_stream=sys.stdout) -> None:
+def serve(input_stream=sys.stdin, output_stream=sys.stdout, *, reviewer_role: str = "", server_roles: frozenset[str] = frozenset()) -> None:
     for line in input_stream:
         if not line.strip():
             continue
-        response = handle_request(json.loads(line))
+        response = handle_request(json.loads(line), reviewer_role=reviewer_role, server_roles=server_roles)
         if response is not None:
             output_stream.write(json.dumps(response) + "\n")
             output_stream.flush()
 
 
 def main() -> None:
-    serve()
+    import argparse
+    parser = argparse.ArgumentParser(description="GroundRecall stdio MCP server")
+    parser.add_argument("--reviewer-role", default="", help="server-required reviewer role; empty is local-dev compatibility mode")
+    parser.add_argument("--roles-file", default="", help="server-owned JSON file containing {\"roles\": [...]}")
+    args = parser.parse_args()
+    roles: frozenset[str] = frozenset()
+    if args.roles_file:
+        payload = json.loads(Path(args.roles_file).read_text(encoding="utf-8"))
+        roles = frozenset(str(role) for role in (payload.get("roles") or []))
+    serve(reviewer_role=args.reviewer_role, server_roles=roles)
 
 
 if __name__ == "__main__":

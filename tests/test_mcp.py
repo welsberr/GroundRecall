@@ -393,3 +393,9 @@ def test_mcp_contribution_proposal_performs_no_writes(tmp_path: Path) -> None:
     assert payload["writes_performed"] is False
     assert payload["proposal"]["contributed_record_ids"] == ["claim-a"]
     assert store.list_contributions() == []
+def test_stdio_reviewer_role_is_server_owned_and_fails_closed(tmp_path):
+    from groundrecall.mcp import handle_request
+    denied = handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "handoff_review", "arguments": {}}}, reviewer_role="handoff-reviewer", server_roles=frozenset())
+    assert denied["error"]["message"] == "required reviewer role is not assigned"
+    allowed = handle_request({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "handoff_review", "arguments": {}}}, reviewer_role="handoff-reviewer", server_roles=frozenset({"handoff-reviewer"}))
+    assert "required reviewer role" not in allowed.get("error", {}).get("message", "")

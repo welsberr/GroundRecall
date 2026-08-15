@@ -393,6 +393,9 @@ HTTP deployments can require a server-owned reviewer role (for example,
 configuration, never accepted from tool arguments, and missing roles fail
 closed for review, appeal, rejection-resolution, and promotion operations.
 Leave the role requirement empty only for explicit local-development mode.
+The stdio server supports the same server-owned gate with
+`--reviewer-role ROLE --roles-file roles.json`; the roles file is read by the
+server and is never supplied through MCP tool arguments.
 
 `handoff_start` is the explicit lease-bound accepted-to-executing transition.
 It requires an accepted assignment for the lease owner and performs no host
