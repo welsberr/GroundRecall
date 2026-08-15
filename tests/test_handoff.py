@@ -11,6 +11,7 @@ from groundrecall.handoff import (
     appeal_handoff_review,
     request_handoff_assignment,
     accept_handoff_assignment,
+    start_handoff_execution,
     consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
@@ -235,6 +236,20 @@ def test_handoff_assignment_request_is_scoped_idempotent_and_append_only(tmp_pat
     assert accept_handoff_assignment(str(tmp_path), item.handoff_id, assignee_subject_id="bob", project="demo", target_assignment_event_id=event.event_id, acceptance_context="changed", realm_id="r1", idempotency_key="assign-accept-1").event_id == accepted.event_id
     with pytest.raises(ValueError, match="target assignment"):
         accept_handoff_assignment(str(tmp_path), item.handoff_id, assignee_subject_id="bob", project="demo", target_assignment_event_id="missing", rationale="x", realm_id="r1")
+
+
+def test_handoff_start_requires_accepted_assignment_and_active_lease(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="start", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim = claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    with pytest.raises(PermissionError, match="accepted assignment"):
+        start_handoff_execution(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, realm_id="r1")
+    assignment = request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="alice", project="demo", acceptance_context="ready", realm_id="r1")
+    accept_handoff_assignment(str(tmp_path), item.handoff_id, assignee_subject_id="alice", project="demo", target_assignment_event_id=assignment.event_id, acceptance_context="accept", realm_id="r1")
+    started = start_handoff_execution(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, realm_id="r1", idempotency_key="start-1")
+    assert started.handoff.status == "executing"
+    assert start_handoff_execution(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, realm_id="r1", idempotency_key="start-1").handoff.status == "executing"
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

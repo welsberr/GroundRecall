@@ -626,6 +626,31 @@ def accept_handoff_assignment(store_dir: str | Path, handoff_id: str, *, assigne
         return event
 
 
+def start_handoff_execution(store_dir: str | Path, handoff_id: str, *, subject_id: str, host_id: str, project: str, lease_id: str, policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "accepted", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffResult:
+    """Transition an assigned, leased handoff from accepted to executing."""
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None or item.project != project:
+            raise PermissionError("handoff start scope does not match")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        if existing is not None and existing.event_type == "status" and existing.status == "executing":
+            return HandoffResult(handoff=item, policy_decision=_handoff_policy(policy_provider, action="handoff_start", handoff=item, status="executing"), lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+        if item.status != expected_status or expected_status != "accepted":
+            raise ValueError(f"handoff status conflict: expected accepted, found {item.status}")
+        if not lease_id or lease_id != item.lease_id or not _lease_is_active(item) or item.lease_subject_id != subject_id or item.lease_host_id != host_id:
+            raise PermissionError("handoff start requires active lease owner")
+        events = list_handoff_events(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500)
+        if not any(event.event_type == "assignment_acceptance" and event.assignee_subject_id == subject_id for event in events):
+            raise PermissionError("handoff start requires accepted assignment")
+        policy = _handoff_policy(policy_provider, action="handoff_start", handoff=item, status="executing")
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff start")
+        now = _now(); item.status = "executing"; item.updated_at = now
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="executing", lease_id=lease_id, lease_subject_id=subject_id, lease_host_id=host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "started_by_host": host_id}, idempotency_key=idempotency_key, created_at=now)
+        _persist_mutation(store_dir, item, event)
+        return HandoffResult(handoff=item, policy_decision=policy, lease_id=lease_id, lease_expires_at=item.lease_expires_at)
+
+
 def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:
     """Require a claim to stay inside the handoff's explicit target scope."""
     if not subject_id or subject_id != item.subject_id:

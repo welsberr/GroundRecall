@@ -41,7 +41,7 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
     "handoff_promotion_actions",
     }
 )
-HANDOFF_WRITE_TOOLS = frozenset({"handoff_propose", "handoff_update_status", "handoff_accept", "handoff_complete", "handoff_review", "handoff_review_appeal", "handoff_assignment_request", "handoff_assignment_accept", "handoff_promotion_request", "handoff_promotion_confirm", "handoff_promotion_apply", "handoff_claim", "handoff_release", "progress_append", "result_propose"})
+HANDOFF_WRITE_TOOLS = frozenset({"handoff_propose", "handoff_update_status", "handoff_accept", "handoff_start", "handoff_complete", "handoff_review", "handoff_review_appeal", "handoff_assignment_request", "handoff_assignment_accept", "handoff_promotion_request", "handoff_promotion_confirm", "handoff_promotion_apply", "handoff_claim", "handoff_release", "progress_append", "result_propose"})
 
 # Keep transport negotiation independent from the local stdio adapter.  These
 # values are intentionally constants: responses must not disclose policy

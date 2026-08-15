@@ -205,6 +205,9 @@ governed and no execution is implied.
 `handoff_assignment_accept` appends assignee acceptance for a matching request
 with scope, provenance, idempotency, and policy checks; it does not alter
 status or canonical memory.
+`handoff_start` provides the explicit accepted-to-executing transition only
+after assignment acceptance and active lease validation; it does not execute
+host work.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.
