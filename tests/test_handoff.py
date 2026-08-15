@@ -152,7 +152,8 @@ def test_handoff_completion_requires_lease_scope_and_result(tmp_path):
     with pytest.raises(ValueError, match="outcome or result_ref"):
         complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted")
     done = complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="tests passed", idempotency_key="done-1")
-    assert done.handoff.status == "completed" and done.lease_id == claim.lease_id
+    assert done.handoff.status == "completed" and done.lease_id == ""
+    assert any(event.event_type == "lease" and event.lease_action == "released" and event.lease_id == claim.lease_id for event in list_handoff_events(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1"))
     again = complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="tests passed", idempotency_key="done-1")
     assert again.handoff.status == "completed"
 

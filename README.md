@@ -391,6 +391,8 @@ change status, write canonical memory, or execute work.
 `handoff_rejection_apply` explicitly consumes an upheld resolution and
 transitions the handoff to `blocked`, requiring lease ownership when applicable;
 it preserves provenance without canonical mutation or execution.
+Terminal completion and rejection application clear any active lease and append
+a release event, preventing stale ownership while retaining lease provenance.
 
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity

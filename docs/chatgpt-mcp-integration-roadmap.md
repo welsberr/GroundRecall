@@ -217,6 +217,9 @@ the resolution itself does not mutate status, canonical memory, or execution.
 an upheld request and transitions the handoff to `blocked`; it validates active
 lease ownership when applicable and records append-only provenance without
 canonical writes or execution.
+Terminal `completed` and rejection-applied `blocked` transitions now clear
+active leases and append explicit release events, avoiding stale ownership
+without bypassing policy or mutating canonical memory.
 The HTTP adapter can require a server-owned reviewer role loaded from identity
 configuration; role-gated review, appeal, rejection-resolution, and promotion
 calls fail closed when the principal lacks that role. Empty role configuration

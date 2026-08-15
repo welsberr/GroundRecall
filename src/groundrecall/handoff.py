@@ -405,8 +405,11 @@ def complete_handoff(store_dir: str | Path, handoff_id: str, *, subject_id: str,
         item.status = "completed"
         item.updated_at = now
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="completed", outcome=outcome, result_ref=result_ref, lease_id=item.lease_id, lease_subject_id=subject_id, lease_host_id=host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "completed_by_host": host_id}, idempotency_key=idempotency_key, created_at=now)
+        old_lease = (item.lease_id, item.lease_subject_id, item.lease_host_id, item.lease_expires_at)
+        item.lease_id = item.lease_subject_id = item.lease_host_id = item.lease_expires_at = ""
         _persist_mutation(store_dir, item, event)
-        return HandoffResult(handoff=item, policy_decision=decision, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+        _append_event(store_dir, HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="lease", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, lease_action="released", lease_id=old_lease[0], lease_subject_id=old_lease[1], lease_host_id=old_lease[2], lease_expires_at=old_lease[3], provenance={"terminal_status": "completed", "released_by_host": host_id}, created_at=_now()))
+        return HandoffResult(handoff=item, policy_decision=decision, lease_id="", lease_expires_at="")
 
 
 def review_handoff_result(store_dir: str | Path, handoff_id: str, *, reviewer_subject_id: str, project: str, decision: str, rationale: str = "", result_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "completed", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
@@ -773,8 +776,12 @@ def apply_handoff_rejection(store_dir: str | Path, handoff_id: str, *, resolver_
                 raise PermissionError("rejection apply requires active lease owner")
         now = _now(); item.status = "blocked"; item.updated_at = now
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="blocked", outcome=reason, result_ref=evidence_ref, lease_id=item.lease_id, lease_subject_id=item.lease_subject_id, lease_host_id=item.lease_host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "applied_by_resolver": resolver_subject_id, "target_request_event_id": target_request_event_id, "target_resolution_event_id": target_resolution_event_id}, idempotency_key=idempotency_key, created_at=now)
+        old_lease = (item.lease_id, item.lease_subject_id, item.lease_host_id, item.lease_expires_at)
+        item.lease_id = item.lease_subject_id = item.lease_host_id = item.lease_expires_at = ""
         _persist_mutation(store_dir, item, event)
-        return HandoffResult(handoff=item, policy_decision=policy, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+        if old_lease[0]:
+            _append_event(store_dir, HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="lease", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, lease_action="released", lease_id=old_lease[0], lease_subject_id=old_lease[1], lease_host_id=old_lease[2], lease_expires_at=old_lease[3], provenance={"terminal_status": "blocked", "released_by_resolver": resolver_subject_id}, created_at=_now()))
+        return HandoffResult(handoff=item, policy_decision=policy, lease_id="", lease_expires_at="")
 
 
 def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:
