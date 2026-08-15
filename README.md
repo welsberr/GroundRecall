@@ -337,6 +337,12 @@ Operators can create a bounded, redacted audit projection with
 correlation/hash metadata, omits request content, credentials, reasons, and
 identities by default, and never deletes the source log.
 
+Codex-side acceptance is explicit and lease-bound through the opt-in
+`handoff_accept` MCP method. It requires matching subject, host, project, and
+realm plus an active lease and expected `proposed` status; it changes only the
+operational handoff record and never executes host work or promotes canonical
+memory.
+
 For boot-time private deployment, use the reviewed systemd template and setup
 notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
 binds to loopback and is not installed or enabled automatically; a private

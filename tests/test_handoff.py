@@ -4,6 +4,7 @@ import time
 import pytest
 
 from groundrecall.handoff import (
+    accept_handoff,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -106,6 +107,21 @@ def test_handoff_recovers_interrupted_lease_mutation(tmp_path):
     assert restored is not None and restored.lease_id == "lease-recovery"
     with pytest.raises(ValueError, match="active lease"):
         claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+
+
+def test_handoff_acceptance_requires_active_scoped_lease_and_is_idempotent(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="accept", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    with pytest.raises(PermissionError, match="active lease"):
+        accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    claimed = claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accepted = accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", idempotency_key="accept-1")
+    assert accepted.handoff.status == "accepted"
+    assert accepted.lease_id == claimed.lease_id
+    again = accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", idempotency_key="accept-1")
+    assert again.handoff.status == "accepted"
+    with pytest.raises(PermissionError, match="scope"):
+        accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="other", project="demo", realm_id="r1")
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

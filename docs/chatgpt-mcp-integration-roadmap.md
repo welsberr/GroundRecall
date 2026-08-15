@@ -172,6 +172,9 @@ underlying worker to finish under the same semaphore; unsafe thread killing is
 not attempted.
 An operator export utility now provides a bounded, verified redacted audit
 projection for handoff/retention workflows without deleting source logs.
+The `handoff_accept` MCP method now provides explicit lease-bound acceptance
+for the Codex lifecycle; it is opt-in over HTTP and cannot execute work or
+write canonical memory.
 
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;
