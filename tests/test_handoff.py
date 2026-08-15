@@ -12,6 +12,7 @@ from groundrecall.handoff import (
     request_handoff_assignment,
     accept_handoff_assignment,
     start_handoff_execution,
+    block_handoff,
     consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
@@ -250,6 +251,18 @@ def test_handoff_start_requires_accepted_assignment_and_active_lease(tmp_path):
     started = start_handoff_execution(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, realm_id="r1", idempotency_key="start-1")
     assert started.handoff.status == "executing"
     assert start_handoff_execution(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, realm_id="r1", idempotency_key="start-1").handoff.status == "executing"
+
+
+def test_handoff_block_requires_active_lease_and_reason(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="block", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim = claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    with pytest.raises(ValueError, match="reason"):
+        block_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, realm_id="r1")
+    blocked = block_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, reason="dependency unavailable", realm_id="r1", expected_status="accepted", idempotency_key="block-1")
+    assert blocked.handoff.status == "blocked"
+    assert block_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", lease_id=claim.lease_id, reason="changed", realm_id="r1", expected_status="accepted", idempotency_key="block-1").handoff.status == "blocked"
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

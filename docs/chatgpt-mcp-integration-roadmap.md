@@ -208,6 +208,8 @@ status or canonical memory.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.
+`handoff_block` adds a lease-bound escalation path to `blocked`, requiring a
+reason/evidence reference and preserving append-only provenance.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.

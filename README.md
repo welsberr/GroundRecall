@@ -382,6 +382,10 @@ assignment or execution authority.
 It requires an accepted assignment for the lease owner and performs no host
 execution itself.
 
+`handoff_block` provides a lease-bound accepted/executing-to-blocked
+transition with a required reason or evidence reference; it performs no host
+execution or canonical write.
+
 `handoff_assignment_accept` appends assignee acceptance only when it references
 an existing assignment request and supplies scoped context; it does not change
 handoff status or grant execution authority.

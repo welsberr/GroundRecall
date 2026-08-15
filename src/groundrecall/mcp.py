@@ -28,6 +28,7 @@ from .handoff import (
     request_handoff_assignment,
     accept_handoff_assignment,
     start_handoff_execution,
+    block_handoff,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -493,6 +494,12 @@ def _handoff_start(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(result.model_dump(mode="json"))
 
 
+def _handoff_block(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    result = block_handoff(arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")), host_id=str(arguments.get("host_id", "")), project=str(arguments.get("project", "")), lease_id=str(arguments.get("lease_id", "")), reason=str(arguments.get("reason", "")), evidence_ref=str(arguments.get("evidence_ref", "")), policy_provider=provider, realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), expected_status=str(arguments.get("expected_status", "executing")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
+    return _json_text(result.model_dump(mode="json"))
+
+
 def _handoff_claim(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
     result = claim_handoff(
@@ -842,6 +849,11 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Start an accepted, assigned, actively leased handoff; transitions only to executing and never runs host work.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "subject_id": {"type": "string"}, "host_id": {"type": "string"}, "project": {"type": "string"}, "lease_id": {"type": "string"}, "expected_status": {"type": "string", "default": "accepted"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "subject_id", "host_id", "project", "lease_id"]},
         "handler": _handoff_start,
+    },
+    "handoff_block": {
+        "description": "Block an accepted/executing handoff with an active lease and reason/evidence; never executes work or writes canonical memory.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "subject_id": {"type": "string"}, "host_id": {"type": "string"}, "project": {"type": "string"}, "lease_id": {"type": "string"}, "reason": {"type": "string"}, "evidence_ref": {"type": "string"}, "expected_status": {"type": "string", "default": "executing"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "subject_id", "host_id", "project", "lease_id"]},
+        "handler": _handoff_block,
     },
     "handoff_claim": {
         "description": "Claim a scoped handoff for a bounded lease; never executes host work or writes canonical memory.",
