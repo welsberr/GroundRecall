@@ -217,6 +217,9 @@ the resolution itself does not mutate status, canonical memory, or execution.
 an upheld request and transitions the handoff to `blocked`; it validates active
 lease ownership when applicable and records append-only provenance without
 canonical writes or execution.
+The read-only `handoff_state` method summarizes lifecycle and next-safe-action
+hints from the current record and append-only events, with scope/release
+filtering and no protected rationale/content.
 Terminal `completed` and rejection-applied `blocked` transitions now clear
 active leases and append explicit release events, avoiding stale ownership
 without bypassing policy or mutating canonical memory.

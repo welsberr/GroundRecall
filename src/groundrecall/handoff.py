@@ -283,6 +283,19 @@ def list_handoff_events(store_dir: str | Path, handoff_id: str, *, subject_id: s
     return events
 
 
+def handoff_state(store_dir: str | Path, handoff_id: str, *, subject_id: str = "", project: str = "", realm_id: str = "", maximum_release_level: str = "private") -> dict[str, Any] | None:
+    """Return a bounded lifecycle summary without rationale or protected content."""
+    item = get_handoff(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+    if item is None or (project and item.project != project):
+        return None
+    events = list_handoff_events(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500)
+    assignments = [event for event in events if event.event_type in {"assignment_request", "assignment_acceptance"}]
+    reviews = [event for event in events if event.event_type in {"review", "review_appeal"}]
+    rejections = [event for event in events if event.event_type in {"rejection_request", "rejection_resolution"}]
+    promotions = [event for event in events if event.event_type.startswith("promotion_")]
+    return {"handoff_id": item.handoff_id, "task_id": item.task_id, "project": item.project, "status": item.status, "updated_at": item.updated_at, "active_lease": bool(item.lease_id), "lease_expires_at": item.lease_expires_at if item.lease_id else "", "assignment": {"requested": bool(assignments), "accepted": any(event.event_type == "assignment_acceptance" for event in assignments)}, "review": {"present": bool(reviews), "latest_decision": next((event.review_decision for event in reversed(reviews) if event.event_type == "review"), "")}, "rejection": {"requested": any(event.event_type == "rejection_request" for event in rejections), "latest_resolution": next((event.review_decision for event in reversed(rejections) if event.event_type == "rejection_resolution"), "")}, "promotion": {"present": bool(promotions), "latest_event_type": promotions[-1].event_type if promotions else ""}, "next_safe_action": "review" if item.status == "completed" else ("resolve_blocker" if item.status == "blocked" else ("execute" if item.status == "accepted" else "plan"))}
+
+
 def _append_event(store_dir: str | Path, event: HandoffEvent) -> None:
     path = _events_path(store_dir, event.handoff_id)
     with path.open("a", encoding="utf-8") as stream:

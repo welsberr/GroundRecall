@@ -37,6 +37,7 @@ from .handoff import (
     claim_handoff,
     get_handoff,
     list_handoff_events,
+    handoff_state,
     list_handoffs,
     propose_handoff,
     propose_handoff_result,
@@ -510,6 +511,11 @@ def _handoff_rejection_apply(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text(result.model_dump(mode="json"))
 
 
+def _handoff_state(arguments: dict[str, Any]) -> dict[str, Any]:
+    state = handoff_state(arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")), project=str(arguments.get("project", "")), realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")))
+    return _json_text({"ok": state is not None, "state": state})
+
+
 def _handoff_start(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
     result = start_handoff_execution(arguments["store_dir"], arguments["handoff_id"], subject_id=str(arguments.get("subject_id", "")), host_id=str(arguments.get("host_id", "")), project=str(arguments.get("project", "")), lease_id=str(arguments.get("lease_id", "")), policy_provider=provider, realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), expected_status=str(arguments.get("expected_status", "accepted")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
@@ -887,6 +893,11 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Consume an upheld rejection resolution into blocked status with explicit confirmation; requires matching scope and active lease when present, never writes canonical memory or executes work.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "resolver_subject_id": {"type": "string"}, "project": {"type": "string"}, "target_request_event_id": {"type": "string"}, "target_resolution_event_id": {"type": "string"}, "confirm": {"type": "boolean"}, "subject_id": {"type": "string"}, "host_id": {"type": "string"}, "lease_id": {"type": "string"}, "reason": {"type": "string"}, "evidence_ref": {"type": "string"}, "expected_status": {"type": "string", "default": "proposed"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "resolver_subject_id", "project", "target_request_event_id", "target_resolution_event_id", "confirm"]},
         "handler": _handoff_rejection_apply,
+    },
+    "handoff_state": {
+        "description": "Read-only bounded lifecycle summary filtered by subject/project/realm/release; omits rationale and protected content.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "subject_id": {"type": "string"}, "project": {"type": "string"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}}, "required": ["store_dir", "handoff_id"]},
+        "handler": _handoff_state,
     },
     "handoff_start": {
         "description": "Start an accepted, assigned, actively leased handoff; transitions only to executing and never runs host work.",

@@ -38,6 +38,7 @@ DEFAULT_READ_ONLY_TOOLS = frozenset(
     "handoff_get",
     "handoff_list",
     "handoff_events",
+    "handoff_state",
     "handoff_promotion_actions",
     }
 )

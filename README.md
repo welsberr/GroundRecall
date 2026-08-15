@@ -394,6 +394,10 @@ it preserves provenance without canonical mutation or execution.
 Terminal completion and rejection application clear any active lease and append
 a release event, preventing stale ownership while retaining lease provenance.
 
+`handoff_state` is a read-only bounded lifecycle summary covering status,
+lease, assignment, review, rejection, promotion, and next-safe-action hints;
+it applies scope filters and omits rationale/protected content.
+
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity
 configuration, never accepted from tool arguments, and missing roles fail
