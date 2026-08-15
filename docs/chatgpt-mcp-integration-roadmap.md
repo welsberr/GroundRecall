@@ -205,6 +205,10 @@ governed and no execution is implied.
 `handoff_assignment_accept` appends assignee acceptance for a matching request
 with scope, provenance, idempotency, and policy checks; it does not alter
 status or canonical memory.
+`handoff_rejection_request` adds a policy-gated, project/realm-scoped reject or
+withdraw request with required requester authority and rationale/evidence. It
+is append-only and idempotent: no status/revocation, canonical write, or host
+execution occurs until a separate governed operator action exists.
 `handoff_start` provides the explicit accepted-to-executing transition only
 after assignment acceptance and active lease validation; it does not execute
 host work.

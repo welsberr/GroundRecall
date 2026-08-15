@@ -21,7 +21,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result", "lease", "review", "review_appeal", "assignment_request", "assignment_acceptance", "promotion_request", "promotion_confirmation", "promotion_action", "promotion_operator_receipt"]
+HandoffEventType = Literal["status", "progress", "result", "lease", "review", "review_appeal", "assignment_request", "assignment_acceptance", "rejection_request", "promotion_request", "promotion_confirmation", "promotion_action", "promotion_operator_receipt"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -314,10 +314,10 @@ def _event_idempotent(store_dir: str | Path, handoff_id: str, key: str, *, subje
     return None
 
 
-def _handoff_policy(policy_provider: PolicyDecisionProvider | None, *, action: str, handoff: AssistantHandoff, status: str = "") -> PolicyDecision:
+def _handoff_policy(policy_provider: PolicyDecisionProvider | None, *, action: str, handoff: AssistantHandoff, status: str = "", subject_id: str = "") -> PolicyDecision:
     request = PolicyRequest(
         decision_point="act" if action == "handoff_update_status" else "propose",
-        subject_id=handoff.subject_id, action=action, record_kind="assistant_handoff",
+        subject_id=subject_id or handoff.subject_id, action=action, record_kind="assistant_handoff",
         record_id=handoff.handoff_id, scope_id=handoff.project,
         release_level=handoff.release_level, target_release_level=handoff.release_level,
         durable_memory_change=False,
@@ -697,6 +697,27 @@ def unblock_handoff(store_dir: str | Path, handoff_id: str, *, subject_id: str, 
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="accepted", outcome=resolution, result_ref=evidence_ref, lease_id=lease_id, lease_subject_id=subject_id, lease_host_id=host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "unblocked_by_host": host_id}, idempotency_key=idempotency_key, created_at=now)
         _persist_mutation(store_dir, item, event)
         return HandoffResult(handoff=item, policy_decision=policy, lease_id=lease_id, lease_expires_at=item.lease_expires_at)
+
+
+def request_handoff_rejection(store_dir: str | Path, handoff_id: str, *, requester_subject_id: str, project: str, action: str = "reject", reason: str = "", evidence_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
+    """Append a governed rejection/withdrawal request without changing state."""
+    if action not in {"reject", "withdraw"}:
+        raise ValueError("rejection action must be reject or withdraw")
+    if not requester_subject_id or (not reason.strip() and not evidence_ref.strip()):
+        raise ValueError("rejection request requires requester and reason or evidence_ref")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None or project != item.project or item.realm_id != realm_id:
+            raise PermissionError("rejection request scope does not match")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_rejection_request", handoff=item, status=item.status, subject_id=requester_subject_id)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff rejection request")
+        if existing is not None and existing.event_type == "rejection_request":
+            return existing
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="rejection_request", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, review_decision=action, rationale=reason, result_ref=evidence_ref, provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=_now())
+        _append_event(store_dir, event)
+        return event
 
 
 def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:

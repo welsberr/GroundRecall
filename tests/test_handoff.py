@@ -11,6 +11,7 @@ from groundrecall.handoff import (
     appeal_handoff_review,
     request_handoff_assignment,
     accept_handoff_assignment,
+    request_handoff_rejection,
     start_handoff_execution,
     block_handoff,
     unblock_handoff,
@@ -298,3 +299,22 @@ def test_mcp_handoff_claim_and_release_require_scope_and_are_write_tools(tmp_pat
     assert claimed["lease_id"]
     released = call("handoff_release", {"lease_id": claimed["lease_id"], "idempotency_key": "mcp-release"})
     assert released["lease_released"] is True
+
+
+def test_handoff_rejection_request_is_scoped_idempotent_and_non_mutating(tmp_path):
+    item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1").handoff
+    with pytest.raises(ValueError, match="reason or evidence"):
+        request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", realm_id="r1")
+    event = request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", action="withdraw", evidence_ref="evidence::x", realm_id="r1", idempotency_key="reject-1")
+    assert event.event_type == "rejection_request" and event.review_decision == "withdraw"
+    assert get_handoff(tmp_path, item.handoff_id, subject_id="alice", realm_id="r1").status == "proposed"
+    assert request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", action="withdraw", reason="changed", realm_id="r1", idempotency_key="reject-1").event_id == event.event_id
+    with pytest.raises(PermissionError, match="scope"):
+        request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="other", reason="stop", realm_id="r1")
+    with pytest.raises(ValueError, match="reject or withdraw"):
+        request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", action="cancel", reason="stop", realm_id="r1")
+
+
+def test_mcp_handoff_rejection_request_is_exposed_as_write(tmp_path):
+    names = {tool["name"] for tool in list_tools()}
+    assert "handoff_rejection_request" in names

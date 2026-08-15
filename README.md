@@ -378,6 +378,11 @@ not alter handoff status or canonical memory.
 with project/realm scope and rationale or acceptance context. It is not an
 assignment or execution authority.
 
+`handoff_rejection_request` appends a policy-gated, project/realm-scoped
+`reject` or `withdraw` request with a rationale or evidence reference. It is an
+append-only request: it does not revoke, change handoff status, write canonical
+memory, or execute host work; policy and idempotency remain enforced.
+
 `handoff_start` is the explicit lease-bound accepted-to-executing transition.
 It requires an accepted assignment for the lease owner and performs no host
 execution itself.
