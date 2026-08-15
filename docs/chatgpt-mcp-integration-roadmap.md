@@ -175,6 +175,9 @@ projection for handoff/retention workflows without deleting source logs.
 The `handoff_accept` MCP method now provides explicit lease-bound acceptance
 for the Codex lifecycle; it is opt-in over HTTP and cannot execute work or
 write canonical memory.
+Progress/result proposal methods require the active lease ID and matching
+subject/host/project/realm scope plus expected status; legacy unbound direct
+calls are not exposed by the remote MCP surface.
 
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;

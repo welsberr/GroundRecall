@@ -58,15 +58,19 @@ def test_handoff_lifecycle_is_scoped_idempotent_and_append_only(tmp_path):
 
 
 def test_mcp_exposes_handoff_lifecycle_without_canonical_writes(tmp_path):
-    item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1").handoff
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1", host_id="host-a").handoff
     def call(name, arguments):
         raw = handle_request({"jsonrpc": "2.0", "id": name, "method": "tools/call", "params": {"name": name, "arguments": {"store_dir": str(tmp_path), "handoff_id": item.handoff_id, "subject_id": "alice", "realm_id": "r1", **arguments}}})
         return json.loads(raw["result"]["content"][0]["text"])
     assert {"handoff_update_status", "progress_append", "result_propose", "handoff_events"}.issubset({tool["name"] for tool in list_tools()})
     assert call("handoff_update_status", {"status": "accepted"})["handoff"]["status"] == "accepted"
-    assert call("progress_append", {"state": "executing", "observations": ["started"]})["canonical_write"] is False
-    assert call("result_propose", {"outcome": "blocked", "unresolved": ["dependency"]})["canonical_write"] is False
-    assert len(call("handoff_events", {})["events"]) == 3
+    lease = claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="accepted", realm_id="r1")
+    progress_args = {"state": "executing", "observations": ["started"], "lease_id": lease.lease_id, "host_id": "host-a", "project": "demo", "expected_status": "accepted"}
+    assert call("progress_append", progress_args)["canonical_write"] is False
+    result_args = {"outcome": "blocked", "unresolved": ["dependency"], "lease_id": lease.lease_id, "host_id": "host-a", "project": "demo", "expected_status": "accepted"}
+    assert call("result_propose", result_args)["canonical_write"] is False
+    assert len(call("handoff_events", {})["events"]) == 4
 
 
 def test_handoff_recovers_interrupted_status_transaction(tmp_path):

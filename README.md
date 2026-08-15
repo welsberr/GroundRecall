@@ -343,6 +343,11 @@ realm plus an active lease and expected `proposed` status; it changes only the
 operational handoff record and never executes host work or promotes canonical
 memory.
 
+Progress and result proposals are likewise lease-bound when submitted through
+MCP: callers must provide the active lease ID, subject, host, project, realm,
+and expected status. Legacy direct Python calls can remain unbound only when
+explicitly using the compatibility API; the remote MCP surface fails closed.
+
 For boot-time private deployment, use the reviewed systemd template and setup
 notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
 binds to loopback and is not installed or enabled automatically; a private

@@ -487,19 +487,28 @@ def release_handoff(
         return HandoffResult(handoff=item, policy_decision=decision, lease_id=old_lease_id, lease_expires_at=old_expires_at, lease_released=True)
 
 
-def append_handoff_progress(store_dir: str | Path, handoff_id: str, *, state: str = "", observations: list[str] | None = None, next_action: str = "", policy_provider: PolicyDecisionProvider | None = None, subject_id: str = "", realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
-    return _append_handoff_event(store_dir, handoff_id, event_type="progress", policy_provider=policy_provider, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level, idempotency_key=idempotency_key, state=state, observations=list(observations or []), next_action=next_action, provenance=dict(provenance or {}))
+def append_handoff_progress(store_dir: str | Path, handoff_id: str, *, state: str = "", observations: list[str] | None = None, next_action: str = "", policy_provider: PolicyDecisionProvider | None = None, subject_id: str = "", realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None, lease_id: str = "", host_id: str = "", project: str = "", expected_status: str = "executing", require_lease: bool = False) -> HandoffEvent:
+    return _append_handoff_event(store_dir, handoff_id, event_type="progress", policy_provider=policy_provider, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level, idempotency_key=idempotency_key, lease_id=lease_id, host_id=host_id, project=project, expected_status=expected_status, require_lease=require_lease, state=state, observations=list(observations or []), next_action=next_action, provenance=dict(provenance or {}))
 
 
-def propose_handoff_result(store_dir: str | Path, handoff_id: str, *, outcome: str = "", changes: list[str] | None = None, tests: list[str] | None = None, artifacts: list[str] | None = None, unresolved: list[str] | None = None, next_safe_action: str = "", policy_provider: PolicyDecisionProvider | None = None, subject_id: str = "", realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
-    return _append_handoff_event(store_dir, handoff_id, event_type="result", policy_provider=policy_provider, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level, idempotency_key=idempotency_key, outcome=outcome, changes=list(changes or []), tests=list(tests or []), artifacts=list(artifacts or []), unresolved=list(unresolved or []), next_safe_action=next_safe_action, provenance=dict(provenance or {}))
+def propose_handoff_result(store_dir: str | Path, handoff_id: str, *, outcome: str = "", changes: list[str] | None = None, tests: list[str] | None = None, artifacts: list[str] | None = None, unresolved: list[str] | None = None, next_safe_action: str = "", policy_provider: PolicyDecisionProvider | None = None, subject_id: str = "", realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None, lease_id: str = "", host_id: str = "", project: str = "", expected_status: str = "executing", require_lease: bool = False) -> HandoffEvent:
+    return _append_handoff_event(store_dir, handoff_id, event_type="result", policy_provider=policy_provider, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level, idempotency_key=idempotency_key, lease_id=lease_id, host_id=host_id, project=project, expected_status=expected_status, require_lease=require_lease, outcome=outcome, changes=list(changes or []), tests=list(tests or []), artifacts=list(artifacts or []), unresolved=list(unresolved or []), next_safe_action=next_safe_action, provenance=dict(provenance or {}))
 
 
-def _append_handoff_event(store_dir: str | Path, handoff_id: str, *, event_type: HandoffEventType, policy_provider: PolicyDecisionProvider | None, subject_id: str, realm_id: str, maximum_release_level: str, idempotency_key: str, **fields: Any) -> HandoffEvent:
+def _append_handoff_event(store_dir: str | Path, handoff_id: str, *, event_type: HandoffEventType, policy_provider: PolicyDecisionProvider | None, subject_id: str, realm_id: str, maximum_release_level: str, idempotency_key: str, lease_id: str = "", host_id: str = "", project: str = "", expected_status: str = "", require_lease: bool = False, **fields: Any) -> HandoffEvent:
     with _HANDOFF_LOCK:
         item = get_handoff(store_dir, handoff_id, subject_id=subject_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
         if item is None:
             raise ValueError("handoff not found")
+        if require_lease:
+            if not lease_id or lease_id != item.lease_id or not _lease_is_active(item):
+                raise PermissionError("handoff event requires an active lease")
+            if not host_id or host_id != item.lease_host_id or subject_id != item.lease_subject_id:
+                raise PermissionError("handoff event lease owner does not match scope")
+            if not project or project != item.project:
+                raise PermissionError("handoff event project does not match scope")
+            if expected_status and item.status != expected_status:
+                raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
         existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
         decision = _handoff_policy(policy_provider, action="progress_append" if event_type == "progress" else "result_propose", handoff=item)
         if decision.decision in {"deny", "hard_gate"}:
