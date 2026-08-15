@@ -320,6 +320,10 @@ groundrecall-mcp-http --policy-config /path/to/server-policy.yaml \
   --max-response-bytes 1000000
 ```
 
+Production-like deployments should add `--require-policy`; this makes MCP
+requests fail closed if the server-owned policy file disappears or becomes
+invalid. Without it, existing local-development behavior is preserved.
+
 For boot-time private deployment, use the reviewed systemd template and setup
 notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
 binds to loopback and is not installed or enabled automatically; a private

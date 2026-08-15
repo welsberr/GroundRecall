@@ -17,6 +17,7 @@ ExecStart=/opt/groundrecall/.venv/bin/groundrecall-mcp-http \
   --host 127.0.0.1 \
   --port 8765 \
   --policy-config /etc/groundrecall/mcp-policy.yaml \
+  --require-policy \
   --store-dir /var/lib/groundrecall/store \
   --identity-file /etc/groundrecall/mcp-identities.json \
   --audit-log-path /var/log/groundrecall/mcp-access.jsonl

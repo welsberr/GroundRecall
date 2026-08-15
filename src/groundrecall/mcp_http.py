@@ -55,6 +55,7 @@ MCP_HTTP_MIN_RESPONSE_BYTES = len(MCP_HTTP_RESPONSE_TOO_LARGE)
 class MCPHTTPConfig:
     policy_config: str
     store_dir: str = ""
+    require_policy: bool = False
     subject_id: str = ""
     realm_id: str = ""
     bearer_token: str = ""
@@ -285,7 +286,7 @@ class MCPHTTPApplication:
 
     def readiness(self) -> tuple[bool, dict[str, Any]]:
         """Return bounded operational checks without revealing configured paths."""
-        policy_ok = Path(self.config.policy_config).is_file()
+        policy_ok = self._policy_available() if self.config.require_policy else Path(self.config.policy_config).is_file()
         store_configured = bool(self.config.store_dir)
         store_path = Path(self.config.store_dir) if store_configured else None
         store_ok = bool(store_path and store_path.is_dir() and os.access(store_path, os.R_OK | os.W_OK))
@@ -293,6 +294,12 @@ class MCPHTTPApplication:
         ready = policy_ok and store_configured and store_ok
         reason = "ready" if ready else ("store_not_configured" if not store_configured else "dependency_unavailable")
         return ready, {"ok": ready, "service": "groundrecall-mcp-http", "checks": checks, "reason": reason}
+
+    def _policy_available(self) -> bool:
+        try:
+            return Path(self.config.policy_config).is_file() and load_policy_plugins(self.config.policy_config) is not None
+        except Exception:  # policy parsing/provider construction must fail closed
+            return False
 
     def principal_for_token(self, token: str = "") -> MCPPrincipal:
         if self.identities:
@@ -314,6 +321,11 @@ class MCPHTTPApplication:
                              decision="denied", result_class="authorization_error",
                              http_status=401, reason=str(exc))
             raise
+        if self.config.require_policy and not self._policy_available():
+            self.audit.write(correlation_id=correlation_id, principal=principal, method=method,
+                             decision="denied", result_class="policy_unavailable",
+                             http_status=503, reason="server_policy_unavailable")
+            return _json_response(request.get("id"), error={"code": -32004, "message": "server policy unavailable"}, correlation_id=correlation_id)
         enabled_tools = self.config.allowed_tools & principal.allowed_tools
         method = request.get("method")
         request_id = request.get("id")
@@ -492,6 +504,7 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--policy-config", required=True, help="Server-owned policy plugin configuration.")
     parser.add_argument("--store-dir", default="", help="Server-owned store path used for readiness and MCP calls.")
+    parser.add_argument("--require-policy", action="store_true", help="Fail closed if the server policy becomes unavailable or invalid.")
     parser.add_argument("--subject-id", default="", help="Server-owned principal identity for all requests.")
     parser.add_argument("--realm-id", default="", help="Server-owned realm for fixed-token deployments.")
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
@@ -499,7 +512,7 @@ def main() -> None:
     parser.add_argument("--max-response-bytes", type=int, default=1_000_000, help="Maximum MCP response size; oversized results return a bounded error.")
     parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, require_policy=args.require_policy, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

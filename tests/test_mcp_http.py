@@ -107,6 +107,28 @@ def test_http_readiness_is_bounded_and_checks_policy_store(tmp_path) -> None:
     assert str(tmp_path) not in json.dumps(payload)
 
 
+def test_http_require_policy_fails_closed_without_path_leak(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    store = tmp_path / "store"; store.mkdir()
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), store_dir=str(store), subject_id="alice", require_policy=True))
+    policy.unlink()
+    ready, payload = app.readiness()
+    assert ready is False and payload["checks"]["policy"] is False
+    response = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 8, "method": "tools/list"}))
+    assert response["error"] == {"code": -32004, "message": "server policy unavailable"}
+    assert str(tmp_path) not in json.dumps(response)
+
+
+def test_http_require_policy_rejects_invalid_policy_after_startup(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), subject_id="alice", require_policy=True))
+    policy.write_text("not: [valid", encoding="utf-8")
+    response = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 9, "method": "ping"}))
+    assert response["error"]["code"] == -32004
+
+
 def test_http_store_dir_is_server_owned_when_configured(tmp_path, monkeypatch) -> None:
     policy = tmp_path / "policy.yaml"
     policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")

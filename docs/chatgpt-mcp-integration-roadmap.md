@@ -162,6 +162,9 @@ The adapter now provides bounded `/healthz` and `/readyz` endpoints. Liveness
 does not inspect data; readiness checks only the server-owned policy file and
 configured store availability, returning boolean checks without paths or store
 contents. The systemd template supplies `--store-dir` for this probe.
+It also enables `--require-policy`, so policy removal or invalidation fails
+closed for MCP requests and readiness. Local development retains the
+backward-compatible opt-out.
 
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;
