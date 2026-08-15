@@ -165,6 +165,8 @@ contents. The systemd template supplies `--store-dir` for this probe.
 It also enables `--require-policy`, so policy removal or invalidation fails
 closed for MCP requests and readiness. Local development retains the
 backward-compatible opt-out.
+The adapter also applies a configurable bounded concurrency semaphore; overload
+returns a fixed `server busy` response and does not queue unlimited work.
 
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;

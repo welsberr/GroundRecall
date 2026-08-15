@@ -13,7 +13,7 @@ import json
 import os
 import uuid
 from datetime import datetime, timezone
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -63,6 +63,7 @@ class MCPHTTPConfig:
     allowed_tools: frozenset[str] = field(default_factory=lambda: DEFAULT_READ_ONLY_TOOLS)
     max_body_bytes: int = 1_000_000
     max_response_bytes: int = 1_000_000
+    max_concurrent_requests: int = 16
     audit_log_path: str = ""
 
 
@@ -276,8 +277,11 @@ class MCPHTTPApplication:
             raise ValueError(f"unknown MCP tools: {sorted(unknown)}")
         if config.max_response_bytes < MCP_HTTP_MIN_RESPONSE_BYTES:
             raise ValueError(f"max_response_bytes must be at least {MCP_HTTP_MIN_RESPONSE_BYTES}")
+        if config.max_concurrent_requests < 1 or config.max_concurrent_requests > 1024:
+            raise ValueError("max_concurrent_requests must be between 1 and 1024")
         self.config = config
         self.audit = _AuditLog(config.audit_log_path)
+        self._request_slots = BoundedSemaphore(config.max_concurrent_requests)
         self.identities = _load_identities(config.identity_file)
         if config.identity_file and not self.identities:
             raise ValueError("identity file must contain at least one identity")
@@ -312,6 +316,19 @@ class MCPHTTPApplication:
         return MCPPrincipal(subject_id=self.config.subject_id, realm_id=self.config.realm_id, allowed_tools=self.config.allowed_tools)
 
     def dispatch(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
+        if not self._request_slots.acquire(blocking=False):
+            correlation_id = uuid.uuid4().hex
+            self.audit.write(correlation_id=correlation_id, principal=None,
+                             method=str(request.get("method", "")), decision="denied",
+                             result_class="overloaded", http_status=429,
+                             reason="request_concurrency_limit")
+            return _json_response(request.get("id"), error={"code": -32005, "message": "server busy"}, correlation_id=correlation_id)
+        try:
+            return self._dispatch_unbounded(request, token=token)
+        finally:
+            self._request_slots.release()
+
+    def _dispatch_unbounded(self, request: dict[str, Any], *, token: str = "") -> bytes | None:
         correlation_id = uuid.uuid4().hex
         method = str(request.get("method", ""))
         try:
@@ -510,9 +527,10 @@ def main() -> None:
     parser.add_argument("--bearer-token", default="", help="Optional bearer token; use a tunnel or stronger auth for deployment.")
     parser.add_argument("--identity-file", default="", help="JSON file mapping bearer tokens to server-owned principals and tool caps.")
     parser.add_argument("--max-response-bytes", type=int, default=1_000_000, help="Maximum MCP response size; oversized results return a bounded error.")
+    parser.add_argument("--max-concurrent-requests", type=int, default=16, help="Maximum concurrent MCP dispatches; overload returns a bounded 429 response.")
     parser.add_argument("--audit-log-path", default="", help="Optional append-only JSONL access audit path (never stores request content or tokens).")
     args = parser.parse_args()
-    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, require_policy=args.require_policy, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, audit_log_path=args.audit_log_path))
+    server = make_server(args.host, args.port, MCPHTTPConfig(policy_config=args.policy_config, store_dir=args.store_dir, require_policy=args.require_policy, subject_id=args.subject_id, realm_id=args.realm_id, bearer_token=args.bearer_token, identity_file=args.identity_file, max_response_bytes=args.max_response_bytes, max_concurrent_requests=args.max_concurrent_requests, audit_log_path=args.audit_log_path))
     try:
         server.serve_forever()
     except KeyboardInterrupt:

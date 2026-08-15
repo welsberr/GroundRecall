@@ -129,6 +129,28 @@ def test_http_require_policy_rejects_invalid_policy_after_startup(tmp_path) -> N
     assert response["error"]["code"] == -32004
 
 
+def test_http_concurrency_limit_returns_bounded_overload_and_recovers(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    app = MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), max_concurrent_requests=1))
+    assert app._request_slots.acquire(blocking=False)
+    try:
+        overloaded = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 10, "method": "ping"}))
+        assert overloaded["error"] == {"code": -32005, "message": "server busy"}
+        assert str(tmp_path) not in json.dumps(overloaded)
+    finally:
+        app._request_slots.release()
+    recovered = json.loads(app.dispatch({"jsonrpc": "2.0", "id": 11, "method": "ping"}))
+    assert recovered["result"] == {}
+
+
+def test_http_concurrency_limit_is_bounded(tmp_path) -> None:
+    policy = tmp_path / "policy.yaml"
+    policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="max_concurrent_requests"):
+        MCPHTTPApplication(MCPHTTPConfig(policy_config=str(policy), max_concurrent_requests=0))
+
+
 def test_http_store_dir_is_server_owned_when_configured(tmp_path, monkeypatch) -> None:
     policy = tmp_path / "policy.yaml"
     policy.write_text("schema_version: groundrecall.policy_plugins.v1\nproviders: []\n", encoding="utf-8")

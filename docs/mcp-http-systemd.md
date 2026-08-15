@@ -48,6 +48,10 @@ removed or becomes invalid after startup, MCP requests fail closed with a
 bounded error and `/readyz` returns HTTP 503. Local-development invocations
 may omit this flag for backward-compatible behavior.
 
+`--max-concurrent-requests` bounds in-flight MCP dispatches. Requests arriving
+after the limit receive a bounded HTTP 429/JSON-RPC `server busy` response;
+the limit does not queue unbounded work or expose store details.
+
 Enable on boot only after validating the policy, identity mapping, and tunnel:
 
 ```sh

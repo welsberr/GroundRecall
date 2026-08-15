@@ -324,6 +324,10 @@ Production-like deployments should add `--require-policy`; this makes MCP
 requests fail closed if the server-owned policy file disappears or becomes
 invalid. Without it, existing local-development behavior is preserved.
 
+Set `--max-concurrent-requests` to bound in-flight MCP work (the default is
+16). Saturated requests receive a bounded `429`/`server busy` response and do
+not disclose store paths or content.
+
 For boot-time private deployment, use the reviewed systemd template and setup
 notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
 binds to loopback and is not installed or enabled automatically; a private
