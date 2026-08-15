@@ -21,7 +21,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result", "lease"]
+HandoffEventType = Literal["status", "progress", "result", "lease", "review"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -92,6 +92,9 @@ class HandoffEvent(BaseModel):
     unresolved: list[str] = Field(default_factory=list)
     next_safe_action: str = ""
     result_ref: str = ""
+    reviewer_subject_id: str = ""
+    review_decision: str = ""
+    rationale: str = ""
     lease_id: str = ""
     lease_subject_id: str = ""
     lease_host_id: str = ""
@@ -401,6 +404,33 @@ def complete_handoff(store_dir: str | Path, handoff_id: str, *, subject_id: str,
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="status", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, status="completed", outcome=outcome, result_ref=result_ref, lease_id=item.lease_id, lease_subject_id=subject_id, lease_host_id=host_id, lease_expires_at=item.lease_expires_at, provenance={**dict(provenance or {}), "completed_by_host": host_id}, idempotency_key=idempotency_key, created_at=now)
         _persist_mutation(store_dir, item, event)
         return HandoffResult(handoff=item, policy_decision=decision, lease_id=item.lease_id, lease_expires_at=item.lease_expires_at)
+
+
+def review_handoff_result(store_dir: str | Path, handoff_id: str, *, reviewer_subject_id: str, project: str, decision: str, rationale: str = "", result_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "completed", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
+    """Append a governed review decision without promoting canonical memory."""
+    if decision not in {"accept", "reject", "defer"}:
+        raise ValueError("review decision must be accept, reject, or defer")
+    if not rationale.strip() and not result_ref.strip():
+        raise ValueError("handoff review requires rationale or result_ref")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None:
+            raise ValueError("handoff not found")
+        if not reviewer_subject_id or not project or project != item.project:
+            raise PermissionError("handoff review scope does not match project")
+        if item.realm_id != realm_id:
+            raise PermissionError("handoff review scope does not match realm")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_review_result", handoff=item, status=item.status)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff result review")
+        if existing is not None and existing.event_type == "review":
+            return existing
+        if item.status != expected_status:
+            raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="review", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, result_ref=result_ref, reviewer_subject_id=reviewer_subject_id, review_decision=decision, rationale=rationale, provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=_now())
+        _append_event(store_dir, event)
+        return event
 
 
 def _validate_lease_scope(item: AssistantHandoff, *, subject_id: str, host_id: str, project: str) -> None:

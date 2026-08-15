@@ -343,6 +343,11 @@ realm plus an active lease and expected `proposed` status; it changes only the
 operational handoff record and never executes host work or promotes canonical
 memory.
 
+Completed handoffs can receive an append-only governed review through
+`handoff_review` (`accept`, `reject`, or `defer`). Reviews require reviewer
+subject/project/realm scope, rationale or a result reference, and remain
+operational proposals rather than canonical promotion.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

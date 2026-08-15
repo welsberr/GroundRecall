@@ -13,6 +13,7 @@ from groundrecall.handoff import (
     list_handoffs,
     propose_handoff,
     propose_handoff_result,
+    review_handoff_result,
     release_handoff,
     update_handoff_status,
 )
@@ -140,6 +141,22 @@ def test_handoff_completion_requires_lease_scope_and_result(tmp_path):
     assert done.handoff.status == "completed" and done.lease_id == claim.lease_id
     again = complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="tests passed", idempotency_key="done-1")
     assert again.handoff.status == "completed"
+
+
+def test_handoff_result_review_is_scoped_idempotent_and_append_only(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="review", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim = claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="done")
+    with pytest.raises(ValueError, match="rationale or result_ref"):
+        review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="demo", decision="defer", realm_id="r1")
+    event = review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="demo", decision="accept", rationale="verified", realm_id="r1", idempotency_key="review-1")
+    assert event.review_decision == "accept" and event.event_type == "review"
+    again = review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="demo", decision="accept", rationale="changed", realm_id="r1", idempotency_key="review-1")
+    assert again.event_id == event.event_id
+    with pytest.raises(PermissionError, match="project"):
+        review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="other", decision="reject", rationale="no", realm_id="r1")
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
