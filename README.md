@@ -332,6 +332,11 @@ Use `--request-timeout-seconds` to bound how long the HTTP caller waits for a
 dispatch. A timeout returns a bounded 504/`request timed out`; the worker is
 not force-killed and retains its concurrency slot until it finishes.
 
+Operators can create a bounded, redacted audit projection with
+`groundrecall-mcp-audit-export`. It verifies the source chain, preserves safe
+correlation/hash metadata, omits request content, credentials, reasons, and
+identities by default, and never deletes the source log.
+
 For boot-time private deployment, use the reviewed systemd template and setup
 notes in [`docs/mcp-http-systemd.md`](docs/mcp-http-systemd.md). The template
 binds to loopback and is not installed or enabled automatically; a private

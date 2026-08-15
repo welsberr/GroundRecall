@@ -122,3 +122,16 @@ time only; it never embeds audit records or credentials. A missing, changed, or
 unexpected matching audit file makes verification fail. Keep the manifest under
 the same retention and access controls as the rotated logs, and do not place it
 inside the `mcp-access.jsonl*` pattern.
+
+For a bounded operator handoff, export a verified redacted projection without
+modifying the source log:
+
+```sh
+groundrecall-mcp-audit-export /var/log/groundrecall/mcp-access.jsonl \
+  /var/log/groundrecall/mcp-access.export.json --max-records 1000
+```
+
+The export preserves correlation and hash-chain metadata but omits request
+content, reasons, credentials, and identities by default. `--include-identities`
+is an explicit operator choice. The command never deletes or truncates source
+logs; retain the export under the same access policy.

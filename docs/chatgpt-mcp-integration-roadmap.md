@@ -170,6 +170,8 @@ returns a fixed `server busy` response and does not queue unlimited work.
 An optional execution wait returns a fixed timeout response while allowing the
 underlying worker to finish under the same semaphore; unsafe thread killing is
 not attempted.
+An operator export utility now provides a bounded, verified redacted audit
+projection for handoff/retention workflows without deleting source logs.
 
 - Package the adapter and tunnel as a least-privilege service.
 - Bind the GroundRecall adapter to loopback or a dedicated LAN interface;
