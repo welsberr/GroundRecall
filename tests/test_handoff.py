@@ -341,6 +341,11 @@ def test_mcp_exposes_handoff_rejection_resolution(tmp_path):
     assert "handoff_rejection_resolve" in {tool["name"] for tool in list_tools()}
 
 
+def test_mcp_rejection_apply_schema_matches_default_status():
+    tool = next(tool for tool in list_tools() if tool["name"] == "handoff_rejection_apply")
+    assert tool["inputSchema"]["properties"]["expected_status"]["default"] == "proposed"
+
+
 def test_handoff_rejection_apply_requires_upheld_resolution_and_blocks(tmp_path):
     item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1").handoff
     request = request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", reason="stop", realm_id="r1")
