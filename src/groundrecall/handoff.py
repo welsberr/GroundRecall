@@ -21,7 +21,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result", "lease", "review", "promotion_request"]
+HandoffEventType = Literal["status", "progress", "result", "lease", "review", "promotion_request", "promotion_confirmation"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -459,6 +459,35 @@ def request_handoff_promotion(store_dir: str | Path, handoff_id: str, *, request
         if not any(event.event_type == "review" and event.review_decision == "accept" for event in events):
             raise PermissionError("handoff promotion requires an accepted result review")
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="promotion_request", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, promotion_target=promotion_target, rationale=rationale, result_ref=result_ref, provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=_now())
+        _append_event(store_dir, event)
+        return event
+
+
+def confirm_handoff_promotion(store_dir: str | Path, handoff_id: str, *, requester_subject_id: str, project: str, promotion_target: str, confirm: bool, rationale: str = "", result_ref: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "completed", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
+    """Confirm a promotion request without performing canonical promotion."""
+    if confirm is not True:
+        raise PermissionError("explicit confirm=true is required")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None:
+            raise ValueError("handoff not found")
+        if item.status != expected_status:
+            raise ValueError(f"handoff status conflict: expected {expected_status}, found {item.status}")
+        if not requester_subject_id or not project or project != item.project or item.realm_id != realm_id:
+            raise PermissionError("handoff promotion confirmation scope does not match")
+        events = list_handoff_events(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500)
+        if not any(event.event_type == "review" and event.review_decision == "accept" for event in events):
+            raise PermissionError("promotion confirmation requires an accepted result review")
+        requests = [event for event in events if event.event_type == "promotion_request" and event.requester_subject_id == requester_subject_id and event.promotion_target == promotion_target]
+        if not requests:
+            raise PermissionError("promotion confirmation requires a matching promotion request")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_promotion_confirm", handoff=item, status=item.status)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff promotion confirmation")
+        if existing is not None and existing.event_type == "promotion_confirmation":
+            return existing
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="promotion_confirmation", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, promotion_target=promotion_target, rationale=rationale, result_ref=result_ref, provenance={**dict(provenance or {}), "canonical_effect": "none"}, idempotency_key=idempotency_key, created_at=_now())
         _append_event(store_dir, event)
         return event
 

@@ -353,6 +353,10 @@ promotion request for downstream review/quarantine. It requires a completed
 handoff, accepted review, rationale or result reference, and never mutates
 canonical memory itself.
 
+`handoff_promotion_confirm` records an explicit `confirm=true` after a matching
+accepted-review promotion request. Its canonical effect is intentionally none:
+actual promotion remains a separate governed operation.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

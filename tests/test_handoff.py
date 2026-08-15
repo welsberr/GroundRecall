@@ -6,6 +6,7 @@ import pytest
 from groundrecall.handoff import (
     accept_handoff,
     complete_handoff,
+    confirm_handoff_promotion,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -172,6 +173,21 @@ def test_handoff_promotion_request_requires_accepted_review(tmp_path):
     request = request_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", rationale="ship", realm_id="r1", idempotency_key="promote-1")
     assert request.event_type == "promotion_request" and request.promotion_target == "canonical"
     assert request_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="other", rationale="changed", realm_id="r1", idempotency_key="promote-1").event_id == request.event_id
+
+
+def test_handoff_promotion_confirmation_requires_explicit_matching_request(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="confirm", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="done")
+    review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="demo", decision="accept", rationale="verified", realm_id="r1")
+    request_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", rationale="ship", realm_id="r1", idempotency_key="promote-2")
+    with pytest.raises(PermissionError, match="confirm=true"):
+        confirm_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=False, realm_id="r1")
+    confirmed = confirm_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=True, rationale="approved", realm_id="r1", idempotency_key="confirm-1")
+    assert confirmed.event_type == "promotion_confirmation" and confirmed.provenance["canonical_effect"] == "none"
+    assert confirm_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=True, rationale="changed", realm_id="r1", idempotency_key="confirm-1").event_id == confirmed.event_id
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
