@@ -348,6 +348,11 @@ Completed handoffs can receive an append-only governed review through
 subject/project/realm scope, rationale or a result reference, and remain
 operational proposals rather than canonical promotion.
 
+After an accepted review, `handoff_promotion_request` can append a scoped
+promotion request for downstream review/quarantine. It requires a completed
+handoff, accepted review, rationale or result reference, and never mutates
+canonical memory itself.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

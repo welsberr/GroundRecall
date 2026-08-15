@@ -14,6 +14,7 @@ from groundrecall.handoff import (
     propose_handoff,
     propose_handoff_result,
     review_handoff_result,
+    request_handoff_promotion,
     release_handoff,
     update_handoff_status,
 )
@@ -157,6 +158,20 @@ def test_handoff_result_review_is_scoped_idempotent_and_append_only(tmp_path):
     assert again.event_id == event.event_id
     with pytest.raises(PermissionError, match="project"):
         review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="other", decision="reject", rationale="no", realm_id="r1")
+
+
+def test_handoff_promotion_request_requires_accepted_review(tmp_path):
+    from groundrecall.handoff import claim_handoff
+    item = propose_handoff(str(tmp_path), project="demo", objective="promote", subject_id="alice", realm_id="r1", host_id="host-a").handoff
+    claim_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", expected_status="proposed", realm_id="r1")
+    accept_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1")
+    complete_handoff(str(tmp_path), item.handoff_id, subject_id="alice", host_id="host-a", project="demo", realm_id="r1", expected_status="accepted", outcome="done")
+    with pytest.raises(PermissionError, match="accepted result review"):
+        request_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", rationale="ship", realm_id="r1")
+    review_handoff_result(str(tmp_path), item.handoff_id, reviewer_subject_id="reviewer", project="demo", decision="accept", rationale="verified", realm_id="r1")
+    request = request_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", rationale="ship", realm_id="r1", idempotency_key="promote-1")
+    assert request.event_type == "promotion_request" and request.promotion_target == "canonical"
+    assert request_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="other", rationale="changed", realm_id="r1", idempotency_key="promote-1").event_id == request.event_id
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

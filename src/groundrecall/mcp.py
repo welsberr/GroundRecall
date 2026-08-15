@@ -30,6 +30,7 @@ from .handoff import (
     propose_handoff,
     propose_handoff_result,
     review_handoff_result,
+    request_handoff_promotion,
     release_handoff,
     update_handoff_status,
 )
@@ -434,6 +435,12 @@ def _handoff_review(arguments: dict[str, Any]) -> dict[str, Any]:
     return _json_text({"ok": True, "writes_performed": True, "canonical_write": False, "review": event.model_dump(mode="json")})
 
 
+def _handoff_promotion_request(arguments: dict[str, Any]) -> dict[str, Any]:
+    provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
+    event = request_handoff_promotion(arguments["store_dir"], arguments["handoff_id"], requester_subject_id=str(arguments.get("requester_subject_id", "")), project=str(arguments.get("project", "")), promotion_target=str(arguments.get("promotion_target", "")), rationale=str(arguments.get("rationale", "")), result_ref=str(arguments.get("result_ref", "")), policy_provider=provider, realm_id=str(arguments.get("realm_id", "")), maximum_release_level=str(arguments.get("maximum_release_level", "private")), expected_status=str(arguments.get("expected_status", "completed")), idempotency_key=str(arguments.get("idempotency_key", "")), provenance=dict(arguments.get("provenance", {}) or {}))
+    return _json_text({"ok": True, "writes_performed": True, "canonical_write": False, "promotion_request": event.model_dump(mode="json")})
+
+
 def _handoff_claim(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = load_policy_plugins(arguments["policy_config"]) if arguments.get("policy_config") else None
     result = claim_handoff(
@@ -743,6 +750,11 @@ TOOLS: dict[str, dict[str, Any]] = {
         "description": "Append a policy-gated review decision for a completed handoff; never promotes canonical memory or executes work.",
         "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "reviewer_subject_id": {"type": "string"}, "project": {"type": "string"}, "decision": {"type": "string", "enum": ["accept", "reject", "defer"]}, "rationale": {"type": "string"}, "result_ref": {"type": "string"}, "expected_status": {"type": "string", "default": "completed"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "reviewer_subject_id", "project", "decision"]},
         "handler": _handoff_review,
+    },
+    "handoff_promotion_request": {
+        "description": "Request governed promotion after an accepted handoff review; appends a quarantine request and never mutates canonical memory.",
+        "inputSchema": {"type": "object", "properties": {"store_dir": {"type": "string"}, "handoff_id": {"type": "string"}, "requester_subject_id": {"type": "string"}, "project": {"type": "string"}, "promotion_target": {"type": "string"}, "rationale": {"type": "string"}, "result_ref": {"type": "string"}, "expected_status": {"type": "string", "default": "completed"}, "realm_id": {"type": "string"}, "maximum_release_level": {"type": "string", "default": "private"}, "provenance": {"type": "object"}, "idempotency_key": {"type": "string"}, **POLICY_ARGUMENT_PROPERTIES}, "required": ["store_dir", "handoff_id", "requester_subject_id", "project", "promotion_target"]},
+        "handler": _handoff_promotion_request,
     },
     "handoff_claim": {
         "description": "Claim a scoped handoff for a bounded lease; never executes host work or writes canonical memory.",

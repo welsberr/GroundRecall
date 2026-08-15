@@ -181,6 +181,9 @@ not execute work or promote canonical memory.
 Completed handoffs support append-only `handoff_review` decisions with reviewer
 scope, rationale/result reference, idempotency, and policy gating; review does
 not promote canonical memory.
+After an accepted review, `handoff_promotion_request` appends a scoped,
+idempotent quarantine request; canonical promotion remains a separate governed
+operation.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.
