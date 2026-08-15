@@ -202,6 +202,9 @@ checks; it does not change status or canonical memory.
 `handoff_assignment_request` adds a scoped, idempotent requester/assignee
 proposal with rationale or acceptance context; assignment remains separately
 governed and no execution is implied.
+`handoff_assignment_accept` appends assignee acceptance for a matching request
+with scope, provenance, idempotency, and policy checks; it does not alter
+status or canonical memory.
 Progress/result proposal methods require the active lease ID and matching
 subject/host/project/realm scope plus expected status; legacy unbound direct
 calls are not exposed by the remote MCP surface.

@@ -378,6 +378,10 @@ not alter handoff status or canonical memory.
 with project/realm scope and rationale or acceptance context. It is not an
 assignment or execution authority.
 
+`handoff_assignment_accept` appends assignee acceptance only when it references
+an existing assignment request and supplies scoped context; it does not change
+handoff status or grant execution authority.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

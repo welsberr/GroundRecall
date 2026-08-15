@@ -10,6 +10,7 @@ from groundrecall.handoff import (
     apply_handoff_promotion_request,
     appeal_handoff_review,
     request_handoff_assignment,
+    accept_handoff_assignment,
     consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
@@ -229,6 +230,11 @@ def test_handoff_assignment_request_is_scoped_idempotent_and_append_only(tmp_pat
     assert request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="other", project="demo", acceptance_context="changed", realm_id="r1", idempotency_key="assign-1").event_id == event.event_id
     with pytest.raises(PermissionError, match="scope"):
         request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="bob", project="other", rationale="no", realm_id="r1")
+    accepted = accept_handoff_assignment(str(tmp_path), item.handoff_id, assignee_subject_id="bob", project="demo", target_assignment_event_id=event.event_id, acceptance_context="ready", realm_id="r1", idempotency_key="assign-accept-1")
+    assert accepted.event_type == "assignment_acceptance"
+    assert accept_handoff_assignment(str(tmp_path), item.handoff_id, assignee_subject_id="bob", project="demo", target_assignment_event_id=event.event_id, acceptance_context="changed", realm_id="r1", idempotency_key="assign-accept-1").event_id == accepted.event_id
+    with pytest.raises(ValueError, match="target assignment"):
+        accept_handoff_assignment(str(tmp_path), item.handoff_id, assignee_subject_id="bob", project="demo", target_assignment_event_id="missing", rationale="x", realm_id="r1")
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
