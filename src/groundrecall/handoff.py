@@ -21,7 +21,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result", "lease", "review", "promotion_request", "promotion_confirmation"]
+HandoffEventType = Literal["status", "progress", "result", "lease", "review", "promotion_request", "promotion_confirmation", "promotion_action"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -488,6 +488,32 @@ def confirm_handoff_promotion(store_dir: str | Path, handoff_id: str, *, request
         if existing is not None and existing.event_type == "promotion_confirmation":
             return existing
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="promotion_confirmation", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, promotion_target=promotion_target, rationale=rationale, result_ref=result_ref, provenance={**dict(provenance or {}), "canonical_effect": "none"}, idempotency_key=idempotency_key, created_at=_now())
+        _append_event(store_dir, event)
+        return event
+
+
+def apply_handoff_promotion_request(store_dir: str | Path, handoff_id: str, *, requester_subject_id: str, project: str, promotion_target: str, policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", expected_status: str = "completed", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
+    """Record a bounded promotion action after explicit confirmation.
+
+    This creates a quarantine/action receipt only; it does not mutate canonical
+    records. A separate governed promotion API must consume the receipt.
+    """
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None:
+            raise ValueError("handoff not found")
+        if item.status != expected_status or not requester_subject_id or project != item.project or item.realm_id != realm_id:
+            raise PermissionError("handoff promotion action scope or status does not match")
+        events = list_handoff_events(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level, limit=500)
+        if not any(event.event_type == "promotion_confirmation" and event.requester_subject_id == requester_subject_id and event.promotion_target == promotion_target for event in events):
+            raise PermissionError("promotion action requires a matching confirmation")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_promotion_apply", handoff=item, status=item.status)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff promotion action")
+        if existing is not None and existing.event_type == "promotion_action":
+            return existing
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="promotion_action", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, promotion_target=promotion_target, provenance={**dict(provenance or {}), "action_status": "quarantined", "canonical_effect": "none"}, idempotency_key=idempotency_key, created_at=_now())
         _append_event(store_dir, event)
         return event
 

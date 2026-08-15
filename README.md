@@ -357,6 +357,10 @@ canonical memory itself.
 accepted-review promotion request. Its canonical effect is intentionally none:
 actual promotion remains a separate governed operation.
 
+`handoff_promotion_apply` consumes a confirmed request into a bounded,
+auditable quarantine/action receipt. Its canonical effect is none; an existing
+promotion API must separately approve and perform any canonical mutation.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.

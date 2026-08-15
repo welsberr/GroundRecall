@@ -7,6 +7,7 @@ from groundrecall.handoff import (
     accept_handoff,
     complete_handoff,
     confirm_handoff_promotion,
+    apply_handoff_promotion_request,
     append_handoff_progress,
     claim_handoff,
     get_handoff,
@@ -188,6 +189,9 @@ def test_handoff_promotion_confirmation_requires_explicit_matching_request(tmp_p
     confirmed = confirm_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=True, rationale="approved", realm_id="r1", idempotency_key="confirm-1")
     assert confirmed.event_type == "promotion_confirmation" and confirmed.provenance["canonical_effect"] == "none"
     assert confirm_handoff_promotion(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", confirm=True, rationale="changed", realm_id="r1", idempotency_key="confirm-1").event_id == confirmed.event_id
+    action = apply_handoff_promotion_request(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", realm_id="r1", idempotency_key="apply-1")
+    assert action.event_type == "promotion_action" and action.provenance["action_status"] == "quarantined"
+    assert apply_handoff_promotion_request(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", promotion_target="canonical", realm_id="r1", idempotency_key="apply-1").event_id == action.event_id
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):
