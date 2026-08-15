@@ -354,7 +354,6 @@ def test_handoff_state_is_bounded_and_filtered(tmp_path):
     assert state["status"] == "proposed" and state["next_safe_action"] == "plan"
     assert "rationale" not in state and handoff_state(tmp_path, item.handoff_id, subject_id="bob", realm_id="r1") is None
 
-
 def test_handoff_rejection_apply_requires_upheld_resolution_and_blocks(tmp_path):
     item = propose_handoff(str(tmp_path), project="demo", objective="ship", subject_id="alice", realm_id="r1").handoff
     request = request_handoff_rejection(tmp_path, item.handoff_id, requester_subject_id="alice", project="demo", reason="stop", realm_id="r1")

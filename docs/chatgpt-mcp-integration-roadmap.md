@@ -220,6 +220,9 @@ canonical writes or execution.
 The read-only `handoff_state` method summarizes lifecycle and next-safe-action
 hints from the current record and append-only events, with scope/release
 filtering and no protected rationale/content.
+Promotion consumption remains dry-run/receipt-only unless trusted server code
+injects an executor capability after policy confirmation; executor metadata is
+recorded for audit and no arbitrary write hook is exposed to MCP or CLI callers.
 Terminal `completed` and rejection-applied `blocked` transitions now clear
 active leases and append explicit release events, avoiding stale ownership
 without bypassing policy or mutating canonical memory.

@@ -397,6 +397,10 @@ a release event, preventing stale ownership while retaining lease provenance.
 `handoff_state` is a read-only bounded lifecycle summary covering status,
 lease, assignment, review, rejection, promotion, and next-safe-action hints;
 it applies scope filters and omits rationale/protected content.
+Promotion operator consumption is receipt-only by default. A canonical executor
+can be injected explicitly by trusted server code after policy confirmation;
+the executor receives bounded identifiers and must return metadata, which is
+recorded in the receipt. CLI/MCP paths never accept arbitrary executors.
 
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity
