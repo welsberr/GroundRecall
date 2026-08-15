@@ -32,9 +32,8 @@ def export_audit(path: str | os.PathLike[str], output: str | os.PathLike[str], *
     if max_bytes < 1024 or max_bytes > 100 * 1024 * 1024:
         raise ValueError("max_bytes must be between 1024 and 104857600")
     source = Path(path)
-    verify_audit_log(source)
     rows: list[dict[str, Any]] = []
-    consumed = 0
+    source_records = verify_audit_log(source)["records"]
     for line in source.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
@@ -44,14 +43,14 @@ def export_audit(path: str | os.PathLike[str], output: str | os.PathLike[str], *
         exported = {key: row[key] for key in _SAFE_FIELDS if key in row}
         if include_identities:
             exported.update({key: row[key] for key in _IDENTITY_FIELDS if key in row})
-        encoded = json.dumps(exported, sort_keys=True, separators=(",", ":"))
-        if rows and (len(rows) >= max_records or consumed + len(encoded.encode("utf-8")) + 1 > max_bytes):
+        candidate = {"schema_version": SCHEMA_VERSION, "records": rows + [exported], "truncated": False}
+        candidate_size = len(json.dumps(candidate, sort_keys=True, separators=(",", ":")).encode("utf-8")) + 1
+        if rows and (len(rows) >= max_records or candidate_size > max_bytes):
             break
-        if not rows and len(encoded.encode("utf-8")) + 1 > max_bytes:
+        if not rows and candidate_size > max_bytes:
             raise ValueError("max_bytes is too small for one audit record")
         rows.append(exported)
-        consumed += len(encoded.encode("utf-8")) + 1
-    payload = {"schema_version": SCHEMA_VERSION, "records": rows, "truncated": len(rows) < verify_audit_log(source)["records"]}
+    payload = {"schema_version": SCHEMA_VERSION, "records": rows, "truncated": len(rows) < source_records}
     target = Path(output)
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.tmp-{os.getpid()}")

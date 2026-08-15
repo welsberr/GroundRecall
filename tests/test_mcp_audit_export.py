@@ -35,6 +35,7 @@ def test_export_identity_opt_in_and_record_bound(tmp_path):
     export_audit(source, output, include_identities=True, max_records=1)
     row = json.loads(output.read_text(encoding="utf-8"))["records"][0]
     assert row["subject_id"] == "alice" and row["realm_id"] == "team-a"
+    assert output.stat().st_size <= 5 * 1024 * 1024
     with pytest.raises(ValueError, match="max_records"):
         export_audit(source, output, max_records=0)
 
