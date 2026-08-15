@@ -21,7 +21,7 @@ from .policy import RELEASE_RANK, PolicyDecision, PolicyDecisionProvider, Policy
 
 HANDOFF_SCHEMA_VERSION = "groundrecall.assistant_handoff.v1"
 HandoffStatus = Literal["proposed", "accepted", "executing", "blocked", "completed"]
-HandoffEventType = Literal["status", "progress", "result", "lease", "review", "review_appeal", "promotion_request", "promotion_confirmation", "promotion_action", "promotion_operator_receipt"]
+HandoffEventType = Literal["status", "progress", "result", "lease", "review", "review_appeal", "assignment_request", "promotion_request", "promotion_confirmation", "promotion_action", "promotion_operator_receipt"]
 _HANDOFF_LOCK = Lock()
 _STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
     "proposed": frozenset({"accepted", "blocked"}),
@@ -97,6 +97,7 @@ class HandoffEvent(BaseModel):
     rationale: str = ""
     promotion_target: str = ""
     requester_subject_id: str = ""
+    assignee_subject_id: str = ""
     lease_id: str = ""
     lease_subject_id: str = ""
     lease_host_id: str = ""
@@ -575,6 +576,27 @@ def appeal_handoff_review(store_dir: str | Path, handoff_id: str, *, requester_s
         if existing is not None and existing.event_type == "review_appeal":
             return existing
         event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="review_appeal", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, result_ref=result_ref, rationale=rationale, provenance={**dict(provenance or {}), "target_review_event_id": target_review_event_id}, idempotency_key=idempotency_key, created_at=_now())
+        _append_event(store_dir, event)
+        return event
+
+
+def request_handoff_assignment(store_dir: str | Path, handoff_id: str, *, requester_subject_id: str, assignee_subject_id: str, project: str, rationale: str = "", acceptance_context: str = "", policy_provider: PolicyDecisionProvider | None = None, realm_id: str = "", maximum_release_level: str = "private", idempotency_key: str = "", provenance: dict[str, Any] | None = None) -> HandoffEvent:
+    """Append a scoped assignment request without changing handoff state."""
+    if not requester_subject_id or not assignee_subject_id:
+        raise ValueError("assignment request requires requester and assignee subjects")
+    if not rationale.strip() and not acceptance_context.strip():
+        raise ValueError("assignment request requires rationale or acceptance_context")
+    with _HANDOFF_LOCK:
+        item = get_handoff(store_dir, handoff_id, realm_id=realm_id, maximum_release_level=maximum_release_level)
+        if item is None or project != item.project or item.realm_id != realm_id:
+            raise PermissionError("assignment request scope does not match")
+        existing = _event_idempotent(store_dir, handoff_id, idempotency_key, subject_id=item.subject_id, realm_id=item.realm_id)
+        policy = _handoff_policy(policy_provider, action="handoff_assignment_request", handoff=item, status=item.status)
+        if policy.decision in {"deny", "hard_gate"}:
+            raise PermissionError("policy blocked handoff assignment request")
+        if existing is not None and existing.event_type == "assignment_request":
+            return existing
+        event = HandoffEvent(event_id=f"event-{uuid.uuid4().hex[:16]}", event_type="assignment_request", handoff_id=item.handoff_id, task_id=item.task_id, subject_id=item.subject_id, realm_id=item.realm_id, release_level=item.release_level, requester_subject_id=requester_subject_id, assignee_subject_id=assignee_subject_id, rationale=rationale, next_action=acceptance_context, provenance=dict(provenance or {}), idempotency_key=idempotency_key, created_at=_now())
         _append_event(store_dir, event)
         return event
 

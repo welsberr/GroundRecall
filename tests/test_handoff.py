@@ -9,6 +9,7 @@ from groundrecall.handoff import (
     confirm_handoff_promotion,
     apply_handoff_promotion_request,
     appeal_handoff_review,
+    request_handoff_assignment,
     consume_handoff_promotion_action,
     list_handoff_promotion_actions,
     append_handoff_progress,
@@ -217,6 +218,17 @@ def test_handoff_review_appeal_requires_existing_review_and_is_append_only(tmp_p
     assert appeal_handoff_review(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", target_review_event_id=review.event_id, rationale="changed", realm_id="r1", idempotency_key="appeal-1").event_id == appeal.event_id
     with pytest.raises(ValueError, match="target review"):
         appeal_handoff_review(str(tmp_path), item.handoff_id, requester_subject_id="alice", project="demo", target_review_event_id="missing", rationale="x", realm_id="r1")
+
+
+def test_handoff_assignment_request_is_scoped_idempotent_and_append_only(tmp_path):
+    item = propose_handoff(str(tmp_path), project="demo", objective="assign", subject_id="alice", realm_id="r1").handoff
+    with pytest.raises(ValueError, match="rationale"):
+        request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="bob", project="demo", realm_id="r1")
+    event = request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="bob", project="demo", acceptance_context="confirm scope", realm_id="r1", idempotency_key="assign-1")
+    assert event.event_type == "assignment_request" and event.assignee_subject_id == "bob"
+    assert request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="other", project="demo", acceptance_context="changed", realm_id="r1", idempotency_key="assign-1").event_id == event.event_id
+    with pytest.raises(PermissionError, match="scope"):
+        request_handoff_assignment(str(tmp_path), item.handoff_id, requester_subject_id="alice", assignee_subject_id="bob", project="other", rationale="no", realm_id="r1")
 
 
 def test_handoff_claim_release_is_scoped_bounded_and_reclaims_expired_leases(tmp_path):

@@ -374,6 +374,10 @@ is `none` until a separate governed promotion API is invoked.
 existing review event. It requires rationale or an evidence reference and does
 not alter handoff status or canonical memory.
 
+`handoff_assignment_request` appends a policy-gated requester/assignee proposal
+with project/realm scope and rationale or acceptance context. It is not an
+assignment or execution authority.
+
 Lease-bound Codex completion is exposed as `handoff_complete`. It requires an
 active matching lease, expected `accepted` or `executing` status, and an
 outcome or result reference; it only records the operational completion event.
