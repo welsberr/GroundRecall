@@ -408,6 +408,9 @@ server-owned allowlist and reports its availability in readiness; MCP callers
 cannot alter it.
 Injected executors run with a bounded timeout and result-size validation;
 timeouts, exceptions, or invalid metadata produce an auditable no-effect receipt.
+The offline conformance smoke test (`tests/test_mcp_conformance_smoke.py`)
+covers stdio/HTTP initialize, tool discovery, bounded reads, denial mapping,
+and readiness without credentials or external services.
 
 HTTP deployments can require a server-owned reviewer role (for example,
 `reviewer_role="handoff-reviewer"`). Roles are loaded from the server identity

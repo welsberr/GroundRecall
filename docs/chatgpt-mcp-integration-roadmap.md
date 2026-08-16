@@ -227,6 +227,9 @@ Executor selection is by a server-owned named registry only; unknown names
 fail closed and no name defaults to receipt-only behavior.
 Executor invocation is bounded by timeout and strict metadata-size validation;
 errors or oversized/invalid results fail closed and record a no-effect receipt.
+An offline conformance smoke test covers stdio/HTTP initialization, tool listing,
+bounded read-only calls, policy denial mapping, and readiness; it requires no
+ChatGPT credentials or network services.
 The HTTP adapter validates its server-owned executor-name allowlist at startup
 and reports executor readiness; callers cannot inject or change capabilities.
 Terminal `completed` and rejection-applied `blocked` transitions now clear
