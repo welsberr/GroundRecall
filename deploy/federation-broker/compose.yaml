@@ -1,0 +1,42 @@
+services:
+  federation-broker:
+    build:
+      context: ../..
+      dockerfile: deploy/federation-broker/Dockerfile
+    image: groundrecall-federation-broker:local
+    command: ["serve"]
+    restart: unless-stopped
+    init: true
+    read_only: true
+    user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m
+    environment:
+      BROKER_DB_PATH: /var/lib/groundrecall-broker/broker.sqlite3
+      BROKER_AUTH_FILE: /run/secrets/broker-auth.json
+      BROKER_HOST: 0.0.0.0
+      BROKER_PORT: "8765"
+      BROKER_SOCKET_TIMEOUT_SECONDS: "15"
+    ports:
+      - "127.0.0.1:${BROKER_HOST_PORT:-8765}:8765"
+    volumes:
+      - broker-data:/var/lib/groundrecall-broker
+      - ./secrets/auth.json:/run/secrets/broker-auth.json:ro
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/healthz', timeout=2)
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  broker-data:
+    name: groundrecall-federation-broker-data

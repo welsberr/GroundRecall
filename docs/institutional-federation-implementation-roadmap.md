@@ -2,6 +2,14 @@
 
 Date: 2026-07-29
 Status: implementation plan
+
+Current delivery priority: a deployable federation broker. FB-0 through FB-4
+in the [application integration roadmap](application-integration-roadmap.md)
+cover the broker contract, authenticated exchange service, container image,
+GroundRecall clients, and two-participant pilot. IF-05/IF-06 remain the signed
+catalog and bundle foundations; this priority adds network transport without
+changing receiver-local verification, quarantine, or promotion authority.
+
 Primary repositories:
 
 - `/home/netuser/bin/GroundRecall`
