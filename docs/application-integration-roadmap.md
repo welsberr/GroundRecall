@@ -3,6 +3,12 @@
 Status: active implementation plan. Evidence checked 2026-09-04; broker track
 made the current priority on 2026-09-19.
 
+For the 2026-10-10 review of pending implementation, retained features, release
+blockers, and commit sequence, see the
+[repository consolidation roadmap](repository-consolidation-roadmap.md).
+Its completion gates qualify the readiness of the working-tree application
+and workspace changes; the historical status below is not a fresh deployment check.
+
 ## Current Priority: Containerized Federation Broker
 
 Implement FB-0 through FB-4 before resuming the lower-priority Kagi and general
