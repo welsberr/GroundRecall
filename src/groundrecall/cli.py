@@ -5,8 +5,10 @@ import sys
 
 from . import (
     assistant_export,
+    application_cli,
     claim_evaluation_export,
     confidence,
+    context_cli,
     contradictions,
     export,
     erasure,
@@ -41,10 +43,12 @@ from . import (
     review_backlog_benchmark,
     review_server,
     search_index,
+    updates,
 )
 
 
 COMMANDS = {
+    "application-search": application_cli.main,
     "import": ingest.main,
     "institutional": institutional_records.main,
     "custody": institutional_custody.main,
@@ -59,6 +63,8 @@ COMMANDS = {
     "protocol-init": protocol.main,
     "query": query.main,
     "index": search_index.main,
+    "update": updates.main,
+    "context": context_cli.main,
     "export": export.main,
     "erasure": erasure.main,
     "federation": federation.main,

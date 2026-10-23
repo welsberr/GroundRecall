@@ -301,7 +301,27 @@ def _read_json(path: Path) -> dict[str, Any] | None:
         return None
 
 
-def _aggregate_imports(imports_root: Path, workspace_id: str, store_id: str) -> tuple[list[BacklogItem], set[str]]:
+def _terminal_import_ids(store_dir: Path) -> set[str]:
+    """Return import candidate IDs with a durable terminal promotion receipt."""
+    completed: set[str] = set()
+    promotion_dir = store_dir / "promotions"
+    if not promotion_dir.is_dir():
+        return completed
+    for path in sorted(promotion_dir.glob("*.json")):
+        row = _read_json(path) or {}
+        candidate_id = str(row.get("candidate_id", "")).strip()
+        if candidate_id and row.get("verdict") in {"approved", "rejected", "superseded"}:
+            completed.add(candidate_id)
+    return completed
+
+
+def _aggregate_imports(
+    imports_root: Path,
+    workspace_id: str,
+    store_id: str,
+    *,
+    terminal_import_ids: set[str] | None = None,
+) -> tuple[list[BacklogItem], set[str]]:
     items: list[BacklogItem] = []
     imported_hashes: set[str] = set()
     if not imports_root.is_dir():
@@ -309,18 +329,20 @@ def _aggregate_imports(imports_root: Path, workspace_id: str, store_id: str) -> 
     for import_dir in sorted(p for p in imports_root.iterdir() if p.is_dir() and not p.name.startswith(".")):
         manifest = _read_json(import_dir / "manifest.json") or {}
         queue = _read_json(import_dir / "review_queue.json")
-        for row in (queue or {}).get("items", []):
-            status = str(row.get("status", "needs_review"))
-            if status not in ACTIVE_STATUSES:
-                continue
-            queue_id = str(row.get("queue_id", row.get("candidate_id", import_dir.name)))
-            # Queue ids are import-local; include the import id in the stable source identity.
-            items.append(_make_item(source_kind="import_review", source_id=f"{import_dir.name}:{queue_id}",
-                candidate_kind=str(row.get("candidate_type", "unknown")), candidate_id=str(row.get("candidate_id", "")),
-                workspace_id=workspace_id, store_id=store_id, status=status,
-                reason_codes=list(row.get("finding_codes", [])) or ["import_review"], lane=str(row.get("triage_lane", "knowledge_capture")),
-                priority=int(row.get("priority", 50)), created_at=str(manifest.get("imported_at", "")), source_path=str(import_dir),
-                release_level=str(row.get("release_level", manifest.get("release_level", "private"))), scope_ids=list(row.get("scope_ids", [])), owner_subject_ids=list(row.get("owner_subject_ids", [])), due_at=str(row.get("due_at", ""))))
+        import_id = str(manifest.get("import_id", import_dir.name)).strip() or import_dir.name
+        if import_id not in (terminal_import_ids or set()):
+            for row in (queue or {}).get("items", []):
+                status = str(row.get("status", "needs_review"))
+                if status not in ACTIVE_STATUSES:
+                    continue
+                queue_id = str(row.get("queue_id", row.get("candidate_id", import_dir.name)))
+                # Queue ids are import-local; include the import id in the stable source identity.
+                items.append(_make_item(source_kind="import_review", source_id=f"{import_dir.name}:{queue_id}",
+                    candidate_kind=str(row.get("candidate_type", "unknown")), candidate_id=str(row.get("candidate_id", "")),
+                    workspace_id=workspace_id, store_id=store_id, status=status,
+                    reason_codes=list(row.get("finding_codes", [])) or ["import_review"], lane=str(row.get("triage_lane", "knowledge_capture")),
+                    priority=int(row.get("priority", 50)), created_at=str(manifest.get("imported_at", "")), source_path=str(import_dir),
+                    release_level=str(row.get("release_level", manifest.get("release_level", "private"))), scope_ids=list(row.get("scope_ids", [])), owner_subject_ids=list(row.get("owner_subject_ids", [])), due_at=str(row.get("due_at", ""))))
         for artifact in _read_jsonl(import_dir / "artifacts.jsonl"):
             digest = str(artifact.get("sha256", ""))
             if digest:
@@ -353,7 +375,10 @@ def aggregate_backlog(workspace: str | Path, *, store: str | Path | None = None,
     wid = discovered["workspace_id"]
     # Portable identifiers must not disclose local absolute paths.
     store_id = _hash(str(store_dir.resolve()))[:24]
-    all_items, imported_hashes = _aggregate_imports(imports_dir, wid, store_id)
+    terminal_import_ids = _terminal_import_ids(store_dir)
+    all_items, imported_hashes = _aggregate_imports(
+        imports_dir, wid, store_id, terminal_import_ids=terminal_import_ids
+    )
     # Source notes are pending only when their content hash is not represented by an import artifact.
     if notes_dir.is_dir():
         for note in sorted(notes_dir.rglob("*")):

@@ -26,7 +26,7 @@ It indexes:
 Build or rebuild it:
 
 ```bash
-groundrecall index ~/.groundrecall/store --rebuild
+groundrecall index ~/.groundrecall --scope canonical --rebuild
 ```
 
 Search through the normal query command:
@@ -67,8 +67,8 @@ The result payload includes an `associations` map keyed by the matched `doc_key`
 Direct index search can still omit expansion for maximum speed:
 
 ```bash
-groundrecall index ~/.groundrecall/store "host profile" --kind concept
-groundrecall index ~/.groundrecall/store "host profile" --kind concept --expand
+groundrecall index ~/.groundrecall "host profile" --scope canonical --kind concept
+groundrecall index ~/.groundrecall "host profile" --scope canonical --kind concept --expand
 ```
 
 ## Ingestion Alignment

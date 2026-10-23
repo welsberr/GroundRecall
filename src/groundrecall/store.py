@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import tempfile
 from pathlib import Path
 from typing import TypeVar
@@ -30,13 +31,46 @@ from .models import (
     StewardshipRecord,
     WorkRecord,
 )
+from .workspace import require_store_not_workspace_root
+from .store_lock import store_lock
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
+STORE_MANIFEST_NAME = ".groundrecall-store.json"
+STORE_MANIFEST_SCHEMA = "groundrecall.store-manifest.v1"
+SUPPORTED_STORE_FORMAT_VERSION = 1
+
+
+class IncompatibleStoreVersionError(RuntimeError):
+    """Raised when this GroundRecall release cannot safely open a store."""
+
+
+def check_store_compatibility(base_dir: str | Path) -> int:
+    """Return the store format version, rejecting malformed or future markers."""
+
+    manifest_path = Path(base_dir) / STORE_MANIFEST_NAME
+    if not manifest_path.exists():
+        return 0  # legacy, unversioned store
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise IncompatibleStoreVersionError(f"cannot read store manifest: {manifest_path}") from exc
+    if not isinstance(payload, dict) or payload.get("schema_version") != STORE_MANIFEST_SCHEMA:
+        raise IncompatibleStoreVersionError(f"unrecognized store manifest: {manifest_path}")
+    version = payload.get("store_format_version")
+    if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+        raise IncompatibleStoreVersionError(f"invalid store format version in {manifest_path}")
+    if version > SUPPORTED_STORE_FORMAT_VERSION:
+        raise IncompatibleStoreVersionError(
+            f"store format {version} is newer than this release supports "
+            f"({SUPPORTED_STORE_FORMAT_VERSION}); upgrade GroundRecall before opening it"
+        )
+    return version
+
 
 class GroundRecallStore:
-    def __init__(self, base_dir: str | Path):
+    def __init__(self, base_dir: str | Path, *, create: bool = True):
         self.base_dir = Path(base_dir)
         self.sources_dir = self.base_dir / "sources"
         self.fragments_dir = self.base_dir / "fragments"
@@ -59,7 +93,7 @@ class GroundRecallStore:
         self.promotions_dir = self.base_dir / "promotions"
         self.adjudications_dir = self.base_dir / "adjudications"
         self.snapshots_dir = self.base_dir / "snapshots"
-        for path in [
+        directories = [
             self.sources_dir,
             self.fragments_dir,
             self.artifacts_dir,
@@ -81,13 +115,22 @@ class GroundRecallStore:
             self.promotions_dir,
             self.adjudications_dir,
             self.snapshots_dir,
-        ]:
-            path.mkdir(parents=True, exist_ok=True)
+        ]
+        if create:
+            require_store_not_workspace_root(self.base_dir)
+        if self.base_dir.exists():
+            check_store_compatibility(self.base_dir)
+        if create:
+            for path in directories:
+                path.mkdir(parents=True, exist_ok=True)
 
     def _save(self, directory: Path, key: str, model: BaseModel) -> None:
+        require_store_not_workspace_root(self.base_dir)
         target = directory / f"{key}.json"
         payload = model.model_dump_json(indent=2)
-        self._write_text_atomic(target, payload)
+        with store_lock(self.base_dir, exclusive=False):
+            check_store_compatibility(self.base_dir)
+            self._write_text_atomic(target, payload)
 
     def _write_text_atomic(self, path: Path, text: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -13,6 +13,11 @@ See [geniehive-foundation-gateway.md](geniehive-foundation-gateway.md).
 
 ## Core Design
 
+A manifested workspace and its canonical store are distinct authority levels.
+See [Workspace Layout and Authority](workspace-layout.md). Read-only indexing
+must not create typed-record directories, and workspace search uses explicit
+`notes`, `canonical`, or `unified` scopes.
+
 The system is built around one canonical flow:
 
 1. ingest weakly structured sources

@@ -167,7 +167,7 @@ groundrecall promote .groundrecall/imports/<import-id> .groundrecall/store \
 groundrecall export .groundrecall/store .groundrecall/exports/canonical
 groundrecall assistant-export .groundrecall/store codex .groundrecall/exports/codex
 groundrecall assistant-export .groundrecall/store claude_code .groundrecall/exports/claude_code
-groundrecall index .groundrecall/store --rebuild
+groundrecall index .groundrecall --scope unified --rebuild
 ```
 
 ## Local/Remote Sharing

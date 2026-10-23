@@ -11,6 +11,10 @@ agent runtime. GroundRecall keeps durable state, provenance, release policy,
 review status, federation custody, and audit history separate from the
 ephemeral sessions that use it.
 
+The [local dashboard](docs/local-dashboard.md) provides authenticated, read-only
+storage and retrieval status, a concept graph explorer, search, and review-queue
+browsing. Session telemetry and governed editing are tracked as follow-up work.
+
 GroundRecall is intended for work where durable context matters:
 
 - site, app, and service administration across sessions
@@ -88,6 +92,12 @@ PYTHONPATH=src python -m groundrecall --help
 
 ## Basic Workflow
 
+For a multi-area workspace, first add a `workspace.json` authority manifest as
+described in [Workspace Layout and Authority](docs/workspace-layout.md). The
+manifest distinguishes the canonical store, imports, source notes, private
+runs, and three search projections; it also prevents using the workspace root
+as a canonical mutation target.
+
 Import a source:
 
 ```bash
@@ -134,6 +144,7 @@ Warnings remain visible in the review queue but do not block promotion.
 Inspect or query the store:
 
 ```bash
+groundrecall index .groundrecall "prior work" --scope unified --limit 10
 groundrecall inspect .groundrecall/store
 groundrecall inspect .groundrecall/store --graph
 groundrecall inspect .groundrecall/store --graph-summary
@@ -684,6 +695,9 @@ assistants, at different times, or on different hosts:
 
 - [docs/quickstart.md](docs/quickstart.md)
 - [docs/assistant-protocol.md](docs/assistant-protocol.md)
+- [Session context, parallel safety, and context cost roadmap](docs/session-context-and-cost-roadmap.md)
+- [Lede-brief design and roadmap](docs/lede-brief-design-and-roadmap.md)
+- [Agentic operating model](docs/AGENTIC_OS.md)
 - [docs/architecture.md](docs/architecture.md)
 - [docs/didactopus-bridge.md](docs/didactopus-bridge.md)
 - [docs/knowledge-graph-roadmap.md](docs/knowledge-graph-roadmap.md)

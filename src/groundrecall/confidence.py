@@ -10,13 +10,12 @@ from typing import Any, Iterable, Literal
 
 from epistemap import (
     AssessmentMethodRef,
-    ConfidenceAssessment,
     GraphBundle,
     bayesian_update_from_evidence_ledger,
     graph_to_evidence_ledger,
 )
 
-from .models import AdjudicationRecord, ClaimRecord, ObservationRecord
+from .models import AdjudicationRecord, ClaimRecord, ConfidenceAssessment, ObservationRecord
 from .store import GroundRecallStore
 
 

@@ -1,5 +1,10 @@
 # Memory Lifecycle Roadmap
 
+The focused execution plan for reconciling current store roots before building
+the R4 unified prior-work retrieval view is
+[`unified-prior-work-retrieval-roadmap.md`](unified-prior-work-retrieval-roadmap.md).
+Its UPR-0 reconciliation phase is a hard gate for that work.
+
 Confidence schema and integration changes are coordinated by Epistemap's
 `docs/confidence-overhaul-roadmap.md`. GroundRecall owns extraction and reviewer
 assessments, temporal applicability, and promotion authority; it must not

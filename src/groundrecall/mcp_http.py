@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any
 
 from .mcp import TOOLS, handle_request, list_tools
+from .application_http import ApplicationHTTPDispatcher
+from .application_service import ApplicationReadService
 from .policy import load_policy_plugins
 
 
@@ -71,6 +73,9 @@ class MCPHTTPConfig:
     reviewer_role: str = ""
     roles: frozenset[str] = field(default_factory=frozenset)
     promotion_executor_names: frozenset[str] = field(default_factory=frozenset)
+    # Development only: the ordinary application routes do not yet carry the
+    # MCP principal/policy contract. Never enable them implicitly with a store.
+    enable_experimental_application_api: bool = False
 
 
 @dataclass(frozen=True)
@@ -305,6 +310,15 @@ class MCPHTTPApplication:
         if any(not isinstance(name, str) or not name for name in config.promotion_executor_names):
             raise ValueError("promotion executor names must be non-empty strings")
         self.config = config
+        self.application_api = (
+            ApplicationHTTPDispatcher(
+                ApplicationReadService(config.store_dir),
+                max_body_bytes=config.max_body_bytes,
+                max_response_bytes=config.max_response_bytes,
+            )
+            if config.store_dir and config.enable_experimental_application_api
+            else None
+        )
         self.audit = _AuditLog(config.audit_log_path)
         self._request_slots = BoundedSemaphore(config.max_concurrent_requests)
         self.identities = _load_identities(config.identity_file)
@@ -535,10 +549,45 @@ def make_server(host: str, port: int, config: MCPHTTPConfig) -> ThreadingHTTPSer
             elif self.path == "/readyz":
                 ready, payload = application.readiness()
                 self._write(200 if ready else 503, (json.dumps(payload, separators=(",", ":")) + "\n").encode())
+            elif self.path.startswith("/api/v1/"):
+                if not self._authorized():
+                    self._write(401, b'{"error":"unauthorized"}\n')
+                    return
+                if application.application_api is None:
+                    self._write(503, b'{"error":"store_not_configured"}\n')
+                    return
+                status, body = application.application_api.dispatch("GET", self.path)
+                self._write(status, body)
+            elif self.path == "/" or self.path.startswith("/search") or self.path.startswith("/records/"):
+                if not self._authorized():
+                    self._write(401, b'{"error":"unauthorized"}\n')
+                    return
+                if application.application_api is None:
+                    self._write(503, b'{"error":"store_not_configured"}\n')
+                    return
+                status, body = application.application_api.dispatch_html("GET", self.path)
+                self._write(status, body, "text/html; charset=utf-8")
             else:
                 self._write(404, b'{"error":"not_found"}\n')
 
         def do_POST(self) -> None:  # noqa: N802
+            if self.path.startswith("/api/v1/"):
+                if not self._authorized():
+                    self._write(401, b'{"error":"unauthorized"}\n')
+                    return
+                try:
+                    length = int(self.headers.get("Content-Length", "-1"))
+                except ValueError:
+                    length = -1
+                if length < 0 or length > application.config.max_body_bytes:
+                    self._write(413, b'{"error":"request_too_large"}\n')
+                    return
+                if application.application_api is None:
+                    self._write(503, b'{"error":"store_not_configured"}\n')
+                    return
+                status, response = application.application_api.dispatch("POST", self.path, self.rfile.read(length))
+                self._write(status, response)
+                return
             if self.path != "/mcp":
                 self._write(404, b'{"error":"not_found"}\n')
                 return

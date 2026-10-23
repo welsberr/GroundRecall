@@ -36,6 +36,7 @@ from .groundrecall_review_queue import build_review_queue
 from .groundrecall_segmenter import SegmentedPage, segment_markdown_artifact
 from .groundrecall_source_adapters.base import detect_source_adapter
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
+from .workspace import WorkspaceConfigurationError, require_imports_root_target
 import groundrecall.groundrecall_source_adapters  # noqa: F401
 
 
@@ -261,7 +262,7 @@ def run_groundrecall_import(
         for item in discovered
     ]
     actual_import_id = import_id or _default_import_id(source_path)
-    output_root = Path(out_root) if out_root else source_path / "imports"
+    output_root = require_imports_root_target(Path(out_root) if out_root else source_path / "imports")
     source_root_ref, source_root_kind = _portable_source_root_ref(source_path, output_root)
     output_dir = output_root / actual_import_id
     policy_decision = _evaluate_import_policy(
@@ -448,19 +449,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    args = build_parser().parse_args()
-    result = run_groundrecall_import(
-        source_root=args.source_root,
-        out_root=args.out_root,
-        mode=args.mode,
-        import_id=args.import_id,
-        machine_id=args.machine_id,
-        agent_id=args.agent_id,
-        concept_seed_store=args.concept_seed_store,
-        concept_alignment_threshold=args.concept_alignment_threshold,
-        extract_graph=args.extract_graph,
-        policy_plugins_path=args.policy_plugins,
-        policy_subject_id=args.policy_subject_id,
-        audit_log_path=args.audit_log,
-    )
+    parser = build_parser()
+    args = parser.parse_args()
+    try:
+        result = run_groundrecall_import(
+            source_root=args.source_root,
+            out_root=args.out_root,
+            mode=args.mode,
+            import_id=args.import_id,
+            machine_id=args.machine_id,
+            agent_id=args.agent_id,
+            concept_seed_store=args.concept_seed_store,
+            concept_alignment_threshold=args.concept_alignment_threshold,
+            extract_graph=args.extract_graph,
+            policy_plugins_path=args.policy_plugins,
+            policy_subject_id=args.policy_subject_id,
+            audit_log_path=args.audit_log,
+        )
+    except WorkspaceConfigurationError as exc:
+        parser.error(str(exc))
     print(f"Wrote import artifacts to {result.out_dir}")

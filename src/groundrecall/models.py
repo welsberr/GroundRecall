@@ -2,12 +2,38 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 try:
-    from epistemap import ConfidenceAssessment
+    from epistemap.confidence import (
+        AssessmentMethodRef as EpistemapAssessmentMethodRef,
+        ConfidenceAssessment as EpistemapConfidenceAssessment,
+        ConfidenceInterval as EpistemapConfidenceInterval,
+    )
 except ImportError:  # pragma: no cover - optional local integration fallback
     ConfidenceAssessment = dict  # type: ignore[misc,assignment]
+else:
+    class GroundRecallAssessmentMethodRef(EpistemapAssessmentMethodRef):
+        model_config = ConfigDict(extra="allow")
+
+
+    class GroundRecallConfidenceInterval(EpistemapConfidenceInterval):
+        model_config = ConfigDict(extra="allow")
+
+
+    class ConfidenceAssessment(EpistemapConfidenceAssessment):
+        """Epistemap assessment retaining additive nested data in GroundRecall stores."""
+
+        model_config = ConfigDict(extra="allow")
+        method: GroundRecallAssessmentMethodRef
+        interval: GroundRecallConfidenceInterval | None = None
+
+        @field_validator("method", mode="before")
+        @classmethod
+        def _coerce_epistemap_method(cls, value):
+            if isinstance(value, EpistemapAssessmentMethodRef):
+                return value.model_dump()
+            return value
 
 
 LifecycleStatus = Literal["draft", "triaged", "reviewed", "promoted", "superseded", "archived", "rejected"]
@@ -25,7 +51,13 @@ ReviewDecision = Literal["approve", "reject", "needs_changes", "abstain", "disse
 FeedbackDecision = Literal["accept", "reject", "dissent", "appeal", "supersede", "needs_review"]
 
 
-class ProvenanceRecord(BaseModel):
+class GroundRecallRecordModel(BaseModel):
+    """Persisted records retain additive fields written by newer releases."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+class ProvenanceRecord(GroundRecallRecordModel):
     origin_artifact_id: str = ""
     origin_path: str = ""
     origin_section: str = ""
@@ -37,7 +69,7 @@ class ProvenanceRecord(BaseModel):
     grounding_status: GroundingStatus = "ungrounded"
 
 
-class SourceRecord(BaseModel):
+class SourceRecord(GroundRecallRecordModel):
     source_id: str
     title: str = ""
     source_type: str = "document"
@@ -53,7 +85,7 @@ class SourceRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class FragmentRecord(BaseModel):
+class FragmentRecord(GroundRecallRecordModel):
     fragment_id: str
     source_id: str
     text: str
@@ -64,7 +96,7 @@ class FragmentRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class ArtifactRecord(BaseModel):
+class ArtifactRecord(GroundRecallRecordModel):
     artifact_id: str
     artifact_kind: str
     title: str = ""
@@ -80,7 +112,7 @@ class ArtifactRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class ScopeRecord(BaseModel):
+class ScopeRecord(GroundRecallRecordModel):
     scope_id: str
     scope_kind: ScopeKind
     title: str
@@ -94,7 +126,7 @@ class ScopeRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class WorkRecord(BaseModel):
+class WorkRecord(GroundRecallRecordModel):
     work_id: str
     work_kind: WorkKind
     title: str
@@ -113,7 +145,7 @@ class WorkRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class DecisionRecord(BaseModel):
+class DecisionRecord(GroundRecallRecordModel):
     decision_id: str
     scope_id: str = ""
     question: str
@@ -135,7 +167,7 @@ class DecisionRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class ContributionRecord(BaseModel):
+class ContributionRecord(GroundRecallRecordModel):
     contribution_id: str
     origin_instance_id: str = ""
     contributor_id: str
@@ -158,7 +190,7 @@ class ContributionRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class ContributionReviewReceipt(BaseModel):
+class ContributionReviewReceipt(GroundRecallRecordModel):
     receipt_id: str
     contribution_id: str
     reviewer_id: str
@@ -173,7 +205,7 @@ class ContributionReviewReceipt(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class ReviewReceiptRecord(BaseModel):
+class ReviewReceiptRecord(GroundRecallRecordModel):
     receipt_id: str
     subject_type: Literal[
         "source",
@@ -210,7 +242,7 @@ class ReviewReceiptRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class FederationFeedbackRecord(BaseModel):
+class FederationFeedbackRecord(GroundRecallRecordModel):
     feedback_id: str
     origin_instance_id: str
     target_instance_id: str = ""
@@ -228,7 +260,7 @@ class FederationFeedbackRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class StewardshipRecord(BaseModel):
+class StewardshipRecord(GroundRecallRecordModel):
     stewardship_id: str
     subject_type: Literal["scope", "record", "work", "decision", "contribution"]
     subject_id: str
@@ -245,7 +277,7 @@ class StewardshipRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class CustodyEventRecord(BaseModel):
+class CustodyEventRecord(GroundRecallRecordModel):
     event_id: str
     event_kind: CustodyEventKind
     subject_type: str
@@ -261,7 +293,7 @@ class CustodyEventRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class ObservationRecord(BaseModel):
+class ObservationRecord(GroundRecallRecordModel):
     observation_id: str
     artifact_id: str = ""
     role: str
@@ -273,7 +305,7 @@ class ObservationRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class ClaimRecord(BaseModel):
+class ClaimRecord(GroundRecallRecordModel):
     claim_id: str
     claim_text: str
     claim_kind: str = "statement"
@@ -296,7 +328,7 @@ class ClaimRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class ContradictionCaseRecord(BaseModel):
+class ContradictionCaseRecord(GroundRecallRecordModel):
     case_id: str
     claim_ids: list[str] = Field(default_factory=list)
     case_kind: Literal["contradiction", "disagreement", "supersession_question", "scope_mismatch", "ambiguity"] = "contradiction"
@@ -310,7 +342,7 @@ class ContradictionCaseRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class ConceptRecord(BaseModel):
+class ConceptRecord(GroundRecallRecordModel):
     concept_id: str
     title: str
     aliases: list[str] = Field(default_factory=list)
@@ -320,7 +352,7 @@ class ConceptRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class RelationRecord(BaseModel):
+class RelationRecord(GroundRecallRecordModel):
     relation_id: str
     source_id: str
     target_id: str
@@ -331,7 +363,7 @@ class RelationRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class ReviewCandidateRecord(BaseModel):
+class ReviewCandidateRecord(GroundRecallRecordModel):
     review_candidate_id: str
     candidate_type: Literal["claim", "concept", "relation"]
     candidate_id: str
@@ -342,7 +374,7 @@ class ReviewCandidateRecord(BaseModel):
     current_status: LifecycleStatus = "draft"
 
 
-class PromotionRecord(BaseModel):
+class PromotionRecord(GroundRecallRecordModel):
     promotion_id: str
     candidate_type: Literal["claim", "concept", "relation"]
     candidate_id: str
@@ -354,7 +386,7 @@ class PromotionRecord(BaseModel):
     promoted_at: str = ""
 
 
-class AdjudicationRecord(BaseModel):
+class AdjudicationRecord(GroundRecallRecordModel):
     adjudication_id: str
     subject_id: str
     subject_type: Literal["claim", "observation", "relation", "contradiction_case"] = "claim"
@@ -367,7 +399,7 @@ class AdjudicationRecord(BaseModel):
     metadata: dict = Field(default_factory=dict)
 
 
-class GroundRecallSnapshot(BaseModel):
+class GroundRecallSnapshot(GroundRecallRecordModel):
     snapshot_id: str
     created_at: str
     sources: list[SourceRecord] = Field(default_factory=list)

@@ -9,6 +9,7 @@ import sqlite3
 from typing import Any, Iterable
 
 from .store import GroundRecallStore
+from .workspace import SearchScopeName, WorkspaceConfigurationError, discover_workspace_layout
 
 
 INDEX_VERSION = 1
@@ -27,16 +28,41 @@ class SearchDocument:
     source_path: Path | None = None
 
 
-def index_path(store_dir: str | Path) -> Path:
-    return Path(store_dir) / ".index" / "groundrecall-search.sqlite"
+@dataclass(frozen=True)
+class ScopedSearchConfig:
+    scope: str
+    store_dir: Path
+    source_notes_dir: Path | None
+    index_file: Path
+    include_store_records: bool
+    include_source_notes: bool
 
 
-def build_search_index(store_dir: str | Path, *, include_source_notes: bool = True) -> dict[str, Any]:
+def index_path(store_dir: str | Path, *, index_file: str | Path | None = None) -> Path:
+    return Path(index_file) if index_file is not None else Path(store_dir) / ".index" / "groundrecall-search.sqlite"
+
+
+def build_search_index(
+    store_dir: str | Path,
+    *,
+    include_source_notes: bool = True,
+    source_notes_dir: str | Path | None = None,
+    include_store_records: bool = True,
+    index_file: str | Path | None = None,
+    scope: str = "legacy",
+) -> dict[str, Any]:
     store_dir = Path(store_dir)
-    db_path = index_path(store_dir)
+    db_path = index_path(store_dir, index_file=index_file)
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
-    docs = list(iter_search_documents(store_dir, include_source_notes=include_source_notes))
+    docs = list(
+        iter_search_documents(
+            store_dir,
+            include_source_notes=include_source_notes,
+            source_notes_dir=source_notes_dir,
+            include_store_records=include_store_records,
+        )
+    )
     with sqlite3.connect(db_path) as conn:
         _init_schema(conn)
         conn.execute("delete from docs")
@@ -75,9 +101,17 @@ def build_search_index(store_dir: str | Path, *, include_source_notes: bool = Tr
             [
                 ("index_version", str(INDEX_VERSION)),
                 ("document_count", str(len(docs))),
+                ("scope", scope),
+                ("store_dir", str(store_dir.resolve())),
+                ("source_notes_dir", str(Path(source_notes_dir).resolve()) if source_notes_dir is not None else ""),
             ],
         )
-    return {"index_path": str(db_path), "document_count": len(docs), "index_version": INDEX_VERSION}
+    return {
+        "index_path": str(db_path),
+        "document_count": len(docs),
+        "index_version": INDEX_VERSION,
+        "scope": scope,
+    }
 
 
 def search_index(
@@ -90,18 +124,36 @@ def search_index(
     rebuild: bool = False,
     expand: bool = False,
     association_limit: int = 8,
+    include_source_notes: bool = True,
+    source_notes_dir: str | Path | None = None,
+    include_store_records: bool = True,
+    index_file: str | Path | None = None,
+    scope: str = "legacy",
+    allow_build: bool = True,
 ) -> dict[str, Any]:
     store_dir = Path(store_dir)
-    db_path = index_path(store_dir)
+    db_path = index_path(store_dir, index_file=index_file)
     if rebuild or not db_path.exists():
-        build_search_index(store_dir)
+        if not allow_build:
+            raise FileNotFoundError("Search index unavailable in read-only mode")
+        build_search_index(
+            store_dir,
+            include_source_notes=include_source_notes,
+            source_notes_dir=source_notes_dir,
+            include_store_records=include_store_records,
+            index_file=db_path,
+            scope=scope,
+        )
 
     active_kinds = {item for item in (kinds or []) if item}
     active_corpora = {item for item in (corpora or []) if item}
     fts_query = _fts_query(query)
     matches: list[dict[str, Any]] = []
 
-    with sqlite3.connect(db_path) as conn:
+    connection = sqlite3.connect(db_path) if allow_build else sqlite3.connect(
+        db_path.resolve().as_uri() + "?mode=ro", uri=True
+    )
+    with connection as conn:
         conn.row_factory = sqlite3.Row
         where_clauses = ["docs_fts match ?"]
         params: list[Any] = [fts_query]
@@ -159,11 +211,107 @@ def search_index(
         "query_type": "indexed_search",
         "query": query,
         "index_path": str(db_path),
+        "scope": scope,
         "active_kinds": sorted(active_kinds),
         "active_corpora": sorted(active_corpora),
         "matches": matches,
         "associations": associations,
     }
+
+
+def resolve_scoped_search(target: str | Path, scope: SearchScopeName | None) -> ScopedSearchConfig:
+    target_path = Path(target).resolve()
+    layout = discover_workspace_layout(target_path)
+    if layout is None:
+        if scope is not None:
+            raise WorkspaceConfigurationError(
+                f"--scope requires {target_path} or its parent to contain a GroundRecall workspace manifest"
+            )
+        return ScopedSearchConfig(
+            scope="legacy",
+            store_dir=target_path,
+            source_notes_dir=None,
+            index_file=index_path(target_path),
+            include_store_records=True,
+            include_source_notes=True,
+        )
+    if scope is None:
+        if target_path == layout.canonical_store:
+            scope = "canonical"
+        else:
+            raise WorkspaceConfigurationError(
+                "A workspace query requires --scope notes, --scope canonical, or --scope unified"
+            )
+    if scope == "notes":
+        return ScopedSearchConfig(
+            scope=scope,
+            store_dir=layout.canonical_store,
+            source_notes_dir=layout.source_notes,
+            index_file=layout.notes_index,
+            include_store_records=False,
+            include_source_notes=True,
+        )
+    if scope == "canonical":
+        return ScopedSearchConfig(
+            scope=scope,
+            store_dir=layout.canonical_store,
+            source_notes_dir=None,
+            index_file=layout.canonical_index,
+            include_store_records=True,
+            include_source_notes=False,
+        )
+    if scope == "unified":
+        return ScopedSearchConfig(
+            scope=scope,
+            store_dir=layout.canonical_store,
+            source_notes_dir=layout.source_notes,
+            index_file=layout.unified_index,
+            include_store_records=True,
+            include_source_notes=True,
+        )
+    raise WorkspaceConfigurationError(f"Unsupported GroundRecall search scope: {scope!r}")
+
+
+def build_scoped_search_index(target: str | Path, scope: SearchScopeName | None) -> dict[str, Any]:
+    config = resolve_scoped_search(target, scope)
+    return build_search_index(
+        config.store_dir,
+        include_source_notes=config.include_source_notes,
+        source_notes_dir=config.source_notes_dir,
+        include_store_records=config.include_store_records,
+        index_file=config.index_file,
+        scope=config.scope,
+    )
+
+
+def search_scoped_index(
+    target: str | Path,
+    query: str,
+    *,
+    scope: SearchScopeName | None,
+    limit: int = 20,
+    kinds: list[str] | None = None,
+    corpora: list[str] | None = None,
+    rebuild: bool = False,
+    expand: bool = False,
+    association_limit: int = 8,
+) -> dict[str, Any]:
+    config = resolve_scoped_search(target, scope)
+    return search_index(
+        config.store_dir,
+        query,
+        limit=limit,
+        kinds=kinds,
+        corpora=corpora,
+        rebuild=rebuild,
+        expand=expand,
+        association_limit=association_limit,
+        include_source_notes=config.include_source_notes,
+        source_notes_dir=config.source_notes_dir,
+        include_store_records=config.include_store_records,
+        index_file=config.index_file,
+        scope=config.scope,
+    )
 
 
 def expand_matches(
@@ -172,7 +320,7 @@ def expand_matches(
     *,
     limit_per_match: int = 8,
 ) -> dict[str, list[dict[str, Any]]]:
-    graph = _GraphContext(GroundRecallStore(store_dir))
+    graph = _GraphContext(GroundRecallStore(store_dir, create=False))
     expansions: dict[str, list[dict[str, Any]]] = {}
     for match in matches:
         doc_key = str(match.get("doc_key", ""))
@@ -184,9 +332,19 @@ def expand_matches(
     return expansions
 
 
-def iter_search_documents(store_dir: str | Path, *, include_source_notes: bool = True) -> Iterable[SearchDocument]:
+def iter_search_documents(
+    store_dir: str | Path,
+    *,
+    include_source_notes: bool = True,
+    source_notes_dir: str | Path | None = None,
+    include_store_records: bool = True,
+) -> Iterable[SearchDocument]:
     store_dir = Path(store_dir)
-    store = GroundRecallStore(store_dir)
+    if not include_store_records:
+        if include_source_notes:
+            yield from _iter_source_note_documents(store_dir, source_notes_dir=source_notes_dir)
+        return
+    store = GroundRecallStore(store_dir, create=False)
 
     for source in store.list_sources():
         yield SearchDocument(
@@ -308,20 +466,7 @@ def iter_search_documents(store_dir: str | Path, *, include_source_notes: bool =
         )
 
     if include_source_notes:
-        for note_path in _source_note_paths(store_dir):
-            text = note_path.read_text(encoding="utf-8", errors="replace")
-            title = _markdown_title(text) or note_path.stem
-            yield SearchDocument(
-                doc_key=f"source_note:{note_path.name}",
-                kind="source_note",
-                record_id=note_path.stem,
-                title=title,
-                body=text,
-                path=str(note_path),
-                status="local",
-                metadata={"source_note": True},
-                source_path=note_path,
-            )
+        yield from _iter_source_note_documents(store_dir, source_notes_dir=source_notes_dir)
 
 
 class _GraphContext:
@@ -546,7 +691,10 @@ def _record_path(directory: Path, key: str) -> Path:
     return directory / f"{key}.json"
 
 
-def _source_note_paths(store_dir: Path) -> list[Path]:
+def _source_note_paths(store_dir: Path, *, source_notes_dir: str | Path | None = None) -> list[Path]:
+    if source_notes_dir is not None:
+        directory = Path(source_notes_dir)
+        return sorted(directory.glob("*.md")) if directory.is_dir() else []
     candidates = []
     if store_dir.name == "store":
         candidates.append(store_dir.parent / "source-notes")
@@ -556,6 +704,27 @@ def _source_note_paths(store_dir: Path) -> list[Path]:
         if directory.is_dir():
             paths.extend(sorted(directory.glob("*.md")))
     return paths
+
+
+def _iter_source_note_documents(
+    store_dir: Path,
+    *,
+    source_notes_dir: str | Path | None = None,
+) -> Iterable[SearchDocument]:
+    for note_path in _source_note_paths(store_dir, source_notes_dir=source_notes_dir):
+        text = note_path.read_text(encoding="utf-8", errors="replace")
+        title = _markdown_title(text) or note_path.stem
+        yield SearchDocument(
+            doc_key=f"source_note:{note_path.name}",
+            kind="source_note",
+            record_id=note_path.stem,
+            title=title,
+            body=text,
+            path=str(note_path),
+            status="local",
+            metadata={"source_note": True},
+            source_path=note_path,
+        )
 
 
 def _markdown_title(text: str) -> str:
@@ -588,8 +757,9 @@ def _fts_query(query: str) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build or query the GroundRecall local FTS index.")
-    parser.add_argument("store_dir")
+    parser.add_argument("target", help="GroundRecall workspace or legacy standalone store directory")
     parser.add_argument("query", nargs="?", default="")
+    parser.add_argument("--scope", choices=["notes", "canonical", "unified"], default=None)
     parser.add_argument("--rebuild", action="store_true")
     parser.add_argument("--kind", action="append", default=[])
     parser.add_argument("--corpus", action="append", default=[])
@@ -600,17 +770,22 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
-    if args.rebuild or not args.query:
-        payload = build_search_index(args.store_dir)
-    else:
-        payload = search_index(
-            args.store_dir,
-            args.query,
-            limit=args.limit,
-            kinds=list(args.kind or []),
-            corpora=list(args.corpus or []),
-            expand=args.expand,
-        )
+    try:
+        if args.rebuild or not args.query:
+            payload = build_scoped_search_index(args.target, args.scope)
+        else:
+            payload = search_scoped_index(
+                args.target,
+                args.query,
+                scope=args.scope,
+                limit=args.limit,
+                kinds=list(args.kind or []),
+                corpora=list(args.corpus or []),
+                expand=args.expand,
+            )
+    except WorkspaceConfigurationError as exc:
+        parser = build_parser()
+        parser.error(str(exc))
     print(json.dumps(payload, indent=2))
 
 

@@ -56,6 +56,42 @@ def test_imported_note_is_not_reported_again(tmp_path: Path) -> None:
     assert result.visible_total == 0
 
 
+def test_terminally_promoted_import_is_not_active_but_still_covers_source_note(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    note = workspace / "source-notes" / "completed.md"
+    note.parent.mkdir(parents=True)
+    note.write_text("completed import content", encoding="utf-8")
+    digest = hashlib.sha256(note.read_bytes()).hexdigest()
+    import_dir = workspace / "imports" / "import-complete"
+    _write(import_dir / "manifest.json", {"import_id": "import-complete"})
+    _write(
+        import_dir / "review_queue.json",
+        {
+            "items": [
+                {
+                    "queue_id": "stale-queue-item",
+                    "candidate_type": "claim",
+                    "candidate_id": "claim-complete",
+                    "status": "needs_review",
+                }
+            ]
+        },
+    )
+    (import_dir / "artifacts.jsonl").write_text(json.dumps({"sha256": digest}) + "\n", encoding="utf-8")
+    _write(
+        workspace / "store" / "promotions" / "promotion-import-complete.json",
+        {
+            "promotion_id": "promotion-import-complete",
+            "candidate_id": "import-complete",
+            "verdict": "approved",
+            "promotion_target": "groundrecall_store",
+        },
+    )
+
+    result = aggregate_backlog(workspace)
+    assert result.visible_total == 0
+
+
 def test_discovery_reports_missing_roots_and_accepts_overrides(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     result = discover_workspace(workspace, store=tmp_path / "custom-store")

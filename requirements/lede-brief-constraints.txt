@@ -1,0 +1,4 @@
+# Release compatibility floor for the shared lede-brief integration.
+# Replace these floors with exact hashes in deployment lockfiles.
+epistemap>=0.1.0a6,<0.2
+lede-brief>=0.1.0a2,<0.2

@@ -372,6 +372,12 @@ must make this distinction explicit.
 
 ## Review Web Application And Federation-Broker View
 
+The current broker delivery priority is the deployable exchange service and
+container pilot in the [application integration roadmap](application-integration-roadmap.md).
+RB6b's signed-catalog adapter should target that broker contract while retaining
+an offline fixture/cache path; the combined dashboard follows broker exchange
+and onboarding.
+
 The review experience should eventually be a web application, not only a CLI
 or assistant surface. Its dashboard must combine two distinct work sources:
 
@@ -706,11 +712,17 @@ local reminders), RB5 maintenance-health fields and cron guidance, RB6a-e
 cache hardening, and MCP tools), RB7 stewardship digest, and RB8 synthetic
 benchmark/adversarial regression coverage.
 
+Completed-import suppression was added during the 2026-09-02 UPR-0 import
+custody reconciliation. Import queues with terminal approved, rejected, or
+superseded promotion receipts are excluded from active work, while their
+artifact hashes still prevent imported source notes from reappearing.
+
 Remaining gaps are deliberate and should not be filled by guessing deployment
 choices:
 
 - RB0's broad fixture inventory (contradictions, lifecycle proposals, backups,
-  and completed-import suppression) needs a dedicated fixture expansion.
+  and additional historical-record exclusions) needs a dedicated fixture
+  expansion.
 - RB2 still lacks first-class scope/owner/overdue/new-since filters in the CLI;
   the current policy/release filtering is enforced before counts.
 - RB3 has rebuildable state reconstruction but no compact reminder-state cache

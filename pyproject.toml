@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "groundrecall"
-version = "0.1.0a1"
+version = "0.1.0a2"
 description = "Grounded knowledge substrate for llmwiki++ style workflows."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -13,12 +13,15 @@ authors = [
   { name = "GroundRecall contributors" }
 ]
 dependencies = [
-  "epistemap @ git+https://github.com/welsberr/Epistemap.git@v0.1.0a5",
+  "epistemap>=0.1.0a6,<0.2",
   "cryptography>=40,<46",
   "pydantic>=2,<3",
   "jsonschema>=4,<5",
   "PyYAML>=6,<7",
 ]
+
+[project.optional-dependencies]
+ledebrief = ["lede-brief>=0.1.0a2,<0.2"]
 
 [project.scripts]
 groundrecall = "groundrecall.cli:main"
@@ -31,6 +34,8 @@ groundrecall-mcp-audit-manifest = "groundrecall.mcp_audit_manifest:main"
 groundrecall-mcp-audit-export = "groundrecall.mcp_audit_export:main"
 groundrecall-handoff-promotion-operator = "groundrecall.handoff_promotion_operator:main"
 groundrecall-handoff-discover = "groundrecall.handoff_discovery:main"
+groundrecall-workspace-inventory = "groundrecall.workspace_inventory:main"
+groundrecall-reconcile-imports = "groundrecall.reconcile_imports:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

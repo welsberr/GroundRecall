@@ -20,8 +20,9 @@ from .confidence import confidence_profile_for_query_payload
 from .contradictions import contradiction_cases_for_claim_ids, generate_contradiction_cases_from_claims
 from .graph_diagnostics import PROVENANCE_RELATION_TYPES, build_graph_diagnostics
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
-from .search_index import search_index
+from .search_index import search_index, search_scoped_index
 from .store import GroundRecallStore
+from .workspace import discover_workspace_layout
 
 
 def _normalize(text: str) -> str:
@@ -877,6 +878,12 @@ def _evidence_graph_projection(
     }
 
 
+def _search_store_index(store_dir: str | Path, text: str, **kwargs: Any) -> dict[str, Any]:
+    if discover_workspace_layout(store_dir) is not None:
+        return search_scoped_index(store_dir, text, scope="canonical", **kwargs)
+    return search_index(store_dir, text, **kwargs)
+
+
 def build_search_bundle(
     store_dir: str | Path,
     text: str,
@@ -884,12 +891,13 @@ def build_search_bundle(
     object_kinds: list[str] | None = None,
     limit: int = 20,
 ) -> dict[str, Any]:
-    payload = search_index(store_dir, text, corpora=corpora, kinds=object_kinds, limit=limit, expand=True)
+    payload = _search_store_index(store_dir, text, corpora=corpora, kinds=object_kinds, limit=limit, expand=True)
     return {
         "bundle_kind": "groundrecall_search_bundle",
         "query_type": payload["query_type"],
         "query": text,
         "index_path": payload["index_path"],
+        "scope": payload.get("scope", "legacy"),
         "active_corpora": payload["active_corpora"],
         "active_object_kinds": payload["active_kinds"],
         "matches": payload["matches"],
@@ -913,7 +921,7 @@ def build_graph_search_bundle(
     graph_limit: int = 5,
     depth: int = 1,
 ) -> dict[str, Any]:
-    search_payload = search_index(
+    search_payload = _search_store_index(
         store_dir,
         text,
         corpora=corpora,
@@ -951,7 +959,7 @@ def build_graph_search_bundle(
                 )
 
     if _should_include_supplemental_concepts(object_kinds):
-        supplemental_payload = search_index(
+        supplemental_payload = _search_store_index(
             store_dir,
             text,
             kinds=["concept"],

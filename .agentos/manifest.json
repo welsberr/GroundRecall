@@ -1,0 +1,38 @@
+{
+  "agentos_version": "0.1",
+  "scope": "project",
+  "owner": "GroundRecall maintainers",
+  "last_reviewed": "2026-10-04",
+  "sources_of_truth": [
+    {"id": "groundrecall-roadmaps", "path": "docs/"},
+    {"id": "epistemap-sibling", "path": "../Epistemap/"},
+    {"id": "didactopus-sibling", "path": "../Didactopus/"},
+    {"id": "citegeist-sibling", "path": "../CiteGeist/"}
+  ],
+  "roles": [
+    {
+      "id": "lede-brief-implementer",
+      "job": "Implement and verify the approved lede-brief roadmap",
+      "authority": "scoped source, test, and documentation changes only",
+      "review_required": ["cross-project contracts", "public artifacts", "durable memory changes"]
+    }
+  ],
+  "memory": [
+    {"id": "run-receipts", "path": ".agentos/runs/", "release": "private"},
+    {"id": "durable-project-memory", "path": ".groundrecall/", "release": "private"}
+  ],
+  "connections": [
+    {"id": "local-sibling-repositories", "purpose": "cross-project implementation", "access": "read-write scoped"}
+  ],
+  "verification_checks": [
+    {"id": "diff-check", "command": "git diff --check"},
+    {"id": "targeted-tests", "purpose": "run tests for each changed package"},
+    {"id": "cross-project-fixtures", "purpose": "verify shared schema compatibility"}
+  ],
+  "automations": [],
+  "public_private_policy": {
+    "public_allowed": ["reviewed docs", "schemas", "synthetic fixtures"],
+    "private_required": ["run logs", "session telemetry", "credentials", "local paths"],
+    "publish_requires_review": true
+  }
+}

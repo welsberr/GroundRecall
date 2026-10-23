@@ -20,6 +20,7 @@ from .models import (
 from .policy import PolicyDecision, PolicyRequest, load_policy_plugins
 from .review_schema import ReviewSession
 from .store import GroundRecallStore
+from .workspace import WorkspaceConfigurationError, require_canonical_store_target
 
 
 class PromotionGateError(RuntimeError):
@@ -188,6 +189,7 @@ def promote_import_to_store(
     policy_subject_id: str = "",
 ) -> dict[str, Any]:
     base = Path(import_dir)
+    store_dir = require_canonical_store_target(store_dir)
     gate_payload = _enforce_promotion_gate(base, allow_lint_errors=allow_lint_errors)
     manifest = _read_json(base / "manifest.json")
     review_session = ReviewSession.model_validate_json((base / "review_session.json").read_text(encoding="utf-8"))
@@ -407,7 +409,10 @@ def main() -> None:
             policy_plugins_path=args.policy_plugins,
             policy_subject_id=args.policy_subject_id,
         )
-    except PromotionGateError as exc:
-        print(json.dumps({"ok": False, "error": str(exc), "gate": exc.payload}, indent=2), file=sys.stderr)
+    except (PromotionGateError, WorkspaceConfigurationError) as exc:
+        payload = {"ok": False, "error": str(exc)}
+        if isinstance(exc, PromotionGateError):
+            payload["gate"] = exc.payload
+        print(json.dumps(payload, indent=2), file=sys.stderr)
         raise SystemExit(2) from exc
     print(json.dumps(payload, indent=2))
