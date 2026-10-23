@@ -204,6 +204,14 @@ flycheck_*.el
 # server auth directory
 /server/
 
+# Local federation-broker auth mapping and database backups are runtime data.
+/deploy/federation-broker/secrets/
+/deploy/federation-broker/backups/
+
+# Rebuildable local indexes and private operational receipts.
+/.index/
+/.agentos/runs/
+
 # projectiles files
 .projectile
 
