@@ -1,0 +1,101 @@
+name: Install and upgrade smoke checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-wheel-install-upgrade:
+    name: Windows wheel install and upgrade
+    runs-on: windows-latest
+    steps:
+      - name: Check out into a path containing spaces
+        uses: actions/checkout@v4
+        with:
+          path: GroundRecall source with spaces
+
+      - name: Check out Epistemap dependency
+        uses: actions/checkout@v4
+        with:
+          repository: welsberr/Epistemap
+          ref: v0.1.0a5
+          path: Epistemap source with spaces
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Provision runtime dependencies and run install/upgrade smoke
+        working-directory: ${{ github.workspace }}/GroundRecall source with spaces
+        run: |
+          python -m pip install --upgrade pip setuptools wheel "pydantic>=2,<3" "cryptography>=40,<46" "jsonschema>=4,<5" "PyYAML>=6,<7"
+          python -m pip install --no-deps --no-build-isolation "../Epistemap source with spaces"
+          python scripts/install_upgrade_smoke.py
+
+  native-install-paths:
+    name: Native ${{ matrix.os }} install path coverage
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+    steps:
+      - name: Check out into a path containing spaces
+        uses: actions/checkout@v4
+        with:
+          path: GroundRecall source with spaces
+
+      - name: Check out Epistemap dependency
+        uses: actions/checkout@v4
+        with:
+          repository: welsberr/Epistemap
+          ref: v0.1.0a5
+          path: Epistemap source with spaces
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Provision runtime dependencies and run install/upgrade smoke
+        working-directory: ${{ github.workspace }}/GroundRecall source with spaces
+        run: |
+          python -m pip install --upgrade pip setuptools wheel "pydantic>=2,<3" "cryptography>=40,<46" "jsonschema>=4,<5" "PyYAML>=6,<7"
+          python -m pip install --no-deps --no-build-isolation "../Epistemap source with spaces"
+          python scripts/install_upgrade_smoke.py
+
+  linux-container-install-upgrade:
+    name: Linux Docker wheel install and upgrade smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Check out Epistemap dependency
+        uses: actions/checkout@v4
+        with:
+          repository: welsberr/Epistemap
+          ref: v0.1.0a5
+          path: Epistemap
+
+      - name: Build and verify the wheel inside a clean Linux container
+        run: |
+          docker run --rm \
+            --volume "${GITHUB_WORKSPACE}:/src:ro" \
+            --volume "${GITHUB_WORKSPACE}/Epistemap:/epistemap:ro" \
+            python:3.10-slim \
+            sh -eu -c '
+              cp -a /src /tmp/GroundRecall
+              cp -a /epistemap /tmp/Epistemap
+              cd /tmp/GroundRecall
+              python -m pip install --upgrade pip setuptools wheel "pydantic>=2,<3" "cryptography>=40,<46" "jsonschema>=4,<5" "PyYAML>=6,<7"
+              python -m pip install --no-deps --no-build-isolation /tmp/Epistemap
+              python scripts/install_upgrade_smoke.py
+            '

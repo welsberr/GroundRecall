@@ -621,7 +621,15 @@ def test_signed_public_keyset_imports_ed25519_keys_with_local_caps(tmp_path: Pat
     assert imported_key.compartments == ["project_compartment:alpha"]
     assert imported_key.expires_at == "2026-10-24T00:00:00Z"
     with pytest.raises(FederationPolicyError, match="does not allow release level"):
-        resolve_trust_key(receiver_registry, instance_id="host-a", key_id="host-a-ed", release_level="internal", action="import", algorithm="ed25519")
+        resolve_trust_key(
+            receiver_registry,
+            instance_id="host-a",
+            key_id="host-a-ed",
+            release_level="internal",
+            action="import",
+            algorithm="ed25519",
+            as_of="2026-07-28T00:00:00Z",
+        )
     with pytest.raises(FederationPolicyError, match="does not allow restriction markers"):
         resolve_trust_key(
             receiver_registry,
@@ -631,6 +639,7 @@ def test_signed_public_keyset_imports_ed25519_keys_with_local_caps(tmp_path: Pat
             action="import",
             algorithm="ed25519",
             restriction_markers=["hr"],
+            as_of="2026-07-28T00:00:00Z",
         )
 
 

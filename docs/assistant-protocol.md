@@ -32,9 +32,13 @@ knowledge due to updates that did not happen.
 ## Update Policy
 
 Use the host's GroundRecall store as durable operational memory. Before
-substantial work, read the host profile and query the FTS5 index or canonical
-exports for relevant prior context. Consult GroundRecall before broad filesystem
-searches, repo scans, service restarts, deployment actions, or planning changes.
+substantial work, read the host profile and search the workspace's unified
+index for relevant prior context. Unified search includes source notes and
+canonical records while retaining their separate authority. Consult GroundRecall
+before broad filesystem searches, repo scans, service restarts, deployment
+actions, or planning changes. See
+[Prior-Work Discovery and Task Memory Operations](prior-work-operations.md) for
+scope-specific commands and upgrade checks.
 
 If an assistant-specific export is empty or lacks an actionable project
 summary, fall back to source notes and canonical exports. Then write or update a
@@ -131,8 +135,10 @@ At session start, assistants should:
 4. Inspect canonical or assistant-specific exports.
 5. If the assistant-specific export is empty or insufficient, fall back to
    `.groundrecall/source-notes/` and `.groundrecall/exports/canonical/`.
-6. Query relevant project/service memory before broad filesystem searches,
-   repo scans, service restarts, deployment actions, or planning changes.
+6. Search relevant project/service memory through the unified workspace scope
+   before broad filesystem searches, repo scans, service restarts, deployment
+   actions, or planning changes. A no-result canonical-only search does not
+   establish that workspace source notes are absent.
 7. Check version-control status before edits.
 8. Record task definition, plan/implementation details, and results as source
    notes when work becomes substantial.

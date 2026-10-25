@@ -78,6 +78,20 @@ python -m pip install -e .
 groundrecall --help
 ```
 
+On Windows PowerShell, activate the environment with:
+
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -e .
+groundrecall --help
+```
+
+For prior-work discovery and upgrade checks, follow
+[Prior-Work Discovery and Task Memory Operations](docs/prior-work-operations.md).
+That runbook distinguishes software package installation from
+`groundrecall update`, which checks canonical-store format compatibility.
+
 For development:
 
 ```bash
@@ -517,11 +531,15 @@ canonical store. All MCP tools accept optional `policy_config`,
 `policy_request`, and `subject_id` arguments so callers can attach policy
 findings or block before access.
 
-Run a prior-work review before starting a substantial initiative:
+Search the workspace's unified index before starting a substantial initiative.
+This includes source notes as well as canonical records:
 
 ```bash
-groundrecall prior-work .groundrecall/store "graph backfill" --scope-id project-alpha
+groundrecall index .groundrecall "graph backfill" --scope unified --limit 10
 ```
+
+Use `groundrecall prior-work .groundrecall/store ...` as a narrower follow-up
+when you specifically need typed work, decision, and claim records.
 
 Export assistant-neutral data:
 
