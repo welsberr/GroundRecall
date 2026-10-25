@@ -42,6 +42,10 @@ CONSOLE_SCRIPTS = (
 
 SYNTHETIC_TOKEN = "groundrecall-smoke-synthetic-needle-7f9e"
 
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+
 
 def run(command: Sequence[str], *, cwd: Path, env: dict[str, str] | None = None) -> str:
     printable = " ".join(repr(part) for part in command)
@@ -110,7 +114,7 @@ def check_retrieval(groundrecall: Path, workspace: Path, *, cwd: Path, env: dict
     )
     unified_payload = json.loads(unified)
     unified_matches = unified_payload.get("matches", [])
-    expected_note = str(workspace / "source-notes" / "smoke-project.md")
+    expected_note = str((workspace / "source-notes" / "smoke-project.md").resolve())
     if not any(
         match.get("kind") == "source_note"
         and match.get("metadata", {}).get("source_path") == expected_note
