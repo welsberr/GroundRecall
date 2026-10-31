@@ -3,6 +3,8 @@
 `GroundRecall` is a local-first grounded knowledge substrate for `llmwiki++`-style workflows.
 
 This quickstart assumes a fresh checkout of the standalone repository.
+For native Windows installation and a shared assistant workspace, see the
+[Windows PowerShell quickstart](windows-quickstart.md).
 
 ## Install
 

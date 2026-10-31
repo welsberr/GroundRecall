@@ -74,6 +74,18 @@ python -m pip install -e .
 groundrecall --help
 ```
 
+On Windows PowerShell, use a native CPython installation (Python 3.10 or
+newer) and run from a checkout:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -m groundrecall --help
+```
+
+For interpreter selection, an assistant-neutral workspace, and local Codex
+MCP configuration, see the [Windows PowerShell quickstart](docs/windows-quickstart.md).
+
 For development:
 
 ```bash

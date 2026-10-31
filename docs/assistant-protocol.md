@@ -4,6 +4,9 @@ This document codifies a site-neutral pattern for using GroundRecall as durable
 memory across assistants and hosts. It applies to Codex, Claude Code, and other
 assistants that can read and write local files.
 
+For native Windows setup and a concrete shared workspace example, see the
+[Windows PowerShell quickstart](windows-quickstart.md).
+
 ## Problem
 
 Long-running site, app, and service work often crosses multiple sessions,
